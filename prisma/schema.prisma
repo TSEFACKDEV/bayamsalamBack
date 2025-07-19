@@ -26,40 +26,39 @@ enum AccountStatus {
 }
 
 model User {
-  id          String        @id @default(uuid())
-  name        String
-  email       String        @unique
-  password    String
-  role        UserRole      @default(USER)
-  status      AccountStatus @default(PENDING)
-  avatar      String?
-  cinPdf      String? // PDF de la carte d'identité
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  products    Product[]
-  contacts    Contact[]
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         UserRole      @default(USER)
+  status       AccountStatus @default(PENDING)
+  avatar       String?
+  cinPdf       String? // PDF de la carte d'identité
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  products     Product[]
+  contacts     Contact[]
   reviews      Review[]
-  resetToken  String?
+  resetToken   String?
   resetExpires DateTime?
 }
 
 model Product {
   id          String   @id @default(uuid())
-  name        String
+  name        String?
   price       Float
   quantity    Int
   description String
-  images      Json     // Tableau d'URLs d'images
+  images      Json // Tableau d'URLs d'images
   category    Category @relation(fields: [categoryId], references: [id])
   categoryId  String
   user        User     @relation(fields: [userId], references: [id])
   userId      String
-  city        City      @relation(fields: [cityId], references: [id])
+  city        City     @relation(fields: [cityId], references: [id])
   cityId      String
-  reviews      Review[]
+  reviews     Review[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
 }
 
 model Category {
@@ -72,7 +71,7 @@ model Category {
 }
 
 model City {
-  id        String       @id @default(uuid())
+  id        String    @id @default(uuid())
   name      String    @unique
   products  Product[]
   createdAt DateTime  @default(now())
@@ -80,7 +79,7 @@ model City {
 }
 
 model Review {
-  id        String      @id @default(uuid())
+  id        String   @id @default(uuid())
   rating    Int
   comment   String?
   user      User     @relation(fields: [userId], references: [id])

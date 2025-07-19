@@ -23,7 +23,6 @@ export const createCategory = async (
     const category = await prisma.category.create({
       data: {
         name,
-        description,
       },
     });
 

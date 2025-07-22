@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import ResponseApi from "../helper/response";
+import ResponseApi from "../helper/response.js";
 import jwt from "jsonwebtoken";
-import env from "../config/config";
-import prisma from "../model/prisma.client";
+import env from "../config/config.js";
+import prisma from "../model/prisma.client.js";
 
 //Middlewqre pour verifier si l'utilisateur est authentifier
 export const authenticate = async (

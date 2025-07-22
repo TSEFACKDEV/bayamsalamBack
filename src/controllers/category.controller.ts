@@ -1,7 +1,7 @@
 import { promises } from "dns";
 import { Request, Response } from "express";
-import ResponseApi from "../helper/response";
-import prisma from "../model/prisma.client";
+import ResponseApi from "../helper/response.js";
+import prisma from "../model/prisma.client.js";
 
 //creation de category
 export const createCategory = async (
@@ -23,6 +23,7 @@ export const createCategory = async (
     const category = await prisma.category.create({
       data: {
         name,
+        description
       },
     });
 

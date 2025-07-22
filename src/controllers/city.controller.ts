@@ -1,7 +1,7 @@
 import { promises } from "dns";
 import { Request, Response } from "express";
-import ResponseApi from "../helper/response";
-import prisma from "../model/prisma.client";
+import ResponseApi from "../helper/response.js";
+import prisma from "../model/prisma.client.js";
 
 //creation de la ville
 export const createCity = async (req: Request, res: Response): Promise<any> => {

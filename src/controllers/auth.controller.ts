@@ -1,9 +1,8 @@
 import { Request, Response } from "express";
-import ResponseApi from "../helper/response";
-import prisma from "../model/prisma.client";
-import bcrypt from "bcrypt";
-import { comparePassword, hashPassword } from "../utilities/bcrypt";
-import { generateToken } from "../utilities/token";
+import ResponseApi from "../helper/response.js";
+import prisma from "../model/prisma.client.js";
+import { comparePassword, hashPassword } from "../utilities/bcrypt.js";
+import { generateToken } from "../utilities/token.js";
 interface Register {
   email: string;
   password: string;

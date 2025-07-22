@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import ResponseApi from "../helper/response";
+import ResponseApi from "../helper/response.js";
 
 export const errorHandler = (err: any, req:Request, res: Response, next:NextFunction): any  => {
         console.log(err.stack)

@@ -7,230 +7,199 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import prisma from "../model/prisma.client.js";
 import ResponseApi from "../helper/response.js";
-import { handleProductImagesUpload, deleteProductImages } from "../utilities/upload.js";
+import prisma from "../model/prisma.client.js";
+import Utils from "../helper/utils.js";
 export const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const limit = parseInt(req.query.limit) || 10;
     const page = parseInt(req.query.page) || 1;
-    const skip = (page - 1) * limit;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
     const search = req.query.search || "";
     try {
-        const products = yield prisma.product.findMany({
-            where: {
-                name: {
-                    contains: search,
-                },
-            },
-            skip: skip,
+        const params = {
+            skip: offset,
             take: limit,
             orderBy: {
                 createdAt: "desc",
             },
-            include: {
-                category: true,
-            },
-        });
-        const totalProducts = yield prisma.product.count({
-            where: {
-                name: {
-                    contains: search,
+            where: !search
+                ? undefined
+                : {
+                    name: { contains: search },
                 },
-            },
-        });
-        const totalPages = Math.ceil(totalProducts / limit);
-        ResponseApi.success(res, "Products retrieved successfully", {
-            products,
-            pagination: {
-                totalProducts,
-                totalPages,
+        };
+        const result = yield prisma.product.findMany(params);
+        const total = yield prisma.product.count(params);
+        ResponseApi.success(res, "product retrieved succesfully !!!", {
+            products: result,
+            links: {
+                perpage: limit,
+                prevPage: page - 1 ? page - 1 : null,
                 currentPage: page,
-                limit,
+                nextPage: page + 1 ? page + 1 : null,
+                totalPage: limit ? Math.ceil(total / limit) : 1,
+                total: total,
             },
         });
     }
     catch (error) {
-        console.error("Error in getAllProducts:", error);
-        res
-            .status(500)
-            .json({ message: "An error occurred while fetching products" });
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        ResponseApi.error(res, "failled to getAll products", error.message);
     }
 });
 export const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id = req.params.id;
     try {
-        // Vérifier si l'ID est valide
         if (!id) {
-            return ResponseApi.notFound(res, "Product ID is required");
+            return ResponseApi.notFound(res, "id is not found", 422);
         }
-        // Récupérer le produit par ID
-        const product = yield prisma.product.findUnique({
-            where: { id },
-            include: {
-                category: true,
+        const result = yield prisma.product.findFirst({
+            where: {
+                id,
             },
         });
-        // Vérifier si le produit existe
-        if (!product) {
-            return ResponseApi.notFound(res, "Product not found");
+        if (!result) {
+            return ResponseApi.notFound(res, "Product not found", 404);
         }
-        ResponseApi.success(res, "Product retrieved successfully", product);
+        ResponseApi.success(res, "Product retrieved successfully", result);
     }
     catch (error) {
-        console.error("Error in getProductById:", error);
-        ResponseApi.error(res, "An error occurred while fetching the product", 500);
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        ResponseApi.error(res, "Failed to get product by ID", error.message);
     }
 });
 export const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c;
-    const { name, description, price, categoryId, cityId, quantity } = req.body;
-    const files = (_a = req.files) === null || _a === void 0 ? void 0 : _a.images;
     try {
-        // 1. Vérification des champs requis
-        if (!name || !description || !price || !categoryId || !cityId || !quantity) {
-            return ResponseApi.notFound(res, "All fields are required");
+        const { name, price, quantity, description, categoryId, userId, cityId } = req.body;
+        // Validation basique
+        if (!name ||
+            !price ||
+            !quantity ||
+            !description ||
+            !categoryId ||
+            !userId ||
+            !cityId) {
+            return ResponseApi.error(res, "Tous les champs sont requis", null, 400);
         }
-        // 2. Vérification de l'utilisateur (méthode alternative plus robuste)
-        const userId = ((_b = req.user) === null || _b === void 0 ? void 0 : _b.id) || req.headers['x-user-id'];
-        if (!userId) {
-            return ResponseApi.notFound(res, "User authentication required");
+        // Gestion des images (upload)
+        if (!req.files || !req.files.images) {
+            return ResponseApi.error(res, "Au moins une image est requise", null, 400);
         }
-        // 3. Vérification des images
-        if (!files) {
-            return ResponseApi.error(res, "A product must have between 1 and 5 images", 400);
+        let images = req.files.images;
+        if (!Array.isArray(images))
+            images = [images];
+        if (images.length < 1 || images.length > 5) {
+            return ResponseApi.error(res, "Un produit doit avoir entre 1 et 5 images", null, 400);
         }
-        // 4. Gestion des fichiers
-        const imagesArray = Array.isArray(files) ? files : [files];
-        if (imagesArray.length < 1 || imagesArray.length > 5) {
-            return ResponseApi.error(res, "A product must have between 1 and 5 images", 400);
+        // Sauvegarde des images et récupération des chemins
+        const savedImages = [];
+        for (const img of images) {
+            const savedPath = yield Utils.saveFile(img, "products");
+            savedImages.push(savedPath);
         }
-        // 5. Conversion des types
-        const priceNumber = parseFloat(price);
-        const quantityInt = parseInt(quantity);
-        // 6. Upload des images
-        const images = yield handleProductImagesUpload(imagesArray);
-        // 7. Vérification que l'utilisateur existe
-        const userExists = yield prisma.user.findUnique({
-            where: { id: userId }
-        });
-        if (!userExists) {
-            // Supprimer les images uploadées si l'utilisateur n'existe pas
-            yield deleteProductImages(images);
-            return ResponseApi.notFound(res, "User not found");
-        }
-        // 8. Création du produit
-        const newProduct = yield prisma.product.create({
+        // Création du produit
+        const product = yield prisma.product.create({
             data: {
                 name,
+                price: parseFloat(price),
+                quantity: parseInt(quantity),
                 description,
-                price: priceNumber,
-                quantity: quantityInt,
-                category: {
-                    connect: { id: categoryId }
-                },
-                city: {
-                    connect: { id: cityId }
-                },
-                images,
-                user: {
-                    connect: { id: userId }
-                }
+                images: savedImages,
+                categoryId,
+                userId,
+                cityId,
             },
-            include: {
-                category: true,
-                city: true,
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true
-                    }
-                }
-            }
         });
-        ResponseApi.success(res, "Product created successfully", newProduct, 201);
+        ResponseApi.success(res, "Produit créé avec succès", product, 201);
     }
     catch (error) {
-        console.error("Error in createProduct:", error);
-        // Supprimer les images en cas d'erreur
-        if ((_c = req.files) === null || _c === void 0 ? void 0 : _c.images) {
-            const imagesArray = Array.isArray(req.files.images)
-                ? req.files.images
-                : [req.files.images];
-            const images = imagesArray.map(f => `/uploads/products/${f.filename}`);
-            yield deleteProductImages(images);
-        }
-        ResponseApi.error(res, "An error occurred while creating the product", error.message);
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        ResponseApi.error(res, "Erreur lors de la création du produit", error.message);
     }
 });
 export const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
     const id = req.params.id;
-    const { name, description, price, categoryId, cityId, quantity } = req.body;
-    const files = (_a = req.files) === null || _a === void 0 ? void 0 : _a.images;
     try {
         if (!id) {
-            return ResponseApi.notFound(res, "Product ID is required");
+            return ResponseApi.notFound(res, "id is not found", 422);
         }
-        const existingProduct = yield prisma.product.findUnique({
-            where: { id },
-        });
+        const existingProduct = yield prisma.product.findUnique({ where: { id } });
         if (!existingProduct) {
-            return ResponseApi.notFound(res, "Product not found");
+            return ResponseApi.notFound(res, "Product not found", 404);
         }
-        let images;
-        if (files) {
-            const imagesArray = Array.isArray(files) ? files : [files];
-            if (imagesArray.length < 1 || imagesArray.length > 5) {
-                return ResponseApi.error(res, "A product must have between 1 and 5 images", 400);
+        const { name, price, quantity, description, categoryId, userId, cityId } = req.body;
+        // Gestion des images (upload)
+        let images = existingProduct.images;
+        if (req.files && req.files.images) {
+            let newImages = req.files.images;
+            if (!Array.isArray(newImages))
+                newImages = [newImages];
+            // Supprimer les anciennes images si besoin
+            for (const oldImg of images) {
+                yield Utils.deleteFile(oldImg);
             }
-            // Supprimer les anciennes images
-            yield deleteProductImages(existingProduct.images);
-            images = yield handleProductImagesUpload(imagesArray);
-        }
-        else {
-            images = existingProduct.images;
+            // Sauvegarder les nouvelles images
+            images = [];
+            for (const img of newImages) {
+                const savedPath = yield Utils.saveFile(img, "products");
+                images.push(savedPath);
+            }
         }
         const updatedProduct = yield prisma.product.update({
             where: { id },
             data: {
-                name,
-                description,
-                price,
-                categoryId,
-                cityId,
+                name: name !== null && name !== void 0 ? name : existingProduct.name,
+                price: price ? parseFloat(price) : existingProduct.price,
+                quantity: quantity ? parseInt(quantity) : existingProduct.quantity,
+                description: description !== null && description !== void 0 ? description : existingProduct.description,
                 images,
-                quantity,
+                categoryId: categoryId !== null && categoryId !== void 0 ? categoryId : existingProduct.categoryId,
+                userId: userId !== null && userId !== void 0 ? userId : existingProduct.userId,
+                cityId: cityId !== null && cityId !== void 0 ? cityId : existingProduct.cityId,
             },
         });
-        ResponseApi.success(res, "Product updated successfully", updatedProduct);
+        ResponseApi.success(res, "Produit mis à jour avec succès", updatedProduct);
     }
     catch (error) {
-        console.error("Error in updateProduct:", error);
-        ResponseApi.error(res, "An error occurred while updating the product", 500);
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        ResponseApi.error(res, "Erreur lors de la mise à jour du produit", error.message);
     }
 });
 export const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id = req.params.id;
     try {
         if (!id) {
-            return ResponseApi.notFound(res, "Product ID is required");
+            return ResponseApi.notFound(res, "id is not found", 422);
         }
-        const existingProduct = yield prisma.product.findUnique({
+        const product = yield prisma.product.findUnique({ where: { id } });
+        if (!product) {
+            return ResponseApi.notFound(res, "Product not found", 404);
+        }
+        // Supprimer les images associées
+        if (product.images && Array.isArray(product.images)) {
+            for (const img of product.images) {
+                if (typeof img === "string") {
+                    yield Utils.deleteFile(img);
+                }
+            }
+        }
+        const result = yield prisma.product.delete({
             where: { id },
         });
-        if (!existingProduct) {
-            return ResponseApi.notFound(res, "Product not found");
-        }
-        // Supprimer les images du produit
-        yield deleteProductImages(existingProduct.images);
-        const product = yield prisma.product.delete({
-            where: { id },
-        });
-        ResponseApi.success(res, "Product deleted successfully", product, 204);
+        ResponseApi.success(res, "Product deleted successfully", result);
     }
     catch (error) {
-        console.error("Error in deleteProduct:", error);
-        ResponseApi.error(res, "An error occurred while deleting the product", 500);
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        ResponseApi.error(res, "Failed to delete product", error.message);
     }
 });

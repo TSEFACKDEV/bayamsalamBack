@@ -15,7 +15,6 @@ datasource db {
 
 enum UserRole {
   USER
-  CERTIFIED
   ADMIN
 }
 
@@ -32,7 +31,8 @@ model User {
   password     String
   role         UserRole      @default(USER)
   status       AccountStatus @default(PENDING)
-  avatar       String?
+  avatar       String? // une imge comme photo de profile c'est facultatif
+  phone        String? // numéro de téléphone facultatif
   cinPdf       String? // PDF de la carte d'identité
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -49,7 +49,7 @@ model Product {
   price       Float
   quantity    Int
   description String
-  images      Json // Tableau d'URLs d'images
+  images      Json // Tableau d'URLs d'images (5 images max et une image minimum)
   category    Category @relation(fields: [categoryId], references: [id])
   categoryId  String
   user        User     @relation(fields: [userId], references: [id])

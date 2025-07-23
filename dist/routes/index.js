@@ -1,9 +1,13 @@
 import categoryRouter from './category.routes.js';
 import cityRouter from './city.routes.js';
 import authRouter from './auth.routes.js';
+import userRouter from './user.routes.js';
+import productRouter from './product.routes.js';
 import express from 'express';
 const router = express.Router();
 router.use("/category", categoryRouter);
 router.use("/city", cityRouter);
 router.use("/auth", authRouter);
+router.use("/user", userRouter);
+router.use("/product", productRouter);
 export default router;

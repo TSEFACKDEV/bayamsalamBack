@@ -76,9 +76,11 @@ export const createProduct = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { name, price, quantity, description, categoryId, userId, cityId } =
+    const { name, price, quantity, description, categoryId,  cityId } =
       req.body;
 
+     const userId = req.user?.id
+   
     // Validation basique
     if (
       !name ||
@@ -86,7 +88,6 @@ export const createProduct = async (
       !quantity ||
       !description ||
       !categoryId ||
-      !userId ||
       !cityId
     ) {
       return ResponseApi.error(res, "Tous les champs sont requis", null, 400);

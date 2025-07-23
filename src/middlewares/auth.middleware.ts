@@ -19,12 +19,20 @@ export const authenticate = async (
       id: string;
       role: string;
     };
-    const user = prisma.user.findUnique({
+
+    //  console.log('====================================');
+    // console.log("decoded", decoded);
+    // console.log('====================================');
+    const user = await prisma.user.findUnique({
       where: { id: decoded.id },
     });
     if (!user) {
       return ResponseApi.notFound(res, "User not Found");
     }
+
+    // console.log('====================================');
+    // console.log(user);
+    // console.log('====================================');
     req.user = user;
     next();
   } catch (error) {

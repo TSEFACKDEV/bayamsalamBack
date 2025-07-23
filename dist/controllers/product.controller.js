@@ -73,15 +73,16 @@ export const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, fu
     }
 });
 export const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const { name, price, quantity, description, categoryId, userId, cityId } = req.body;
+        const { name, price, quantity, description, categoryId, cityId } = req.body;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         // Validation basique
         if (!name ||
             !price ||
             !quantity ||
             !description ||
             !categoryId ||
-            !userId ||
             !cityId) {
             return ResponseApi.error(res, "Tous les champs sont requis", null, 400);
         }

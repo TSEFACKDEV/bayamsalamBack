@@ -20,12 +20,18 @@ export const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0
             return ResponseApi.notFound(res, "Authentification required");
         }
         const decoded = jwt.verify(token, env.jwtSecret);
-        const user = prisma.user.findUnique({
+        //  console.log('====================================');
+        // console.log("decoded", decoded);
+        // console.log('====================================');
+        const user = yield prisma.user.findUnique({
             where: { id: decoded.id },
         });
         if (!user) {
             return ResponseApi.notFound(res, "User not Found");
         }
+        // console.log('====================================');
+        // console.log(user);
+        // console.log('====================================');
         req.user = user;
         next();
     }

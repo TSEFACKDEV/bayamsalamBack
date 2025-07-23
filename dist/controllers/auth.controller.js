@@ -21,7 +21,7 @@ var __rest = (this && this.__rest) || function (s, e) {
 import ResponseApi from "../helper/response.js";
 import prisma from "../model/prisma.client.js";
 import { comparePassword, hashPassword } from "../utilities/bcrypt.js";
-import { generateToken } from "../utilities/token.js";
+import { generateResToken, generateToken } from "../utilities/token.js";
 export const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password, name } = req.body;
@@ -82,5 +82,60 @@ export const login = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     catch (error) {
         console.error("Error in login:", error);
         ResponseApi.error(res, "An error occurred during login", 500);
+    }
+});
+export const getUserProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id; // Assurez-vous que l'ID de l'utilisateur est disponible dans req.user
+        if (!userId) {
+            return ResponseApi.error(res, "User not authenticated", null, 401);
+        }
+        const user = yield prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                avatar: true,
+                createdAt: true,
+            },
+        });
+        if (!user) {
+            return ResponseApi.notFound(res, "User not found", 404);
+        }
+        ResponseApi.success(res, "User profile retrieved successfully", user);
+    }
+    catch (error) {
+        console.error("Error in getUserProfile:", error);
+        ResponseApi.error(res, "An error occurred while retrieving the user profile", 500);
+    }
+});
+export const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { email } = req.body;
+        // Vérifier si l'utilisateur existe
+        const user = yield prisma.user.findUnique({
+            where: { email },
+        });
+        if (!user) {
+            return ResponseApi.error(res, "User not found", null, 404);
+        }
+        // Générer un token de réinitialisation
+        const resetToken = generateResToken({ id: user.id, email: user.email });
+        const resetExpires = new Date(Date.now() + 3600000); // 1 heure
+        // Mettre à jour l'utilisateur avec le token et la date d'expiration
+        yield prisma.user.update({
+            where: { id: user.id },
+            data: {
+                resetToken,
+                resetExpires,
+            },
+        });
+    }
+    catch (error) {
+        console.error("Error in forgotPassword:", error);
+        ResponseApi.error(res, "An error occurred during password reset", 500);
     }
 });

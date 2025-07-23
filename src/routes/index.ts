@@ -3,7 +3,7 @@ import cityRouter from './city.routes.js'
 import authRouter from './auth.routes.js'
 import userRouter from './user.routes.js'
 import productRouter from './product.routes.js'
-
+import reviewRouter from './review.routes.js'
 import express from 'express'
 
 const router = express.Router()
@@ -12,6 +12,7 @@ router.use("/city",cityRouter)
 router.use("/auth",authRouter)
 router.use("/user", userRouter)
 router.use("/product", productRouter)
+router.use("/review", reviewRouter)
 
 export default router
 

@@ -34,6 +34,8 @@ model User {
   avatar       String? // une imge comme photo de profile c'est facultatif
   phone        String? // numéro de téléphone facultatif
   cinPdf       String? // PDF de la carte d'identité
+  otp          String? // Code OTP pour la vérification
+  isVerified Boolean      @default(false) // Indique si l'utilisateur a vérifié son compte
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   products     Product[]

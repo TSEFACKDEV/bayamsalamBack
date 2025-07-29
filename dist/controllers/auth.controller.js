@@ -25,29 +25,20 @@ import { sendSMS } from "../utilities/sms.js";
 import { generateOTP, validateOTP } from "../utilities/otp.js";
 import prisma from "../model/prisma.client.js";
 import env from "../config/config.js";
+import ResponseApi from "../helper/response.js";
 export const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password, name, phone } = req.body;
-        // Validation basique
         if (!email || !password || !name || !phone) {
-            return res.status(400).json({
-                success: false,
-                message: "Tous les champs sont obligatoires",
-            });
+            return ResponseApi.error(res, "Tous les champs sont obligatoires", null, 400);
         }
-        // Vérifier si l'utilisateur existe déjà
         const existingUser = yield prisma.user.findUnique({
             where: { email },
         });
         if (existingUser) {
-            return res.status(400).json({
-                success: false,
-                message: "Un utilisateur avec cet email existe déjà",
-            });
+            return ResponseApi.error(res, "Un utilisateur avec cet email existe déjà", null, 400);
         }
-        // Hacher le mot de passe
         const hashedPassword = yield hashPassword(password);
-        // Créer l'utilisateur
         const newUser = yield prisma.user.create({
             data: {
                 email,
@@ -56,67 +47,43 @@ export const register = (req, res) => __awaiter(void 0, void 0, void 0, function
                 phone,
             },
         });
-        // Générer et envoyer OTP
         const otp = generateOTP();
         const smsSent = yield sendSMS(phone, `Votre code OTP est: ${otp}`);
         if (!smsSent) {
-            // Si l'envoi SMS échoue, essayer par email
             yield sendEmail(email, "Votre code de vérification", `Votre code OTP est: ${otp}`);
         }
-        // Stocker OTP dans la base de données
         yield prisma.user.update({
             where: { id: newUser.id },
             data: { otp },
         });
-        return res.status(201).json({
-            success: true,
-            message: "Inscription réussie. Veuillez vérifier votre OTP.",
-            data: {
-                userId: newUser.id,
-            },
-        });
+        return ResponseApi.success(res, "Inscription réussie. Veuillez vérifier votre OTP.", {
+            userId: newUser.id,
+        }, 201);
     }
     catch (error) {
         console.error("Erreur lors de l'inscription:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Une erreur est survenue lors de l'inscription",
-        });
+        return ResponseApi.error(res, "Une erreur est survenue lors de l'inscription", error.message, 500);
     }
 });
 export const verifyOTP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log("req.body:", req.body); // Ajoutez ceci pour déboguer
     try {
         const { otp, userId } = req.body;
         if (!otp || !userId) {
-            return res.status(400).json({
-                success: false,
-                message: "OTP et userId sont requis",
-            });
+            return ResponseApi.error(res, "OTP et userId sont requis", null, 400);
         }
-        const user = yield prisma.user.findUnique({
+        const existingUser = yield prisma.user.findUnique({
             where: { id: userId },
         });
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "Utilisateur non trouvé",
-            });
+        if (!existingUser) {
+            return ResponseApi.notFound(res, "Utilisateur non trouvé", 404);
         }
-        if (user.isVerified) {
-            return res.status(400).json({
-                success: false,
-                message: "Le compte est déjà vérifié",
-            });
+        if (existingUser.isVerified) {
+            return ResponseApi.error(res, "Le compte est déjà vérifié", null, 400);
         }
-        if (!validateOTP(otp, user.otp)) {
-            return res.status(400).json({
-                success: false,
-                message: "OTP invalide",
-            });
+        if (!validateOTP(otp, existingUser.otp)) {
+            return ResponseApi.error(res, "OTP invalide", null, 400);
         }
-        // Mettre à jour l'utilisateur comme vérifié
-        yield prisma.user.update({
+        const user = yield prisma.user.update({
             where: { id: userId },
             data: {
                 otp: null,
@@ -124,172 +91,106 @@ export const verifyOTP = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 status: "ACTIVE",
             },
         });
-        return res.status(200).json({
-            success: true,
-            message: "OTP vérifié avec succès",
-        });
+        return ResponseApi.success(res, "OTP vérifié avec succès", user, 200);
     }
     catch (error) {
         console.error("Erreur lors de la vérification OTP:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Une erreur est survenue lors de la vérification OTP",
-        });
+        return ResponseApi.error(res, "Une erreur est survenue lors de la vérification OTP", error.message, 500);
     }
 });
 export const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: "Email et mot de passe sont requis",
-            });
+            return ResponseApi.error(res, "Email et mot de passe sont requis", null, 400);
         }
         const user = yield prisma.user.findUnique({
             where: { email },
         });
         if (!user) {
-            return res.status(401).json({
-                success: false,
-                message: "Email ou mot de passe incorrect",
-            });
+            return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
         }
         if (!user.isVerified) {
-            return res.status(403).json({
-                success: false,
-                message: "Compte non vérifié. Veuillez vérifier votre email.",
-            });
+            return ResponseApi.error(res, "Compte non vérifié. Veuillez vérifier votre email.", null, 403);
         }
         const isPasswordValid = yield comparePassword(password, user.password);
         if (!isPasswordValid) {
-            return res.status(401).json({
-                success: false,
-                message: "Email ou mot de passe incorrect",
-            });
+            return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
         }
-        // Générer le token JWT
         const token = generateToken({
             id: user.id,
             email: user.email,
         });
-        // Exclure le mot de passe des données retournées
         const { password: _ } = user, userData = __rest(user, ["password"]);
-        return res.status(200).json({
-            success: true,
-            message: "Connexion réussie",
-            data: {
-                token,
-                user: userData,
-            },
+        return ResponseApi.success(res, "Connexion réussie", {
+            token,
+            user: userData,
         });
     }
     catch (error) {
         console.error("Erreur lors de la connexion:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Une erreur est survenue lors de la connexion",
-        });
+        return ResponseApi.error(res, "Une erreur est survenue lors de la connexion", error.message, 500);
     }
 });
 export const logout = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    // Dans une implémentation basique, le logout se fait côté client en supprimant le token
-    // Pour une implémentation plus avancée, vous pourriez utiliser une liste noire de tokens
-    return res.status(200).json({
-        success: true,
-        message: "Déconnexion réussie",
-    });
+    return ResponseApi.success(res, "Déconnexion réussie", null);
 });
 export const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email } = req.body;
         if (!email) {
-            return res.status(400).json({
-                success: false,
-                message: "Email est requis",
-            });
+            return ResponseApi.error(res, "Email est requis", null, 400);
         }
         const user = yield prisma.user.findUnique({
             where: { email },
         });
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "Aucun utilisateur avec cet email",
-            });
+            return ResponseApi.notFound(res, "Aucun utilisateur avec cet email", 404);
         }
-        // Générer un token de réinitialisation
         const resetToken = generateResToken({
             id: user.id,
             email: user.email,
         });
-        // Enregistrer le token dans la base de données
         yield prisma.user.update({
             where: { id: user.id },
             data: {
                 resetToken,
-                resetExpires: new Date(Date.now() + 3600000), // 1 heure
+                resetExpires: new Date(Date.now() + 3600000),
             },
         });
-        // Envoyer l'email de réinitialisation
         const resetUrl = `${env.frontendUrl}/reset-password?token=${resetToken}`;
         const emailSent = yield sendEmail(email, "Réinitialisation de votre mot de passe", `Cliquez sur ce lien pour réinitialiser votre mot de passe: ${resetUrl}`, `<p>Cliquez <a href="${resetUrl}">ici</a> pour réinitialiser votre mot de passe.</p>`);
         if (!emailSent) {
-            return res.status(500).json({
-                success: false,
-                message: "Erreur lors de l'envoi de l'email",
-            });
+            return ResponseApi.error(res, "Erreur lors de l'envoi de l'email", null, 500);
         }
-        return res.status(200).json({
-            success: true,
-            message: "Email de réinitialisation envoyé",
-        });
+        return ResponseApi.success(res, "Email de réinitialisation envoyé", null, 200);
     }
     catch (error) {
         console.error("Erreur lors de la demande de réinitialisation:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Une erreur est survenue lors de la demande de réinitialisation",
-        });
+        return ResponseApi.error(res, "Une erreur est survenue lors de la demande de réinitialisation", error.message, 500);
     }
 });
 export const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { token, newPassword } = req.body;
         if (!token || !newPassword) {
-            return res.status(400).json({
-                success: false,
-                message: "Token et nouveau mot de passe sont requis",
-            });
+            return ResponseApi.error(res, "Token et nouveau mot de passe sont requis", null, 400);
         }
-        // Vérifier le token
         const decoded = verifyToken(token);
         if (!decoded) {
-            return res.status(400).json({
-                success: false,
-                message: "Token invalide ou expiré",
-            });
+            return ResponseApi.error(res, "Token invalide ou expiré", null, 400);
         }
-        // Vérifier que le token est toujours valide dans la base de données
         const user = yield prisma.user.findUnique({
             where: { id: decoded.id },
         });
         if (!user || user.resetToken !== token || !user.resetExpires) {
-            return res.status(400).json({
-                success: false,
-                message: "Token invalide ou expiré",
-            });
+            return ResponseApi.error(res, "Token invalide ou expiré", null, 400);
         }
         if (user.resetExpires < new Date()) {
-            return res.status(400).json({
-                success: false,
-                message: "Token expiré",
-            });
+            return ResponseApi.error(res, "Token expiré", null, 400);
         }
-        // Hacher le nouveau mot de passe
         const hashedPassword = yield hashPassword(newPassword);
-        // Mettre à jour le mot de passe et effacer le token
-        yield prisma.user.update({
+        const newUser = yield prisma.user.update({
             where: { id: decoded.id },
             data: {
                 password: hashedPassword,
@@ -297,16 +198,10 @@ export const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 resetExpires: null,
             },
         });
-        return res.status(200).json({
-            success: true,
-            message: "Mot de passe réinitialisé avec succès",
-        });
+        return ResponseApi.success(res, "Mot de passe réinitialisé avec succès", newUser, 200);
     }
     catch (error) {
         console.error("Erreur lors de la réinitialisation du mot de passe:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Une erreur est survenue lors de la réinitialisation du mot de passe",
-        });
+        return ResponseApi.error(res, "Une erreur est survenue lors de la réinitialisation du mot de passe", error.message, 500);
     }
 });

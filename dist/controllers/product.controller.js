@@ -16,28 +16,42 @@ export const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, fu
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
     try {
-        const params = {
+        const where = {
+            status: "VALIDATED",
+        };
+        if (search) {
+            where.name = { contains: search, mode: "insensitive" };
+        }
+        const products = yield prisma.product.findMany({
             skip: offset,
             take: limit,
-            orderBy: {
-                createdAt: "desc",
+            orderBy: { createdAt: "desc" },
+            where,
+            include: {
+                category: true,
+                city: true,
+                user: true, // On inclut l'utilisateur
             },
-            where: !search
-                ? undefined
-                : {
-                    name: { contains: search },
-                },
-        };
-        const result = yield prisma.product.findMany(params);
-        const total = yield prisma.product.count(params);
-        ResponseApi.success(res, "product retrieved succesfully !!!", {
-            products: result,
+        });
+        // Pour chaque produit, calculer la somme des points reçus par le user qui a posté le produit
+        const productsWithUserPoints = yield Promise.all(products.map((product) => __awaiter(void 0, void 0, void 0, function* () {
+            // On suppose que la table review a un champ userId qui correspond au propriétaire du produit
+            const userReviews = yield prisma.review.findMany({
+                where: { userId: product.userId },
+            });
+            const totalPoints = userReviews.reduce((sum, r) => sum + (r.rating || 0), 0);
+            const averagePoints = userReviews.length > 0 ? totalPoints / userReviews.length : null;
+            return Object.assign(Object.assign({}, product), { userTotalPoints: totalPoints, userAveragePoints: averagePoints });
+        })));
+        const total = yield prisma.product.count({ where });
+        ResponseApi.success(res, "Products retrieved successfully!", {
+            products: productsWithUserPoints,
             links: {
                 perpage: limit,
-                prevPage: page - 1 ? page - 1 : null,
+                prevPage: page > 1 ? page - 1 : null,
                 currentPage: page,
-                nextPage: page + 1 ? page + 1 : null,
-                totalPage: limit ? Math.ceil(total / limit) : 1,
+                nextPage: offset + limit < total ? page + 1 : null,
+                totalPage: Math.ceil(total / limit),
                 total: total,
             },
         });
@@ -46,7 +60,7 @@ export const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, fu
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "failled to getAll products", error.message);
+        ResponseApi.error(res, "Failed to get all products", error.message);
     }
 });
 export const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -75,7 +89,7 @@ export const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, fu
 export const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const { name, price, quantity, description, categoryId, cityId } = req.body;
+        const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone } = req.body;
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         // Validation basique
         if (!name ||
@@ -83,7 +97,8 @@ export const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, fun
             !quantity ||
             !description ||
             !categoryId ||
-            !cityId) {
+            !cityId ||
+            !etat) {
             return ResponseApi.error(res, "Tous les champs sont requis", null, 400);
         }
         // Gestion des images (upload)
@@ -113,6 +128,10 @@ export const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 categoryId,
                 userId,
                 cityId,
+                status: "PENDING", // Statut par défaut
+                etat,
+                quartier,
+                telephone,
             },
         });
         ResponseApi.success(res, "Produit créé avec succès", product, 201);
@@ -130,7 +149,7 @@ export const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, fun
         if (!id) {
             return ResponseApi.notFound(res, "id is not found", 422);
         }
-        const existingProduct = yield prisma.product.findUnique({ where: { id } });
+        const existingProduct = yield prisma.product.findFirst({ where: { id } });
         if (!existingProduct) {
             return ResponseApi.notFound(res, "Product not found", 404);
         }
@@ -202,5 +221,56 @@ export const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, fun
         console.log(error);
         console.log("====================================");
         ResponseApi.error(res, "Failed to delete product", error.message);
+    }
+});
+export const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    const { action } = req.body;
+    try {
+        //verifie si le produit existe
+        const product = yield prisma.product.findUnique({ where: { id } });
+        if (!product) {
+            return ResponseApi.notFound(res, "Product not found", 404);
+        }
+        //verifie si l'action est valide
+        if (action === 'validate') {
+            yield prisma.product.update({
+                where: { id },
+                data: { status: 'VALIDATED' },
+            });
+            return ResponseApi.success(res, "Product validated successfully", null);
+        }
+        else if (action === 'reject') {
+            yield prisma.product.update({
+                where: { id },
+                data: { status: 'REJECTED' },
+            });
+            return ResponseApi.success(res, "Product rejected successfully", null);
+        }
+        else {
+            return ResponseApi.error(res, "Invalid action", null, 400);
+        }
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        ResponseApi.error(res, "Failed to review product", error.message);
+    }
+});
+// pour voire tous les produits nouvellement creer avec un statut PENDING
+export const getPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const pendingProducts = yield prisma.product.findMany({
+            where: { status: 'PENDING' },
+            orderBy: { createdAt: 'desc' },
+        });
+        ResponseApi.success(res, "Pending products retrieved successfully", pendingProducts);
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        ResponseApi.error(res, "Failed to retrieve pending products", error.message);
     }
 });

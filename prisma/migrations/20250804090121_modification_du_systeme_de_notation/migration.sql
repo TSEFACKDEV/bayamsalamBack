@@ -1,0 +1,82 @@
+/*
+  Warnings:
+
+  - The primary key for the `review` table will be changed. If it partially fails, the table could be left without primary key constraint.
+  - You are about to drop the column `comment` on the `review` table. All the data in the column will be lost.
+  - You are about to drop the column `productId` on the `review` table. All the data in the column will be lost.
+  - You are about to drop the column `updatedAt` on the `review` table. All the data in the column will be lost.
+  - Added the required column `authorId` to the `Review` table without a default value. This is not possible if the table is not empty.
+
+*/
+-- DropIndex
+DROP INDEX `Contact_userId_fkey` ON `contact`;
+
+-- DropIndex
+DROP INDEX `Favorite_productId_fkey` ON `favorite`;
+
+-- DropIndex
+DROP INDEX `Product_categoryId_fkey` ON `product`;
+
+-- DropIndex
+DROP INDEX `Product_cityId_fkey` ON `product`;
+
+-- DropIndex
+DROP INDEX `Product_userId_fkey` ON `product`;
+
+-- DropIndex
+DROP INDEX `Review_productId_fkey` ON `review`;
+
+-- DropIndex
+DROP INDEX `Review_userId_fkey` ON `review`;
+
+-- DropIndex
+DROP INDEX `RolePermission_permissionId_fkey` ON `rolepermission`;
+
+-- DropIndex
+DROP INDEX `UserRole_roleId_fkey` ON `userrole`;
+
+-- AlterTable
+ALTER TABLE `review` DROP PRIMARY KEY,
+    DROP COLUMN `comment`,
+    DROP COLUMN `productId`,
+    DROP COLUMN `updatedAt`,
+    ADD COLUMN `authorId` VARCHAR(191) NOT NULL,
+    MODIFY `id` VARCHAR(191) NOT NULL,
+    MODIFY `userId` VARCHAR(191) NOT NULL,
+    ADD PRIMARY KEY (`id`);
+
+-- AddForeignKey
+ALTER TABLE `UserRole` ADD CONSTRAINT `UserRole_roleId_fkey` FOREIGN KEY (`roleId`) REFERENCES `Role`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `UserRole` ADD CONSTRAINT `UserRole_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `RolePermission` ADD CONSTRAINT `RolePermission_roleId_fkey` FOREIGN KEY (`roleId`) REFERENCES `Role`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `RolePermission` ADD CONSTRAINT `RolePermission_permissionId_fkey` FOREIGN KEY (`permissionId`) REFERENCES `Permission`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Product` ADD CONSTRAINT `Product_categoryId_fkey` FOREIGN KEY (`categoryId`) REFERENCES `Category`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Product` ADD CONSTRAINT `Product_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Product` ADD CONSTRAINT `Product_cityId_fkey` FOREIGN KEY (`cityId`) REFERENCES `City`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Review` ADD CONSTRAINT `Review_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Review` ADD CONSTRAINT `Review_authorId_fkey` FOREIGN KEY (`authorId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Contact` ADD CONSTRAINT `Contact_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Favorite` ADD CONSTRAINT `Favorite_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Favorite` ADD CONSTRAINT `Favorite_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

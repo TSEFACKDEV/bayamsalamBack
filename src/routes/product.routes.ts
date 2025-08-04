@@ -3,19 +3,26 @@ import {
   createProduct,
   deleteProduct,
   getAllProducts,
+  getPendingProducts,
   getProductById,
+  reviewProduct,
   updateProduct,
 } from "../controllers/product.controller.js";
-import { authenticate } from "../middlewares/auth.middleware.js";
+import { authenticate} from "../middlewares/auth.middleware.js";
+import checkPermission from "../middlewares/checkPermission.js";
 
 const router = express.Router();
+
+router.patch('/:id/check', checkPermission("PRODUCT_REVIEW"), reviewProduct);
+router.get("/preview", checkPermission("PRODUCT_PREVIEW"), getPendingProducts);
 
 router.get("/", getAllProducts);
 router.get("/:id", getProductById);
 
 router.use(authenticate);
-router.post("/", createProduct);
-router.put("/:id", updateProduct);
-router.delete("/:id", deleteProduct);
+router.post("/", checkPermission("PRODUCT_CREATE"), createProduct);
+router.put("/:id", checkPermission("PRODUCT_UPDATE"), updateProduct);
+router.delete("/:id", checkPermission("PRODUCT_DELETE"), deleteProduct);
+
 
 export default router;

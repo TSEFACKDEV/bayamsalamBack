@@ -8,6 +8,8 @@ import { errorHandler } from './middlewares/errorHandler.js';
 import Router from "./routes/index.js"
 import url from 'node:url';
 import path from 'node:path';
+
+
 const app: Application = express();
 
 const __filename = url.fileURLToPath(import.meta.url);
@@ -34,6 +36,14 @@ app.use("/api/bayamsalam",Router)
 app.get('/api/bayamsalam', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date() });
 });
+
+//creation des admins 
+import { PrismaClient } from '@prisma/client';
+
+
+
+
+
 
 // Gestion des erreurs
 app.use(errorHandler);

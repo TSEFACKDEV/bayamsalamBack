@@ -12,28 +12,52 @@ export const getAllProducts = async (
   const offset = (page - 1) * limit;
   const search = (req.query.search as string) || "";
   try {
-    const params = {
+    const where: any = {
+      status: "VALIDATED",
+    };
+    if (search) {
+      where.name = { contains: search, mode: "insensitive" };
+    }
+
+    const products = await prisma.product.findMany({
       skip: offset,
       take: limit,
-      orderBy: {
-        createdAt: "desc" as const,
+      orderBy: { createdAt: "desc" },
+      where,
+      include: {
+        category: true,
+        city: true,
+        user: true, // On inclut l'utilisateur
       },
-      where: !search
-        ? undefined
-        : {
-            name: { contains: search },
-          },
-    };
-    const result = await prisma.product.findMany(params);
-    const total = await prisma.product.count(params);
-    ResponseApi.success(res, "product retrieved succesfully !!!", {
-      products: result,
+    });
+
+    // Pour chaque produit, calculer la somme des points reçus par le user qui a posté le produit
+    const productsWithUserPoints = await Promise.all(
+      products.map(async (product) => {
+        // On suppose que la table review a un champ userId qui correspond au propriétaire du produit
+        const userReviews = await prisma.review.findMany({
+          where: { userId: product.userId },
+        });
+        const totalPoints = userReviews.reduce((sum, r) => sum + (r.rating || 0), 0);
+        const averagePoints = userReviews.length > 0 ? totalPoints / userReviews.length : null;
+        return {
+          ...product,
+          userTotalPoints: totalPoints,
+          userAveragePoints: averagePoints,
+        };
+      })
+    );
+
+    const total = await prisma.product.count({ where });
+
+    ResponseApi.success(res, "Products retrieved successfully!", {
+      products: productsWithUserPoints,
       links: {
         perpage: limit,
-        prevPage: page - 1 ? page - 1 : null,
+        prevPage: page > 1 ? page - 1 : null,
         currentPage: page,
-        nextPage: page + 1 ? page + 1 : null,
-        totalPage: limit ? Math.ceil(total / limit) : 1,
+        nextPage: offset + limit < total ? page + 1 : null,
+        totalPage: Math.ceil(total / limit),
         total: total,
       },
     });
@@ -41,7 +65,7 @@ export const getAllProducts = async (
     console.log("====================================");
     console.log(error);
     console.log("====================================");
-    ResponseApi.error(res, "failled to getAll products", error.message);
+    ResponseApi.error(res, "Failed to get all products", error.message);
   }
 };
 
@@ -76,11 +100,11 @@ export const createProduct = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { name, price, quantity, description, categoryId,  cityId } =
+    const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone } =
       req.body;
 
-     const userId = req.user?.id
-   
+    const userId = req.user?.id
+
     // Validation basique
     if (
       !name ||
@@ -88,7 +112,8 @@ export const createProduct = async (
       !quantity ||
       !description ||
       !categoryId ||
-      !cityId
+      !cityId ||
+      !etat 
     ) {
       return ResponseApi.error(res, "Tous les champs sont requis", null, 400);
     }
@@ -133,6 +158,10 @@ export const createProduct = async (
         categoryId,
         userId,
         cityId,
+        status: "PENDING", // Statut par défaut
+        etat,
+        quartier,
+        telephone,
       },
     });
 
@@ -159,7 +188,7 @@ export const updateProduct = async (
       return ResponseApi.notFound(res, "id is not found", 422);
     }
 
-    const existingProduct = await prisma.product.findUnique({ where: { id } });
+    const existingProduct = await prisma.product.findFirst({ where: { id } });
     if (!existingProduct) {
       return ResponseApi.notFound(res, "Product not found", 404);
     }
@@ -247,3 +276,64 @@ export const deleteProduct = async (
     ResponseApi.error(res, "Failed to delete product", error.message);
   }
 };
+
+
+
+export const reviewProduct = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const { id } = req.params;
+  const { action } = req.body;
+  try {
+    //verifie si le produit existe
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product) {
+      return ResponseApi.notFound(res, "Product not found", 404);
+    }
+    //verifie si l'action est valide
+    if (action === 'validate') {
+      await prisma.product.update({
+        where: { id },
+        data: { status: 'VALIDATED' },
+      });
+      return ResponseApi.success(res, "Product validated successfully", null);
+    } else if (action === 'reject') {
+      await prisma.product.update({
+        where: { id },
+        data: { status: 'REJECTED' },
+      });
+      return ResponseApi.success(res, "Product rejected successfully", null);
+    } else {
+      return ResponseApi.error(res, "Invalid action", null, 400);
+    }
+  } catch (error: any) {
+    console.log("====================================");
+    console.log(error);
+    console.log("====================================");
+    ResponseApi.error(res, "Failed to review product", error.message);
+
+  }
+}
+
+
+
+// pour voire tous les produits nouvellement creer avec un statut PENDING
+export const getPendingProducts = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const pendingProducts = await prisma.product.findMany({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+    });
+    ResponseApi.success(res, "Pending products retrieved successfully", pendingProducts);
+  } catch (error: any) {
+    console.log("====================================");
+    console.log(error);
+    console.log("====================================");
+    ResponseApi.error(res, "Failed to retrieve pending products", error.message);
+  }
+};
+

@@ -26,7 +26,7 @@ export const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, funct
             where: !search
                 ? undefined
                 : {
-                    name: { contains: search },
+                    firstName: { contains: search },
                 },
         };
         const result = yield prisma.user.findMany(params);
@@ -74,8 +74,8 @@ export const getUserById = (req, res) => __awaiter(void 0, void 0, void 0, funct
 });
 export const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { name, email, password, phone } = req.body;
-        if (!name || !email || !password) {
+        const { firstName, lastName, email, password, phone } = req.body;
+        if (!firstName || !lastName || !email || !password || !phone) {
             return ResponseApi.error(res, "Missing required fields", 400);
         }
         const existingUser = yield prisma.user.findUnique({
@@ -92,7 +92,8 @@ export const createUser = (req, res) => __awaiter(void 0, void 0, void 0, functi
         const hashed = yield hashPassword(password);
         const newUser = yield prisma.user.create({
             data: {
-                name,
+                firstName,
+                lastName,
                 email,
                 password: hashed,
                 phone,

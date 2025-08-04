@@ -17,6 +17,8 @@ interface RegisterData {
   password: string;
   name: string;
   phone: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface LoginData {
@@ -26,9 +28,9 @@ interface LoginData {
 
 export const register = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, password, name, phone }: RegisterData = req.body;
+    const { email, password, firstName, lastName, phone }: RegisterData = req.body;
 
-    if (!email || !password || !name || !phone) {
+    if (!email || !password || !firstName || !lastName || !phone) {
       return ResponseApi.error(res, "Tous les champs sont obligatoires", null, 400);
     }
 
@@ -46,7 +48,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       data: {
         email,
         password: hashedPassword,
-        name,
+        firstName,
+        lastName,
         phone,
       },
     });
@@ -116,20 +119,69 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+// export const login = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const { email, password }: LoginData = req.body;
+
+//     if (!email || !password) {
+//       return ResponseApi.error(res, "Email et mot de passe sont requis", null, 400);
+//     }
+
+//     const user = await prisma.user.findUnique({
+//       where: { email },
+//     });
+
+//     if (!user) {
+//       return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
+//     }
+
+//     if (!user.isVerified) {
+//       return ResponseApi.error(res, "Compte non vérifié. Veuillez vérifier votre email.", null, 403);
+//     }
+
+//     const isPasswordValid = await comparePassword(password, user.password);
+
+//     if (!isPasswordValid) {
+//       return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
+//     }
+
+//     const token = generateToken({
+//       id: user.id,
+//       email: user.email,
+//     });
+
+//     const { password: _, ...userData } = user;
+
+//     return ResponseApi.success(res, "Connexion réussie", {
+//       token,
+//       user: userData,
+//     });
+//   } catch (error: any) {
+//     console.error("Erreur lors de la connexion:", error);
+//     return ResponseApi.error(res, "Une erreur est survenue lors de la connexion", error.message, 500);
+//   }
+// };
+
+
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, password }: LoginData = req.body;
+    const { email, phone, password }: { email?: string; phone?: string; password: string } = req.body;
 
-    if (!email || !password) {
-      return ResponseApi.error(res, "Email et mot de passe sont requis", null, 400);
+    if ((!email && !phone) || !password) {
+      return ResponseApi.error(res, "Email ou téléphone et mot de passe sont requis", null, 400);
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          email ? { email } : undefined,
+          phone ? { phone } : undefined,
+        ].filter(Boolean) as any,
+      },
     });
 
     if (!user) {
-      return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
+      return ResponseApi.error(res, "Email/téléphone ou mot de passe incorrect", null, 401);
     }
 
     if (!user.isVerified) {
@@ -139,7 +191,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid) {
-      return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
+      return ResponseApi.error(res, "Email/téléphone ou mot de passe incorrect", null, 401);
     }
 
     const token = generateToken({
@@ -158,6 +210,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     return ResponseApi.error(res, "Une erreur est survenue lors de la connexion", error.message, 500);
   }
 };
+
 
 export const logout = async (req: Request, res: Response): Promise<any> => {
   return ResponseApi.success(res, "Déconnexion réussie",null);

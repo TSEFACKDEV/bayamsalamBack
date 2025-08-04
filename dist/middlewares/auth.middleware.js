@@ -44,9 +44,22 @@ export const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0
 });
 //Middleware pour verifier si un utilisateur a l'authorization de faire certaine taches
 export const isAdmin = (req, res, next) => {
-    var _a;
-    if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== "ADMIN") {
-        return res.status(403).json({ message: "Accès refusé" });
+    const token = req.headers.authorization; // Prend le token tel quel, sans "Bearer "
+    if (!token) {
+        ResponseApi.notFound(res, "Token manquant ou invalide");
+        return;
     }
-    next();
+    try {
+        const decoded = jwt.verify(token, env.jwtSecret);
+        // Vérifie si l'utilisateur a le rôle admin
+        if (decoded.role !== "ADMIN") {
+            ResponseApi.notFound(res, "Accès refusé : utilisateur non autorisé");
+            return;
+        }
+        req.user = decoded;
+        next();
+    }
+    catch (error) {
+        ResponseApi.notFound(res, "Token invalide ou expiré");
+    }
 };

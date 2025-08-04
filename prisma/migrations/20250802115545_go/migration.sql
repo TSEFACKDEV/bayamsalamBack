@@ -1,10 +1,10 @@
 -- CreateTable
 CREATE TABLE `User` (
-    `id` VARCHAR(191) NOT NULL,
-    `name` VARCHAR(191) NOT NULL,
+    `id` VARCHAR(36) NOT NULL,
+    `firstName` VARCHAR(191) NOT NULL,
+    `lastName` VARCHAR(191) NOT NULL,
     `email` VARCHAR(191) NOT NULL,
     `password` VARCHAR(191) NOT NULL,
-    `role` ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER',
     `status` ENUM('PENDING', 'ACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'PENDING',
     `avatar` VARCHAR(191) NULL,
     `phone` VARCHAR(191) NULL,
@@ -21,16 +21,68 @@ CREATE TABLE `User` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `Role` (
+    `id` VARCHAR(36) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `Role_name_key`(`name`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Permission` (
+    `id` VARCHAR(36) NOT NULL,
+    `permissionKey` VARCHAR(191) NOT NULL,
+    `title` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `Permission_permissionKey_key`(`permissionKey`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `UserRole` (
+    `id` VARCHAR(36) NOT NULL,
+    `roleId` VARCHAR(36) NOT NULL,
+    `userId` VARCHAR(36) NOT NULL,
+    `assignedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `assignedBy` VARCHAR(191) NULL,
+
+    UNIQUE INDEX `UserRole_userId_roleId_key`(`userId`, `roleId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `RolePermission` (
+    `id` VARCHAR(36) NOT NULL,
+    `roleId` VARCHAR(36) NOT NULL,
+    `permissionId` VARCHAR(36) NOT NULL,
+    `assignedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `RolePermission_roleId_permissionId_key`(`roleId`, `permissionId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `Product` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` VARCHAR(36) NOT NULL,
     `name` VARCHAR(191) NULL,
     `price` DOUBLE NOT NULL,
     `quantity` INTEGER NOT NULL,
     `description` VARCHAR(191) NOT NULL,
     `images` JSON NOT NULL,
-    `categoryId` VARCHAR(191) NOT NULL,
-    `userId` VARCHAR(191) NOT NULL,
-    `cityId` VARCHAR(191) NOT NULL,
+    `categoryId` VARCHAR(36) NOT NULL,
+    `userId` VARCHAR(36) NOT NULL,
+    `cityId` VARCHAR(36) NOT NULL,
+    `status` ENUM('PENDING', 'VALIDATED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    `etat` ENUM('NEUF', 'OCCASION', 'CORRECT') NOT NULL,
+    `quartier` VARCHAR(191) NULL,
+    `telephone` VARCHAR(191) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -39,7 +91,7 @@ CREATE TABLE `Product` (
 
 -- CreateTable
 CREATE TABLE `Category` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` VARCHAR(36) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -50,7 +102,7 @@ CREATE TABLE `Category` (
 
 -- CreateTable
 CREATE TABLE `City` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` VARCHAR(36) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -61,11 +113,11 @@ CREATE TABLE `City` (
 
 -- CreateTable
 CREATE TABLE `Review` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` VARCHAR(36) NOT NULL,
     `rating` INTEGER NOT NULL,
     `comment` VARCHAR(191) NULL,
-    `userId` VARCHAR(191) NOT NULL,
-    `productId` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(36) NOT NULL,
+    `productId` VARCHAR(36) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -74,12 +126,12 @@ CREATE TABLE `Review` (
 
 -- CreateTable
 CREATE TABLE `Contact` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` VARCHAR(36) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
     `email` VARCHAR(191) NOT NULL,
     `subject` VARCHAR(191) NOT NULL,
     `message` VARCHAR(191) NOT NULL,
-    `userId` VARCHAR(191) NULL,
+    `userId` VARCHAR(36) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     PRIMARY KEY (`id`)
@@ -87,7 +139,7 @@ CREATE TABLE `Contact` (
 
 -- CreateTable
 CREATE TABLE `Favorite` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` VARCHAR(36) NOT NULL,
     `userId` VARCHAR(36) NOT NULL,
     `productId` VARCHAR(36) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -95,6 +147,18 @@ CREATE TABLE `Favorite` (
     UNIQUE INDEX `Favorite_userId_productId_key`(`userId`, `productId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `UserRole` ADD CONSTRAINT `UserRole_roleId_fkey` FOREIGN KEY (`roleId`) REFERENCES `Role`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `UserRole` ADD CONSTRAINT `UserRole_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `RolePermission` ADD CONSTRAINT `RolePermission_roleId_fkey` FOREIGN KEY (`roleId`) REFERENCES `Role`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `RolePermission` ADD CONSTRAINT `RolePermission_permissionId_fkey` FOREIGN KEY (`permissionId`) REFERENCES `Permission`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Product` ADD CONSTRAINT `Product_categoryId_fkey` FOREIGN KEY (`categoryId`) REFERENCES `Category`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -28,8 +28,8 @@ import env from "../config/config.js";
 import ResponseApi from "../helper/response.js";
 export const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { email, password, name, phone } = req.body;
-        if (!email || !password || !name || !phone) {
+        const { email, password, firstName, lastName, phone } = req.body;
+        if (!email || !password || !firstName || !lastName || !phone) {
             return ResponseApi.error(res, "Tous les champs sont obligatoires", null, 400);
         }
         const existingUser = yield prisma.user.findUnique({
@@ -43,7 +43,8 @@ export const register = (req, res) => __awaiter(void 0, void 0, void 0, function
             data: {
                 email,
                 password: hashedPassword,
-                name,
+                firstName,
+                lastName,
                 phone,
             },
         });
@@ -98,24 +99,62 @@ export const verifyOTP = (req, res) => __awaiter(void 0, void 0, void 0, functio
         return ResponseApi.error(res, "Une erreur est survenue lors de la vérification OTP", error.message, 500);
     }
 });
+// export const login = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const { email, password }: LoginData = req.body;
+//     if (!email || !password) {
+//       return ResponseApi.error(res, "Email et mot de passe sont requis", null, 400);
+//     }
+//     const user = await prisma.user.findUnique({
+//       where: { email },
+//     });
+//     if (!user) {
+//       return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
+//     }
+//     if (!user.isVerified) {
+//       return ResponseApi.error(res, "Compte non vérifié. Veuillez vérifier votre email.", null, 403);
+//     }
+//     const isPasswordValid = await comparePassword(password, user.password);
+//     if (!isPasswordValid) {
+//       return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
+//     }
+//     const token = generateToken({
+//       id: user.id,
+//       email: user.email,
+//     });
+//     const { password: _, ...userData } = user;
+//     return ResponseApi.success(res, "Connexion réussie", {
+//       token,
+//       user: userData,
+//     });
+//   } catch (error: any) {
+//     console.error("Erreur lors de la connexion:", error);
+//     return ResponseApi.error(res, "Une erreur est survenue lors de la connexion", error.message, 500);
+//   }
+// };
 export const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return ResponseApi.error(res, "Email et mot de passe sont requis", null, 400);
+        const { email, phone, password } = req.body;
+        if ((!email && !phone) || !password) {
+            return ResponseApi.error(res, "Email ou téléphone et mot de passe sont requis", null, 400);
         }
-        const user = yield prisma.user.findUnique({
-            where: { email },
+        const user = yield prisma.user.findFirst({
+            where: {
+                OR: [
+                    email ? { email } : undefined,
+                    phone ? { phone } : undefined,
+                ].filter(Boolean),
+            },
         });
         if (!user) {
-            return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
+            return ResponseApi.error(res, "Email/téléphone ou mot de passe incorrect", null, 401);
         }
         if (!user.isVerified) {
             return ResponseApi.error(res, "Compte non vérifié. Veuillez vérifier votre email.", null, 403);
         }
         const isPasswordValid = yield comparePassword(password, user.password);
         if (!isPasswordValid) {
-            return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
+            return ResponseApi.error(res, "Email/téléphone ou mot de passe incorrect", null, 401);
         }
         const token = generateToken({
             id: user.id,

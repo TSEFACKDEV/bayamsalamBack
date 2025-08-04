@@ -23,7 +23,7 @@ export const getAllUsers = async (
       where: !search
         ? undefined
         : {
-            name: { contains: search },
+            firstName: { contains: search },
           },
     };
     const result = await prisma.user.findMany(params);
@@ -73,9 +73,9 @@ export const getUserById = async (
 
 export const createUser = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { firstName, lastName, email, password, phone } = req.body;
 
-    if (!name || !email || !password) {
+    if (!firstName || !lastName || !email || !password || !phone) {
       return ResponseApi.error(res, "Missing required fields", 400);
     }
 
@@ -96,7 +96,8 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
 
     const newUser = await prisma.user.create({
       data: {
-        name,
+        firstName,
+        lastName,
         email,
         password: hashed,
         phone,

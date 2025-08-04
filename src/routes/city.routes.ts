@@ -1,13 +1,18 @@
 import express from "express"
 import { createCity, deleteCity, getAllCities, getCityById, updateCity } from "../controllers/city.controller.js"
+import { authenticate} from "../middlewares/auth.middleware.js"
+import checkPermission from "../middlewares/checkPermission.js"
 
 
 const router = express.Router()
 
-router.post("/", createCity)
 router.get("/", getAllCities)
 router.get("/:id", getCityById)
-router.put("/:id", updateCity)
-router.delete("/:id", deleteCity)
+
+router.use(authenticate)
+
+router.post("/", checkPermission("CITY_CREATE"), createCity)
+router.put("/:id", checkPermission("CITY_UPDATE"), updateCity)
+router.delete("/:id", checkPermission("CITY_DELETE"), deleteCity)
 
 export default router

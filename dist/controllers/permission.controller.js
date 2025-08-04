@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7,9 +8,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import prisma from "../model/prisma.client.js";
-import ResponseApi from "../helper/response.js";
-export const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.assignPermissionsToRole = exports.destroy = exports.update = exports.create = exports.getById = exports.getAll = void 0;
+const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
+const response_js_1 = __importDefault(require("../helper/response.js"));
+const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     // Pagination parameters
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100;
@@ -29,11 +35,11 @@ export const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 }
                 : undefined,
         };
-        const result = yield prisma.permission.findMany(params);
-        const total = yield prisma.permission.count({
+        const result = yield prisma_client_js_1.default.permission.findMany(params);
+        const total = yield prisma_client_js_1.default.permission.count({
             where: params.where,
         });
-        ResponseApi.success(res, 'Permissions retrieved successfully !!!', {
+        response_js_1.default.success(res, 'Permissions retrieved successfully !!!', {
             permission: result,
             links: {
                 perpage: limit,
@@ -46,92 +52,97 @@ export const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         });
     }
     catch (error) {
-        ResponseApi.error(res, 'Error retrieving permissions', error);
+        response_js_1.default.error(res, 'Error retrieving permissions', error);
         console.log('====================================');
         console.log('Error in getAll:', error);
         console.log('====================================');
     }
 });
-export const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAll = getAll;
+const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
         if (!id)
-            ResponseApi.error(res, 'the id doest not exist', 404);
-        const result = yield prisma.permission.findFirst({
+            response_js_1.default.error(res, 'the id doest not exist', 404);
+        const result = yield prisma_client_js_1.default.permission.findFirst({
             where: {
                 id
             },
         });
-        ResponseApi.success(res, 'permission retrieved successfuly', result);
+        response_js_1.default.success(res, 'permission retrieved successfuly', result);
     }
     catch (error) {
-        ResponseApi.error(res, 'Error retrieving permission', error);
+        response_js_1.default.error(res, 'Error retrieving permission', error);
         console.log('====================================');
         console.log('Error in getById:', error);
         console.log('====================================');
     }
 });
-export const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getById = getById;
+const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { permissionKey, title, description } = req.body;
-        const permission = yield prisma.permission.create({ data: { permissionKey, title, description } });
-        ResponseApi.success(res, 'Permission created successfully', permission, 201);
+        const permission = yield prisma_client_js_1.default.permission.create({ data: { permissionKey, title, description } });
+        response_js_1.default.success(res, 'Permission created successfully', permission, 201);
     }
     catch (error) {
-        ResponseApi.error(res, 'Error creating permission', error);
+        response_js_1.default.error(res, 'Error creating permission', error);
         console.log('====================================');
         console.log('Error in create:', error);
         console.log('====================================');
     }
 });
-export const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.create = create;
+const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     const data = req.body;
     try {
         if (!id)
-            ResponseApi.error(res, 'Id is missing', {}, 404);
-        const miss = yield prisma.permission.findFirst({
+            response_js_1.default.error(res, 'Id is missing', {}, 404);
+        const miss = yield prisma_client_js_1.default.permission.findFirst({
             where: {
                 id
             },
         });
         if (!miss)
-            ResponseApi.error(res, 'Permission is missing', {}, 404);
-        const result = yield prisma.permission.update({
+            response_js_1.default.error(res, 'Permission is missing', {}, 404);
+        const result = yield prisma_client_js_1.default.permission.update({
             where: {
                 id
             },
             data,
         });
-        ResponseApi.success(res, 'Permission updated successfuly', result);
+        response_js_1.default.success(res, 'Permission updated successfuly', result);
     }
     catch (error) {
-        ResponseApi.error(res, 'Error updating permission', error);
+        response_js_1.default.error(res, 'Error updating permission', error);
         console.log('====================================');
         console.log('Error in update:', error);
         console.log('====================================');
     }
 });
-export const destroy = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.update = update;
+const destroy = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
         if (!id)
-            ResponseApi.error(res, 'Id is missing !!!', {}, 422);
-        const result = yield prisma.permission.delete({
+            response_js_1.default.error(res, 'Id is missing !!!', {}, 422);
+        const result = yield prisma_client_js_1.default.permission.delete({
             where: {
                 id
             },
         });
-        ResponseApi.success(res, 'Permission deleted successfully !!!', result);
+        response_js_1.default.success(res, 'Permission deleted successfully !!!', result);
     }
     catch (error) {
-        ResponseApi.error(res, 'Error deleting permission', error);
+        response_js_1.default.error(res, 'Error deleting permission', error);
         console.log('====================================');
         console.log('Error in destroy:', error);
         console.log('====================================');
     }
 });
-export const assignPermissionsToRole = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.destroy = destroy;
+const assignPermissionsToRole = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { roleId, permissionIds } = req.body;
         const assignments = permissionIds.map((permissionId) => {
@@ -140,16 +151,17 @@ export const assignPermissionsToRole = (req, res) => __awaiter(void 0, void 0, v
                 permissionId,
             };
         });
-        yield prisma.rolePermission.createMany({
+        yield prisma_client_js_1.default.rolePermission.createMany({
             data: assignments,
             skipDuplicates: true,
         });
-        ResponseApi.success(res, 'Permissions assigned to role successfully', {}, 201);
+        response_js_1.default.success(res, 'Permissions assigned to role successfully', {}, 201);
     }
     catch (error) {
-        ResponseApi.error(res, 'Error assigning permissions to role', error.message);
+        response_js_1.default.error(res, 'Error assigning permissions to role', error.message);
         console.log('====================================');
         console.log('Error in assignPermissionsToRole:', error.message);
         console.log('====================================');
     }
 });
+exports.assignPermissionsToRole = assignPermissionsToRole;

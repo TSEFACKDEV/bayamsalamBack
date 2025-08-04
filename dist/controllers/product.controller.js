@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7,10 +8,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import ResponseApi from "../helper/response.js";
-import prisma from "../model/prisma.client.js";
-import Utils from "../helper/utils.js";
-export const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getPendingProducts = exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getAllProducts = void 0;
+const response_js_1 = __importDefault(require("../helper/response.js"));
+const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
+const utils_js_1 = __importDefault(require("../helper/utils.js"));
+const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -22,7 +28,7 @@ export const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, fu
         if (search) {
             where.name = { contains: search, mode: "insensitive" };
         }
-        const products = yield prisma.product.findMany({
+        const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
             take: limit,
             orderBy: { createdAt: "desc" },
@@ -36,15 +42,15 @@ export const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, fu
         // Pour chaque produit, calculer la somme des points reçus par le user qui a posté le produit
         const productsWithUserPoints = yield Promise.all(products.map((product) => __awaiter(void 0, void 0, void 0, function* () {
             // On suppose que la table review a un champ userId qui correspond au propriétaire du produit
-            const userReviews = yield prisma.review.findMany({
+            const userReviews = yield prisma_client_js_1.default.review.findMany({
                 where: { userId: product.userId },
             });
             const totalPoints = userReviews.reduce((sum, r) => sum + (r.rating || 0), 0);
             const averagePoints = userReviews.length > 0 ? totalPoints / userReviews.length : null;
             return Object.assign(Object.assign({}, product), { userTotalPoints: totalPoints, userAveragePoints: averagePoints });
         })));
-        const total = yield prisma.product.count({ where });
-        ResponseApi.success(res, "Products retrieved successfully!", {
+        const total = yield prisma_client_js_1.default.product.count({ where });
+        response_js_1.default.success(res, "Products retrieved successfully!", {
             products: productsWithUserPoints,
             links: {
                 perpage: limit,
@@ -60,33 +66,35 @@ export const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, fu
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failed to get all products", error.message);
+        response_js_1.default.error(res, "Failed to get all products", error.message);
     }
 });
-export const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAllProducts = getAllProducts;
+const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id = req.params.id;
     try {
         if (!id) {
-            return ResponseApi.notFound(res, "id is not found", 422);
+            return response_js_1.default.notFound(res, "id is not found", 422);
         }
-        const result = yield prisma.product.findFirst({
+        const result = yield prisma_client_js_1.default.product.findFirst({
             where: {
                 id,
             },
         });
         if (!result) {
-            return ResponseApi.notFound(res, "Product not found", 404);
+            return response_js_1.default.notFound(res, "Product not found", 404);
         }
-        ResponseApi.success(res, "Product retrieved successfully", result);
+        response_js_1.default.success(res, "Product retrieved successfully", result);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failed to get product by ID", error.message);
+        response_js_1.default.error(res, "Failed to get product by ID", error.message);
     }
 });
-export const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getProductById = getProductById;
+const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
         const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone } = req.body;
@@ -99,26 +107,26 @@ export const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, fun
             !categoryId ||
             !cityId ||
             !etat) {
-            return ResponseApi.error(res, "Tous les champs sont requis", null, 400);
+            return response_js_1.default.error(res, "Tous les champs sont requis", null, 400);
         }
         // Gestion des images (upload)
         if (!req.files || !req.files.images) {
-            return ResponseApi.error(res, "Au moins une image est requise", null, 400);
+            return response_js_1.default.error(res, "Au moins une image est requise", null, 400);
         }
         let images = req.files.images;
         if (!Array.isArray(images))
             images = [images];
         if (images.length < 1 || images.length > 5) {
-            return ResponseApi.error(res, "Un produit doit avoir entre 1 et 5 images", null, 400);
+            return response_js_1.default.error(res, "Un produit doit avoir entre 1 et 5 images", null, 400);
         }
         // Sauvegarde des images et récupération des chemins
         const savedImages = [];
         for (const img of images) {
-            const savedPath = yield Utils.saveFile(img, "products");
+            const savedPath = yield utils_js_1.default.saveFile(img, "products");
             savedImages.push(savedPath);
         }
         // Création du produit
-        const product = yield prisma.product.create({
+        const product = yield prisma_client_js_1.default.product.create({
             data: {
                 name,
                 price: parseFloat(price),
@@ -134,24 +142,25 @@ export const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 telephone,
             },
         });
-        ResponseApi.success(res, "Produit créé avec succès", product, 201);
+        response_js_1.default.success(res, "Produit créé avec succès", product, 201);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Erreur lors de la création du produit", error.message);
+        response_js_1.default.error(res, "Erreur lors de la création du produit", error.message);
     }
 });
-export const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.createProduct = createProduct;
+const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id = req.params.id;
     try {
         if (!id) {
-            return ResponseApi.notFound(res, "id is not found", 422);
+            return response_js_1.default.notFound(res, "id is not found", 422);
         }
-        const existingProduct = yield prisma.product.findFirst({ where: { id } });
+        const existingProduct = yield prisma_client_js_1.default.product.findFirst({ where: { id } });
         if (!existingProduct) {
-            return ResponseApi.notFound(res, "Product not found", 404);
+            return response_js_1.default.notFound(res, "Product not found", 404);
         }
         const { name, price, quantity, description, categoryId, userId, cityId } = req.body;
         // Gestion des images (upload)
@@ -162,16 +171,16 @@ export const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 newImages = [newImages];
             // Supprimer les anciennes images si besoin
             for (const oldImg of images) {
-                yield Utils.deleteFile(oldImg);
+                yield utils_js_1.default.deleteFile(oldImg);
             }
             // Sauvegarder les nouvelles images
             images = [];
             for (const img of newImages) {
-                const savedPath = yield Utils.saveFile(img, "products");
+                const savedPath = yield utils_js_1.default.saveFile(img, "products");
                 images.push(savedPath);
             }
         }
-        const updatedProduct = yield prisma.product.update({
+        const updatedProduct = yield prisma_client_js_1.default.product.update({
             where: { id },
             data: {
                 name: name !== null && name !== void 0 ? name : existingProduct.name,
@@ -184,93 +193,97 @@ export const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 cityId: cityId !== null && cityId !== void 0 ? cityId : existingProduct.cityId,
             },
         });
-        ResponseApi.success(res, "Produit mis à jour avec succès", updatedProduct);
+        response_js_1.default.success(res, "Produit mis à jour avec succès", updatedProduct);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Erreur lors de la mise à jour du produit", error.message);
+        response_js_1.default.error(res, "Erreur lors de la mise à jour du produit", error.message);
     }
 });
-export const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.updateProduct = updateProduct;
+const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id = req.params.id;
     try {
         if (!id) {
-            return ResponseApi.notFound(res, "id is not found", 422);
+            return response_js_1.default.notFound(res, "id is not found", 422);
         }
-        const product = yield prisma.product.findUnique({ where: { id } });
+        const product = yield prisma_client_js_1.default.product.findUnique({ where: { id } });
         if (!product) {
-            return ResponseApi.notFound(res, "Product not found", 404);
+            return response_js_1.default.notFound(res, "Product not found", 404);
         }
         // Supprimer les images associées
         if (product.images && Array.isArray(product.images)) {
             for (const img of product.images) {
                 if (typeof img === "string") {
-                    yield Utils.deleteFile(img);
+                    yield utils_js_1.default.deleteFile(img);
                 }
             }
         }
-        const result = yield prisma.product.delete({
+        const result = yield prisma_client_js_1.default.product.delete({
             where: { id },
         });
-        ResponseApi.success(res, "Product deleted successfully", result);
+        response_js_1.default.success(res, "Product deleted successfully", result);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failed to delete product", error.message);
+        response_js_1.default.error(res, "Failed to delete product", error.message);
     }
 });
-export const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.deleteProduct = deleteProduct;
+const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     const { action } = req.body;
     try {
         //verifie si le produit existe
-        const product = yield prisma.product.findUnique({ where: { id } });
+        const product = yield prisma_client_js_1.default.product.findUnique({ where: { id } });
         if (!product) {
-            return ResponseApi.notFound(res, "Product not found", 404);
+            return response_js_1.default.notFound(res, "Product not found", 404);
         }
         //verifie si l'action est valide
         if (action === 'validate') {
-            yield prisma.product.update({
+            yield prisma_client_js_1.default.product.update({
                 where: { id },
                 data: { status: 'VALIDATED' },
             });
-            return ResponseApi.success(res, "Product validated successfully", null);
+            return response_js_1.default.success(res, "Product validated successfully", null);
         }
         else if (action === 'reject') {
-            yield prisma.product.update({
+            yield prisma_client_js_1.default.product.update({
                 where: { id },
                 data: { status: 'REJECTED' },
             });
-            return ResponseApi.success(res, "Product rejected successfully", null);
+            return response_js_1.default.success(res, "Product rejected successfully", null);
         }
         else {
-            return ResponseApi.error(res, "Invalid action", null, 400);
+            return response_js_1.default.error(res, "Invalid action", null, 400);
         }
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failed to review product", error.message);
+        response_js_1.default.error(res, "Failed to review product", error.message);
     }
 });
+exports.reviewProduct = reviewProduct;
 // pour voire tous les produits nouvellement creer avec un statut PENDING
-export const getPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const getPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const pendingProducts = yield prisma.product.findMany({
+        const pendingProducts = yield prisma_client_js_1.default.product.findMany({
             where: { status: 'PENDING' },
             orderBy: { createdAt: 'desc' },
         });
-        ResponseApi.success(res, "Pending products retrieved successfully", pendingProducts);
+        response_js_1.default.success(res, "Pending products retrieved successfully", pendingProducts);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failed to retrieve pending products", error.message);
+        response_js_1.default.error(res, "Failed to retrieve pending products", error.message);
     }
 });
+exports.getPendingProducts = getPendingProducts;

@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7,21 +8,26 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import nodemailer from "nodemailer";
-import env from "../config/config.js";
-const transporter = nodemailer.createTransport({
-    host: env.smtpHost,
-    port: parseInt(env.smtpPort),
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.sendEmail = void 0;
+const nodemailer_1 = __importDefault(require("nodemailer"));
+const config_js_1 = __importDefault(require("../config/config.js"));
+const transporter = nodemailer_1.default.createTransport({
+    host: config_js_1.default.smtpHost,
+    port: parseInt(config_js_1.default.smtpPort),
     secure: false, // true for 465, false for other ports
     auth: {
-        user: env.smtpUser,
-        pass: env.smtpPass,
+        user: config_js_1.default.smtpUser,
+        pass: config_js_1.default.smtpPass,
     },
 });
-export const sendEmail = (to, subject, text, html) => __awaiter(void 0, void 0, void 0, function* () {
+const sendEmail = (to, subject, text, html) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         yield transporter.sendMail({
-            from: `"${env.fromName}" <${env.fromEmail}>`,
+            from: `"${config_js_1.default.fromName}" <${config_js_1.default.fromEmail}>`,
             to,
             subject,
             text,
@@ -34,3 +40,4 @@ export const sendEmail = (to, subject, text, html) => __awaiter(void 0, void 0, 
         return false;
     }
 });
+exports.sendEmail = sendEmail;

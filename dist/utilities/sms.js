@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7,9 +8,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import axios from "axios";
-import env from "../config/config.js";
-export const sendSMS = (phone, message) => __awaiter(void 0, void 0, void 0, function* () {
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getSmsBalance = exports.sendSMS = void 0;
+const axios_1 = __importDefault(require("axios"));
+const config_js_1 = __importDefault(require("../config/config.js"));
+const sendSMS = (phone, message) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // Format phone number (add 237 if not present)
         let formattedPhone = phone;
@@ -18,12 +24,12 @@ export const sendSMS = (phone, message) => __awaiter(void 0, void 0, void 0, fun
         }
         const url = "https://smsvas.com/bulk/public/index.php/api/v1/sendsms";
         const params = new URLSearchParams();
-        params.append("user", env.nexahUser);
-        params.append("password", env.nexahPassword);
-        params.append("senderid", env.nexahSenderId);
+        params.append("user", config_js_1.default.nexahUser);
+        params.append("password", config_js_1.default.nexahPassword);
+        params.append("senderid", config_js_1.default.nexahSenderId);
         params.append("sms", message);
         params.append("mobiles", formattedPhone);
-        const response = yield axios.get(`${url}?${params.toString()}`);
+        const response = yield axios_1.default.get(`${url}?${params.toString()}`);
         if (response.data.responsecode === 1) {
             return true;
         }
@@ -37,13 +43,14 @@ export const sendSMS = (phone, message) => __awaiter(void 0, void 0, void 0, fun
         return false;
     }
 });
-export const getSmsBalance = () => __awaiter(void 0, void 0, void 0, function* () {
+exports.sendSMS = sendSMS;
+const getSmsBalance = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const url = "https://smsvas.com/bulk/public/index.php/api/v1/smscredit";
         const params = new URLSearchParams();
-        params.append("user", env.nexahUser);
-        params.append("password", env.nexahPassword);
-        const response = yield axios.get(`${url}?${params.toString()}`);
+        params.append("user", config_js_1.default.nexahUser);
+        params.append("password", config_js_1.default.nexahPassword);
+        const response = yield axios_1.default.get(`${url}?${params.toString()}`);
         return response.data.credit;
     }
     catch (error) {
@@ -51,3 +58,4 @@ export const getSmsBalance = () => __awaiter(void 0, void 0, void 0, function* (
         return null;
     }
 });
+exports.getSmsBalance = getSmsBalance;

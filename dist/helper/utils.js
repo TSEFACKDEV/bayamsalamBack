@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7,12 +8,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import fs from "node:fs";
-import fsp from "node:fs/promises";
-import path from "node:path";
-import url from "node:url";
-const __filename = url.fileURLToPath(import.meta.url);
-const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const node_fs_1 = __importDefault(require("node:fs"));
+const promises_1 = __importDefault(require("node:fs/promises"));
+const node_path_1 = __importDefault(require("node:path"));
 class Utils {
     /**
      * Sauvegarde un fichier uploadé dans le dossier public/uploads
@@ -24,12 +26,12 @@ class Utils {
         return __awaiter(this, void 0, void 0, function* () {
             const extension = file.mimetype.split("/")[1];
             const name = `${Date.now()}.${extension}`;
-            const absolutePath = path.join(__dirname, `/../../public/uploads`, saveRelatifPath);
-            if (!fs.existsSync(absolutePath)) {
-                yield fsp.mkdir(absolutePath, { recursive: true });
+            const absolutePath = node_path_1.default.join(__dirname, `/../../public/uploads`, saveRelatifPath);
+            if (!node_fs_1.default.existsSync(absolutePath)) {
+                yield promises_1.default.mkdir(absolutePath, { recursive: true });
             }
             return new Promise((resolve, reject) => {
-                file.mv(path.join(absolutePath, name), (err) => {
+                file.mv(node_path_1.default.join(absolutePath, name), (err) => {
                     if (err)
                         return reject(err);
                     return resolve(`/uploads/${saveRelatifPath}/${name}`);
@@ -49,21 +51,21 @@ class Utils {
             const extension = file.mimetype.split("/")[1];
             const name = `${Date.now()}.${extension}`;
             const oldAbsolutePath = oldRelativeFilePath
-                ? path.join(__dirname, `/../../public`, oldRelativeFilePath)
+                ? node_path_1.default.join(__dirname, `/../../public`, oldRelativeFilePath)
                 : null;
-            const absolutePath = path.join(__dirname, `/../../public`, relativeFilePath);
+            const absolutePath = node_path_1.default.join(__dirname, `/../../public`, relativeFilePath);
             // Vérifie si le dossier existe
-            if (!fs.existsSync(path.dirname(absolutePath))) {
-                yield fsp.mkdir(path.dirname(absolutePath), { recursive: true });
+            if (!node_fs_1.default.existsSync(node_path_1.default.dirname(absolutePath))) {
+                yield promises_1.default.mkdir(node_path_1.default.dirname(absolutePath), { recursive: true });
             }
             return new Promise((resolve, reject) => {
-                file.mv(path.join(absolutePath, name), (err) => __awaiter(this, void 0, void 0, function* () {
+                file.mv(node_path_1.default.join(absolutePath, name), (err) => __awaiter(this, void 0, void 0, function* () {
                     if (err)
                         return reject(err);
                     // Supprime l'ancien fichier s'il existe
-                    if (oldAbsolutePath && fs.existsSync(oldAbsolutePath)) {
+                    if (oldAbsolutePath && node_fs_1.default.existsSync(oldAbsolutePath)) {
                         try {
-                            yield fsp.unlink(oldAbsolutePath);
+                            yield promises_1.default.unlink(oldAbsolutePath);
                         }
                         catch (err) {
                             console.error("Erreur lors de la suppression de l'ancien fichier:", err);
@@ -82,9 +84,9 @@ class Utils {
     static deleteFile(relativeFilePath) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const absolutePath = path.join(__dirname, `/../../public`, relativeFilePath);
-                yield fsp.access(absolutePath);
-                yield fsp.unlink(absolutePath);
+                const absolutePath = node_path_1.default.join(__dirname, `/../../public`, relativeFilePath);
+                yield promises_1.default.access(absolutePath);
+                yield promises_1.default.unlink(absolutePath);
                 return true;
             }
             catch (err) {
@@ -111,4 +113,4 @@ class Utils {
         return `${req.protocol}://${req.get("host")}/public${cleanPath}`;
     }
 }
-export default Utils;
+exports.default = Utils;

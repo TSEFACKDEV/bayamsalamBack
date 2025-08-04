@@ -1,4 +1,7 @@
-export const generateOTP = (length = 6) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.validateOTP = exports.generateOTP = void 0;
+const generateOTP = (length = 6) => {
     const digits = "0123456789";
     let OTP = "";
     for (let i = 0; i < length; i++) {
@@ -6,8 +9,10 @@ export const generateOTP = (length = 6) => {
     }
     return OTP;
 };
-export const validateOTP = (inputOTP, storedOTP) => {
+exports.generateOTP = generateOTP;
+const validateOTP = (inputOTP, storedOTP) => {
     if (!storedOTP)
         return false;
     return inputOTP === storedOTP;
 };
+exports.validateOTP = validateOTP;

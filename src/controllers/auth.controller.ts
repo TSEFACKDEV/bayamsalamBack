@@ -54,6 +54,17 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
+    // Ajout automatique du rôle USER
+    const userRole = await prisma.role.findUnique({ where: { name: "USER" } });
+    if (userRole) {
+      await prisma.userRole.create({
+        data: {
+          userId: newUser.id,
+          roleId: userRole.id,
+        },
+      });
+    }
+
     const otp = generateOTP();
     const smsSent = await sendSMS(phone, `Votre code OTP est: ${otp}`);
 

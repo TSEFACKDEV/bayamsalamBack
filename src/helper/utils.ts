@@ -5,8 +5,7 @@ import url from "node:url";
 import { Request } from "express";
 import { UploadedFile } from "express-fileupload";
 
-const __filename = url.fileURLToPath(import.meta.url);
-const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+
 
 class Utils {
   /**

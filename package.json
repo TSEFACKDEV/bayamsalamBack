@@ -12,7 +12,6 @@
     "prisma:studio": "prisma studio"
   },
   "keywords": [],
-  "type": "module",
   "author": "",
   "license": "ISC",
   "description": "",
@@ -39,13 +38,16 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
-    "@types/node": "^24.0.10",
+    "@types/node": "^24.2.0",
     "@types/nodemailer": "^6.4.17",
     "@types/yup": "^0.29.14",
     "express-fileupload": "^1.5.2",
     "nodemon": "^3.1.10",
     "prisma": "^6.11.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.2"
+  },
+  "prisma": {
+    "seed": "ts-node ./prisma/seed.ts"
   }
 }

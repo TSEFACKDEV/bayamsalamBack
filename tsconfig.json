@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES6",
-    "module": "esnext",
+    "module": "commonjs",
     "outDir": "./dist",
     "rootDir": "./src",
     "typeRoots": [
@@ -14,6 +14,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
     "moduleResolution": "node"
   },
   "include": ["src/**/*"],

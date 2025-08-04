@@ -1,3 +1,5 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 class ResponseApi {
     static success(res, message, data, statusCode = 200) {
         return res.status(statusCode).json({
@@ -26,4 +28,4 @@ class ResponseApi {
         });
     }
 }
-export default ResponseApi;
+exports.default = ResponseApi;

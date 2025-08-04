@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7,15 +8,20 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import path from 'path';
-import fs from 'fs';
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteProductImages = exports.uploadProductImages = void 0;
+const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
 /**
  * Valide et upload les images d'un produit
  * @param req Requête Express
  * @returns Promise résolue avec les noms des fichiers uploadés
  * @throws Error si la validation échoue
  */
-export const uploadProductImages = (req) => __awaiter(void 0, void 0, void 0, function* () {
+const uploadProductImages = (req) => __awaiter(void 0, void 0, void 0, function* () {
     if (!req.files || !req.files.images) {
         throw new Error('Au moins une image est requise');
     }
@@ -31,9 +37,9 @@ export const uploadProductImages = (req) => __awaiter(void 0, void 0, void 0, fu
         throw new Error('Un produit doit avoir entre 1 et 5 images');
     }
     // Créer le dossier d'upload s'il n'existe pas
-    const uploadDir = path.join(__dirname, '../../public/uploads');
-    if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
+    const uploadDir = path_1.default.join(__dirname, '../../public/uploads');
+    if (!fs_1.default.existsSync(uploadDir)) {
+        fs_1.default.mkdirSync(uploadDir, { recursive: true });
     }
     const uploadedFiles = [];
     // Traiter chaque image
@@ -49,25 +55,27 @@ export const uploadProductImages = (req) => __awaiter(void 0, void 0, void 0, fu
             throw new Error(`L'image ${image.name} dépasse la taille maximale de 5MB`);
         }
         // Générer un nom de fichier unique
-        const ext = path.extname(image.name);
+        const ext = path_1.default.extname(image.name);
         const uniqueName = `product_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
-        const filePath = path.join(uploadDir, uniqueName);
+        const filePath = path_1.default.join(uploadDir, uniqueName);
         // Déplacer le fichier
         yield image.mv(filePath);
         uploadedFiles.push(uniqueName);
     }
     return uploadedFiles;
 });
+exports.uploadProductImages = uploadProductImages;
 /**
  * Supprime les fichiers images du serveur
  * @param filenames Noms des fichiers à supprimer
  */
-export const deleteProductImages = (filenames) => {
-    const uploadDir = path.join(__dirname, '../../public/uploads');
+const deleteProductImages = (filenames) => {
+    const uploadDir = path_1.default.join(__dirname, '../../public/uploads');
     filenames.forEach(filename => {
-        const filePath = path.join(uploadDir, filename);
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+        const filePath = path_1.default.join(uploadDir, filename);
+        if (fs_1.default.existsSync(filePath)) {
+            fs_1.default.unlinkSync(filePath);
         }
     });
 };
+exports.deleteProductImages = deleteProductImages;

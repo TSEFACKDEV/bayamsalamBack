@@ -1,11 +1,16 @@
-import express from 'express';
-import { assignPermissionsToRole, create, destroy, getAll, getById, update, } from '../controllers/permission.controller.js';
-import checkPermission from '../middlewares/checkPermission.js';
-const router = express.Router();
-router.get('/', checkPermission("PERMISSION_READ"), getAll);
-router.get('/:id', checkPermission("PERMISSION_READ"), getById);
-router.post('/', checkPermission("PERMISSION_CREATE"), create);
-router.put('/:id', checkPermission("PERMISSION_UPDATE"), update);
-router.delete('/:id', checkPermission("PERMISSION_DELETE"), destroy);
-router.post('/assign-permissions', checkPermission("PERMISSION_ASSIGN"), assignPermissionsToRole);
-export default router;
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const permission_controller_js_1 = require("../controllers/permission.controller.js");
+const checkPermission_js_1 = __importDefault(require("../middlewares/checkPermission.js"));
+const router = express_1.default.Router();
+router.get('/', (0, checkPermission_js_1.default)("PERMISSION_READ"), permission_controller_js_1.getAll);
+router.get('/:id', (0, checkPermission_js_1.default)("PERMISSION_READ"), permission_controller_js_1.getById);
+router.post('/', (0, checkPermission_js_1.default)("PERMISSION_CREATE"), permission_controller_js_1.create);
+router.put('/:id', (0, checkPermission_js_1.default)("PERMISSION_UPDATE"), permission_controller_js_1.update);
+router.delete('/:id', (0, checkPermission_js_1.default)("PERMISSION_DELETE"), permission_controller_js_1.destroy);
+router.post('/assign-permissions', (0, checkPermission_js_1.default)("PERMISSION_ASSIGN"), permission_controller_js_1.assignPermissionsToRole);
+exports.default = router;

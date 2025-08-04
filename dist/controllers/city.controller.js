@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7,59 +8,66 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import ResponseApi from "../helper/response.js";
-import prisma from "../model/prisma.client.js";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteCity = exports.updateCity = exports.getCityById = exports.getAllCities = exports.createCity = void 0;
+const response_js_1 = __importDefault(require("../helper/response.js"));
+const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 //creation de la ville
-export const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { name } = req.body;
         //verifions si la ville existe deja
-        const existingCity = yield prisma.city.findFirst({
+        const existingCity = yield prisma_client_js_1.default.city.findFirst({
             where: { name: { equals: name } },
         });
         if (existingCity) {
-            return ResponseApi.notFound(res, "City Already exist");
+            return response_js_1.default.notFound(res, "City Already exist");
         }
         //creer la ville
-        const category = yield prisma.city.create({
+        const category = yield prisma_client_js_1.default.city.create({
             data: {
                 name,
             },
         });
-        ResponseApi.success(res, "City create succesfully", category);
+        response_js_1.default.success(res, "City create succesfully", category);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failled to create City", error);
+        response_js_1.default.error(res, "Failled to create City", error);
     }
 });
+exports.createCity = createCity;
 //obtenir toutes les villes
-export const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const cities = yield prisma.city.findMany({
+        const cities = yield prisma_client_js_1.default.city.findMany({
             orderBy: { name: "asc" },
         });
-        ResponseApi.success(res, "Categories retrieved succesfully", cities);
+        response_js_1.default.success(res, "Categories retrieved succesfully", cities);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failled to fect all cities", error);
+        response_js_1.default.error(res, "Failled to fect all cities", error);
     }
 });
+exports.getAllCities = getAllCities;
 //obtenir une ville en fonction de son id
-export const getCityById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const getCityById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         //verification de l'id
         if (!id) {
-            return ResponseApi.notFound(res, "Id is not Found");
+            return response_js_1.default.notFound(res, "Id is not Found");
         }
         //recuperation de la ville
-        const city = yield prisma.city.findUnique({
+        const city = yield prisma_client_js_1.default.city.findUnique({
             where: { id },
             include: {
                 products: {
@@ -77,49 +85,50 @@ export const getCityById = (req, res) => __awaiter(void 0, void 0, void 0, funct
             },
         });
         if (!city) {
-            return ResponseApi.notFound(res, "city not Found");
+            return response_js_1.default.notFound(res, "city not Found");
         }
-        ResponseApi.success(res, "City retrieved succesfully", city);
+        response_js_1.default.success(res, "City retrieved succesfully", city);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failled to get city", error);
+        response_js_1.default.error(res, "Failled to get city", error);
     }
 });
+exports.getCityById = getCityById;
 //mise a jour de la ville
-export const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         const { name } = req.body;
         //verification de l'id
         if (!id) {
-            return ResponseApi.notFound(res, "Id is not Found");
+            return response_js_1.default.notFound(res, "Id is not Found");
         }
         //verifions si la ville existe
-        const existingCity = yield prisma.city.findFirst({
+        const existingCity = yield prisma_client_js_1.default.city.findFirst({
             where: { name: { equals: name } },
         });
         if (!existingCity) {
-            return ResponseApi.notFound(res, "City not Found");
+            return response_js_1.default.notFound(res, "City not Found");
         }
         // Vérifier si le nouveau nom est déjà utilisé
         if (name && name.toLowerCase() !== existingCity.name.toLowerCase()) {
-            const nameExists = yield prisma.city.findFirst({
+            const nameExists = yield prisma_client_js_1.default.city.findFirst({
                 where: { name: { equals: name }, NOT: { id } },
             });
             if (nameExists) {
-                return ResponseApi.notFound(res, "city name already in use");
+                return response_js_1.default.notFound(res, "city name already in use");
             }
         }
-        const category = yield prisma.city.update({
+        const category = yield prisma_client_js_1.default.city.update({
             where: { id },
             data: {
                 name
             },
         });
-        ResponseApi.success(res, "city update succesfully", category);
+        response_js_1.default.success(res, "city update succesfully", category);
     }
     catch (error) {
         console.log("====================================");
@@ -127,32 +136,34 @@ export const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, functi
         console.log("====================================");
     }
 });
+exports.updateCity = updateCity;
 //suprimer une ville
-export const deleteCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const deleteCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         //verifions si la ville existe
-        const existingCity = yield prisma.city.findFirst({
+        const existingCity = yield prisma_client_js_1.default.city.findFirst({
             where: { id },
         });
         if (!existingCity) {
-            return ResponseApi.notFound(res, "City not Found");
+            return response_js_1.default.notFound(res, "City not Found");
         }
         // Vérifier si la ville contient des produits
-        const productsCount = yield prisma.product.count({
+        const productsCount = yield prisma_client_js_1.default.product.count({
             where: { cityId: id },
         });
         if (productsCount > 0) {
-            return ResponseApi.notFound(res, "impossible to Delete ville  who have a product");
+            return response_js_1.default.notFound(res, "impossible to Delete ville  who have a product");
         }
         // Supprimer la ville
-        const city = yield prisma.city.delete({ where: { id } });
-        ResponseApi.success(res, "city Delete succesfully", city);
+        const city = yield prisma_client_js_1.default.city.delete({ where: { id } });
+        response_js_1.default.success(res, "city Delete succesfully", city);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failled to delete city", error);
+        response_js_1.default.error(res, "Failled to delete city", error);
     }
 });
+exports.deleteCity = deleteCity;

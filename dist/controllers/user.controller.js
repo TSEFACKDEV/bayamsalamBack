@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7,11 +8,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import ResponseApi from "../helper/response.js";
-import prisma from "../model/prisma.client.js";
-import { hashPassword } from "../utilities/bcrypt.js";
-import Utils from "../helper/utils.js";
-export const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteUser = exports.updateUser = exports.createUser = exports.getUserById = exports.getAllUsers = void 0;
+const response_js_1 = __importDefault(require("../helper/response.js"));
+const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
+const bcrypt_js_1 = require("../utilities/bcrypt.js");
+const utils_js_1 = __importDefault(require("../helper/utils.js"));
+const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -29,9 +35,9 @@ export const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, funct
                     firstName: { contains: search },
                 },
         };
-        const result = yield prisma.user.findMany(params);
-        const total = yield prisma.user.count(params);
-        ResponseApi.success(res, "User retrieved succesfully !!!", {
+        const result = yield prisma_client_js_1.default.user.findMany(params);
+        const total = yield prisma_client_js_1.default.user.count(params);
+        response_js_1.default.success(res, "User retrieved succesfully !!!", {
             users: result,
             links: {
                 perpage: limit,
@@ -47,50 +53,52 @@ export const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, funct
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "failled to getAll users", error.message);
+        response_js_1.default.error(res, "failled to getAll users", error.message);
     }
 });
-export const getUserById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAllUsers = getAllUsers;
+const getUserById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id = req.params.id;
     try {
         if (!id) {
-            return ResponseApi.notFound(res, "id is not found", 422);
+            return response_js_1.default.notFound(res, "id is not found", 422);
         }
-        const result = yield prisma.user.findFirst({
+        const result = yield prisma_client_js_1.default.user.findFirst({
             where: {
                 id,
             },
         });
         if (!result)
-            return ResponseApi.notFound(res, "User Is not Found");
-        ResponseApi.success(res, "user retrieved succesfully", result);
+            return response_js_1.default.notFound(res, "User Is not Found");
+        response_js_1.default.success(res, "user retrieved succesfully", result);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "failled to get user", error.message);
+        response_js_1.default.error(res, "failled to get user", error.message);
     }
 });
-export const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getUserById = getUserById;
+const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { firstName, lastName, email, password, phone } = req.body;
         if (!firstName || !lastName || !email || !password || !phone) {
-            return ResponseApi.error(res, "Missing required fields", 400);
+            return response_js_1.default.error(res, "Missing required fields", 400);
         }
-        const existingUser = yield prisma.user.findUnique({
+        const existingUser = yield prisma_client_js_1.default.user.findUnique({
             where: { email },
         });
         if (existingUser) {
-            return ResponseApi.error(res, "User already exists", 400);
+            return response_js_1.default.error(res, "User already exists", 400);
         }
         let avatar = null;
         if (req.files && req.files.avatar) {
             const avatarFile = req.files.avatar;
-            avatar = yield Utils.saveFile(avatarFile, "users");
+            avatar = yield utils_js_1.default.saveFile(avatarFile, "users");
         }
-        const hashed = yield hashPassword(password);
-        const newUser = yield prisma.user.create({
+        const hashed = yield (0, bcrypt_js_1.hashPassword)(password);
+        const newUser = yield prisma_client_js_1.default.user.create({
             data: {
                 firstName,
                 lastName,
@@ -100,79 +108,82 @@ export const createUser = (req, res) => __awaiter(void 0, void 0, void 0, functi
                 avatar: avatar,
             },
         });
-        ResponseApi.success(res, "User created successfully!", newUser);
+        response_js_1.default.success(res, "User created successfully!", newUser);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failed to create user", error.message);
+        response_js_1.default.error(res, "Failed to create user", error.message);
     }
 });
-export const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.createUser = createUser;
+const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id = req.params.id;
     if (!id) {
-        return ResponseApi.notFound(res, "id is not found", 422);
+        return response_js_1.default.notFound(res, "id is not found", 422);
     }
     try {
         const { name, email, password, phone } = req.body;
         const data = { name, email, phone };
-        const existingUser = yield prisma.user.findUnique({
+        const existingUser = yield prisma_client_js_1.default.user.findUnique({
             where: { id },
         });
         if (!existingUser) {
-            return ResponseApi.notFound(res, "User not found", 404);
+            return response_js_1.default.notFound(res, "User not found", 404);
         }
         // Gestion de l'avatar
         if (req.files && req.files.avatar) {
             // Supprimer l'ancien avatar si présent
             if (existingUser.avatar) {
-                yield Utils.deleteFile(existingUser.avatar);
+                yield utils_js_1.default.deleteFile(existingUser.avatar);
             }
             const avatarFile = req.files.avatar;
-            data.avatar = { url: yield Utils.saveFile(avatarFile, "users") };
+            data.avatar = { url: yield utils_js_1.default.saveFile(avatarFile, "users") };
         }
         if (password) {
-            data.password = yield hashPassword(password);
+            data.password = yield (0, bcrypt_js_1.hashPassword)(password);
         }
-        const updatedUser = yield prisma.user.update({
+        const updatedUser = yield prisma_client_js_1.default.user.update({
             where: { id },
             data,
         });
-        ResponseApi.success(res, "User updated successfully!", updatedUser);
+        response_js_1.default.success(res, "User updated successfully!", updatedUser);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failed to update user", error.message);
+        response_js_1.default.error(res, "Failed to update user", error.message);
     }
 });
-export const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.updateUser = updateUser;
+const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id = req.params.id;
     if (!id) {
-        return ResponseApi.notFound(res, "id is not found", 422);
+        return response_js_1.default.notFound(res, "id is not found", 422);
     }
     try {
-        const existingUser = yield prisma.user.findUnique({
+        const existingUser = yield prisma_client_js_1.default.user.findUnique({
             where: { id },
         });
         if (!existingUser) {
-            return ResponseApi.notFound(res, "User not found", 404);
+            return response_js_1.default.notFound(res, "User not found", 404);
         }
         // Supprimer l'avatar si présent
         if (existingUser.avatar) {
-            yield Utils.deleteFile(existingUser.avatar);
+            yield utils_js_1.default.deleteFile(existingUser.avatar);
         }
-        const user = yield prisma.user.delete({
+        const user = yield prisma_client_js_1.default.user.delete({
             where: { id },
         });
-        ResponseApi.success(res, "User deleted successfully!", user);
+        response_js_1.default.success(res, "User deleted successfully!", user);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.error(res, "Failed to delete user", error.message);
+        response_js_1.default.error(res, "Failed to delete user", error.message);
     }
 });
+exports.deleteUser = deleteUser;

@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7,27 +8,32 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import ResponseApi from "../helper/response.js";
-import jwt from "jsonwebtoken";
-import env from "../config/config.js";
-import prisma from "../model/prisma.client.js";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isAdmin = exports.authenticate = void 0;
+const response_js_1 = __importDefault(require("../helper/response.js"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const config_js_1 = __importDefault(require("../config/config.js"));
+const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 //Middlewqre pour verifier si l'utilisateur est authentifier
-export const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
         const token = (_a = req.header("Authorization")) === null || _a === void 0 ? void 0 : _a.replace("Bearer ", "");
         if (!token) {
-            return ResponseApi.notFound(res, "Authentification required");
+            return response_js_1.default.notFound(res, "Authentification required");
         }
-        const decoded = jwt.verify(token, env.jwtSecret);
+        const decoded = jsonwebtoken_1.default.verify(token, config_js_1.default.jwtSecret);
         //  console.log('====================================');
         // console.log("decoded", decoded);
         // console.log('====================================');
-        const user = yield prisma.user.findUnique({
+        const user = yield prisma_client_js_1.default.user.findUnique({
             where: { id: decoded.id },
         });
         if (!user) {
-            return ResponseApi.notFound(res, "User not Found");
+            return response_js_1.default.notFound(res, "User not Found");
         }
         // console.log('====================================');
         // console.log(user);
@@ -39,27 +45,29 @@ export const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        ResponseApi.notFound(res, "Invalid Token");
+        response_js_1.default.notFound(res, "Invalid Token");
     }
 });
+exports.authenticate = authenticate;
 //Middleware pour verifier si un utilisateur a l'authorization de faire certaine taches
-export const isAdmin = (req, res, next) => {
+const isAdmin = (req, res, next) => {
     const token = req.headers.authorization; // Prend le token tel quel, sans "Bearer "
     if (!token) {
-        ResponseApi.notFound(res, "Token manquant ou invalide");
+        response_js_1.default.notFound(res, "Token manquant ou invalide");
         return;
     }
     try {
-        const decoded = jwt.verify(token, env.jwtSecret);
+        const decoded = jsonwebtoken_1.default.verify(token, config_js_1.default.jwtSecret);
         // Vérifie si l'utilisateur a le rôle admin
         if (decoded.role !== "ADMIN") {
-            ResponseApi.notFound(res, "Accès refusé : utilisateur non autorisé");
+            response_js_1.default.notFound(res, "Accès refusé : utilisateur non autorisé");
             return;
         }
         req.user = decoded;
         next();
     }
     catch (error) {
-        ResponseApi.notFound(res, "Token invalide ou expiré");
+        response_js_1.default.notFound(res, "Token invalide ou expiré");
     }
 };
+exports.isAdmin = isAdmin;

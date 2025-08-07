@@ -36,6 +36,7 @@ app.use((0, express_fileupload_1.default)({
 // Static files
 app.use("/public", express_1.default.static(node_path_1.default.join(__dirname, "../public")));
 //Routes
+console.log("Mounting /api/bayamsalam routes");
 app.use("/api/bayamsalam", index_js_1.default);
 // Health check
 app.get('/api/bayamsalam', (req, res) => {

@@ -68,3 +68,28 @@ export const removeFromFavorites = async (
     ResponseApi.error(res, "Erreur lors du retrait des favoris", error.message);
   }
 };
+
+
+
+export const getUserFavorites = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return ResponseApi.error(res, "userId requis", null, 400);
+    }
+
+    const favorites = await prisma.favorite.findMany({
+      where: { userId },
+      include: { product: true }, // Inclut les infos du produit
+    });
+
+    ResponseApi.success(res, "Favoris récupérés avec succès", favorites, 200);
+  } catch (error: any) {
+    ResponseApi.error(res, "Erreur lors de la récupération des favoris", error.message);
+  }
+};
+// ...existing code...

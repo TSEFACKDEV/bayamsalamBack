@@ -15,7 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.assignPermissionsToRole = exports.destroy = exports.update = exports.create = exports.getById = exports.getAll = void 0;
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const response_js_1 = __importDefault(require("../helper/response.js"));
-const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const getAll = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     // Pagination parameters
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100;
@@ -52,10 +52,7 @@ const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         });
     }
     catch (error) {
-        response_js_1.default.error(res, 'Error retrieving permissions', error);
-        console.log('====================================');
-        console.log('Error in getAll:', error);
-        console.log('====================================');
+        next(error); // <-- transmet l'erreur au middleware global
     }
 });
 exports.getAll = getAll;

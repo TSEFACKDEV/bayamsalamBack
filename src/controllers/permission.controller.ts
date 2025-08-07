@@ -1,10 +1,10 @@
 import { promises } from "dns";
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import prisma from "../model/prisma.client.js";
 import ResponseApi from "../helper/response.js";
 
 
-export const getAll = async (req:Request, res:Response):Promise<any> => {
+export const getAll = async (req:Request, res:Response, next:NextFunction):Promise<any> => {
     // Pagination parameters
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 100;
@@ -42,10 +42,7 @@ export const getAll = async (req:Request, res:Response):Promise<any> => {
       },
     });
   } catch (error) {
-    ResponseApi.error(res, 'Error retrieving permissions', error);
-    console.log('====================================');
-    console.log('Error in getAll:', error);
-    console.log('====================================');
+    next(error); // <-- transmet l'erreur au middleware global
   }
 };
 

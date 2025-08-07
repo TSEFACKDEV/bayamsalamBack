@@ -46,16 +46,46 @@ exports.createCategory = createCategory;
 //obtenir toutes les category
 const getAllCategories = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const categories = yield prisma_client_js_1.default.category.findMany({
-            orderBy: { name: "asc" },
+        // Pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        // Recherche
+        const search = req.query.search || "";
+        // Construction du filtre de recherche
+        const where = {};
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: "insensitive" } },
+                { description: { contains: search, mode: "insensitive" } },
+            ];
+        }
+        // Récupération des catégories paginées et filtrées
+        const [categories, total] = yield Promise.all([
+            prisma_client_js_1.default.category.findMany({
+                where,
+                orderBy: { name: "asc" },
+                skip,
+                take: limit,
+            }),
+            prisma_client_js_1.default.category.count({ where }),
+        ]);
+        const totalPages = Math.ceil(total / limit);
+        response_js_1.default.success(res, "Categories retrieved succesfully", {
+            categories,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages,
+            },
         });
-        response_js_1.default.success(res, "Categories retrieved succesfully", categories);
     }
     catch (error) {
         console.log("====================================");
         console.log(error);
         console.log("====================================");
-        response_js_1.default.error(res, "Failled to fect all categories", error);
+        response_js_1.default.error(res, "Failled to fetch all categories", error);
     }
 });
 exports.getAllCategories = getAllCategories;

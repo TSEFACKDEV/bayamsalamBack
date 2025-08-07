@@ -1,4 +1,3 @@
-import { promises } from "dns";
 import { Request, Response } from "express";
 import ResponseApi from "../helper/response.js";
 import prisma from "../model/prisma.client.js";

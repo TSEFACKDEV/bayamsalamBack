@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeFromFavorites = exports.addToFavorites = void 0;
+exports.getUserFavorites = exports.removeFromFavorites = exports.addToFavorites = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -70,3 +70,22 @@ const removeFromFavorites = (req, res) => __awaiter(void 0, void 0, void 0, func
     }
 });
 exports.removeFromFavorites = removeFromFavorites;
+const getUserFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        if (!userId) {
+            return response_js_1.default.error(res, "userId requis", null, 400);
+        }
+        const favorites = yield prisma_client_js_1.default.favorite.findMany({
+            where: { userId },
+            include: { product: true }, // Inclut les infos du produit
+        });
+        response_js_1.default.success(res, "Favoris récupérés avec succès", favorites, 200);
+    }
+    catch (error) {
+        response_js_1.default.error(res, "Erreur lors de la récupération des favoris", error.message);
+    }
+});
+exports.getUserFavorites = getUserFavorites;
+// ...existing code...

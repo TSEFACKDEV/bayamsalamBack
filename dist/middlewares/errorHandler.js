@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.errorHandler = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const errorHandler = (err, req, res, next) => {
-    console.log(err.stack);
+    console.log(err);
     // Erreurs de validation Yup
     if (err.name === 'ValidationError') {
         return response_js_1.default.error(res, 'Validation failed', err.errors);
@@ -26,6 +26,9 @@ const errorHandler = (err, req, res, next) => {
         return response_js_1.default.error(res, 'Record not found', null);
     }
     // Erreur par défaut
-    return response_js_1.default.error(res, 'Internal server error', err);
+    console.log('====================================');
+    console.log(err);
+    console.log('====================================');
+    return response_js_1.default.error(res, 'Internal server error', err.stack);
 };
 exports.errorHandler = errorHandler;

@@ -13,8 +13,9 @@ import checkPermission from "../middlewares/checkPermission.js";
 
 const router = express.Router();
 
-router.patch('/:id/check', checkPermission("PRODUCT_REVIEW"), reviewProduct);
-router.get("/preview", checkPermission("PRODUCT_PREVIEW"), getPendingProducts);
+
+router.patch('/:id/check', authenticate, checkPermission("PRODUCT_REVIEW"), reviewProduct);
+router.get("/preview", authenticate, checkPermission("PRODUCT_PREVIEW"), getPendingProducts);
 
 router.get("/", getAllProducts);
 router.get("/:id", getProductById);

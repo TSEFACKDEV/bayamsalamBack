@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import ResponseApi from "../helper/response.js";
 
 export const errorHandler = (err: any, req:Request, res: Response, next:NextFunction): any  => {
-        console.log(err.stack)
+        console.log(err)
 
          // Erreurs de validation Yup
   if (err.name === 'ValidationError') {
@@ -26,5 +26,9 @@ export const errorHandler = (err: any, req:Request, res: Response, next:NextFunc
   }
 
   // Erreur par défaut
-  return ResponseApi.error(res, 'Internal server error',  err);
+  console.log('====================================');
+  console.log(err);
+  console.log('====================================');
+  return ResponseApi.error(res, 'Internal server error',  err.stack);
+  
 }

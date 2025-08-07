@@ -43,15 +43,50 @@ export const getAllCategories = async (
   res: Response
 ): Promise<any> => {
   try {
-    const categories = await prisma.category.findMany({
-      orderBy: { name: "asc" },
+    // Pagination
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    // Recherche
+    const search = (req.query.search as string) || "";
+
+    // Construction du filtre de recherche
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    // Récupération des catégories paginées et filtrées
+    const [categories, total] = await Promise.all([
+      prisma.category.findMany({
+        where,
+        orderBy: { name: "asc" },
+        skip,
+        take: limit,
+      }),
+      prisma.category.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    ResponseApi.success(res, "Categories retrieved succesfully", {
+      categories,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
     });
-    ResponseApi.success(res, "Categories retrieved succesfully", categories);
   } catch (error) {
     console.log("====================================");
     console.log(error);
     console.log("====================================");
-    ResponseApi.error(res, "Failled to fect all categories", error);
+    ResponseApi.error(res, "Failled to fetch all categories", error);
   }
 };
 

@@ -29,7 +29,8 @@ app.use("/public", express.static(path.join(__dirname, "../public")));
 
 
 //Routes
-app.use("/api/bayamsalam",Router)
+console.log("Mounting /api/bayamsalam routes");
+app.use("/api/bayamsalam", Router)
 
 // Health check
 app.get('/api/bayamsalam', (req, res) => {

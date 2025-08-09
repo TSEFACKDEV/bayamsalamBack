@@ -1,12 +1,14 @@
 import { NextFunction, Request, Response } from "express";
 import ResponseApi from "../helper/response.js";
 
-export const errorHandler = (err: any, req:Request, res: Response, next:NextFunction): any  => {
-        console.log(err)
+export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction): any => {
+  console.log("====================================");
+  console.log(err);
+  console.log("====================================");
 
-         // Erreurs de validation Yup
+  // Erreurs de validation Yup
   if (err.name === 'ValidationError') {
-    return ResponseApi.error(res,'Validation failed', err.errors);
+    return ResponseApi.error(res, 'Validation failed', err.errors);
   }
 
   // Erreurs JWT
@@ -14,7 +16,7 @@ export const errorHandler = (err: any, req:Request, res: Response, next:NextFunc
     return ResponseApi.error(res, 'Invalid token', err.errors);
   }
   if (err.name === 'TokenExpiredError') {
-    return ResponseApi.error(res,'Token expired', null);
+    return ResponseApi.error(res, 'Token expired', null);
   }
 
   // Erreur Prisma
@@ -22,13 +24,13 @@ export const errorHandler = (err: any, req:Request, res: Response, next:NextFunc
     return ResponseApi.error(res, 'Duplicate field value', null);
   }
   if (err.code === 'P2025') {
-    return ResponseApi.error(res,'Record not found', null);
+    return ResponseApi.error(res, 'Record not found', null);
   }
 
   // Erreur par défaut
   console.log('====================================');
   console.log(err);
   console.log('====================================');
-  return ResponseApi.error(res, 'Internal server error',  err.stack);
-  
+  return ResponseApi.error(res, 'Internal server error', err.stack);
+
 }

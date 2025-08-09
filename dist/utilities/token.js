@@ -3,15 +3,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyToken = exports.generateResToken = exports.generateToken = void 0;
+exports.verifyToken = exports.generateResToken = exports.generateRefreshToken = exports.generateToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const config_js_1 = __importDefault(require("../config/config.js"));
 const generateToken = (payload) => {
     return jsonwebtoken_1.default.sign(payload, config_js_1.default.jwtSecret, { expiresIn: "1d" });
 };
 exports.generateToken = generateToken;
+const generateRefreshToken = (payload) => {
+    return jsonwebtoken_1.default.sign(payload, config_js_1.default.refreshTokenSecretKey, { expiresIn: "30d" });
+};
+exports.generateRefreshToken = generateRefreshToken;
 const generateResToken = (payload) => {
-    return jsonwebtoken_1.default.sign(payload, config_js_1.default.jwtSecret, { expiresIn: "1h" });
+    return jsonwebtoken_1.default.sign(payload, config_js_1.default.jwtSecret, { expiresIn: "15min" });
 };
 exports.generateResToken = generateResToken;
 const verifyToken = (token) => {

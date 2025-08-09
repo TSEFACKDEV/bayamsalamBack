@@ -6,7 +6,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.errorHandler = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const errorHandler = (err, req, res, next) => {
+    console.log("====================================");
     console.log(err);
+    console.log("====================================");
     // Erreurs de validation Yup
     if (err.name === 'ValidationError') {
         return response_js_1.default.error(res, 'Validation failed', err.errors);

@@ -22,5 +22,6 @@ const env = {
     nexahPassword: process.env.NEXAH_PASSWORD || "",
     nexahSenderId: process.env.NEXAH_SENDER_ID || "",
     frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
+    refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || ""
 };
 exports.default = env;

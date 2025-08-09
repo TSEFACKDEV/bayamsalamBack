@@ -19,6 +19,7 @@ interface Env {
   nexahPassword: string;
   nexahSenderId: string;
   frontendUrl: string;
+  refreshTokenSecretKey: string
 }
 
 const env: Env = {
@@ -38,6 +39,7 @@ const env: Env = {
   nexahPassword: process.env.NEXAH_PASSWORD || "",
   nexahSenderId: process.env.NEXAH_SENDER_ID || "",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
+  refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || ""
 };
 
 export default env;

@@ -42,9 +42,7 @@ const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         next();
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
+        next(error);
         response_js_1.default.notFound(res, "Invalid Token");
     }
 });

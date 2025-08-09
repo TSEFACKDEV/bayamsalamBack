@@ -13,8 +13,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-
 enum AccountStatus {
   PENDING
   ACTIVE
@@ -33,28 +31,59 @@ enum Etat {
   CORRECT
 }
 
+/**
+ * model User {
+ * id           String        @id @default(uuid()) @db.VarChar(36)
+ * firstName    String
+ * lastName     String
+ * email        String        @unique @db.VarChar(191)
+ * password     String
+ * roles        UserRole[]
+ * status       AccountStatus @default(PENDING)
+ * avatar       String? // une imge comme photo de profile c'est facultatif
+ * phone        String? // numéro de téléphone facultatif
+ * cinPdf       String? // PDF de la carte d'identité
+ * otp          String? // Code OTP pour la vérification
+ * isVerified   Boolean       @default(false) // Indique si l'utilisateur a vérifié son compte
+ * createdAt    DateTime      @default(now())
+ * updatedAt    DateTime      @updatedAt
+ * products     Product[]
+ * contacts     Contact[]
+ * reviewsGiven   Review[] @relation("Reviewer")
+ * reviewsReceived Review[] @relation("Author")
+ * favorites    Favorite[]
+ * resetToken   String?
+ * resetExpires DateTime?
+ * }
+ */
+
 model User {
-  id           String        @id @default(uuid()) @db.VarChar(36)
-  firstName    String
-  lastName     String
-  email        String        @unique @db.VarChar(191)
-  password     String
-  roles        UserRole[]
-  status       AccountStatus @default(PENDING)
-  avatar       String? // une imge comme photo de profile c'est facultatif
-  phone        String? // numéro de téléphone facultatif
-  cinPdf       String? // PDF de la carte d'identité
-  otp          String? // Code OTP pour la vérification
-  isVerified   Boolean       @default(false) // Indique si l'utilisateur a vérifié son compte
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  products     Product[]
-  contacts     Contact[]
-  reviewsGiven   Review[] @relation("Reviewer")
-  reviewsReceived Review[] @relation("Author")
-  favorites    Favorite[]
-  resetToken   String?
-  resetExpires DateTime?
+  id              String          @id @default(uuid()) @db.VarChar(36)
+  firstName       String
+  lastName        String
+  email           String          @unique @db.VarChar(191)
+  password        String
+  roles           UserRole[]
+  status          AccountStatus   @default(PENDING)
+  avatar          String? // une imge comme photo de profile c'est facultatif
+  phone           String? // numéro de téléphone facultatif
+  cinPdf          String? // PDF de la carte d'identité
+  otp             String? // Code OTP pour la vérification
+  isVerified      Boolean         @default(false) // Indique si l'utilisateur a vérifié son compte
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  products        Product[]
+  contacts        Contact[]
+  reviewsGiven    Review[]        @relation("Reviewer")
+  reviewsReceived Review[]        @relation("Author")
+  favorites       Favorite[]
+  lastConnexion   DateTime?
+  token           String?
+  expireAtToken   DateTime?
+  refreshToken    String?
+  resetToken      String?
+  resetExpires    DateTime?
+  connectionLog   ConnectionLog[]
 }
 
 model Role {
@@ -78,10 +107,10 @@ model Permission {
 }
 
 model UserRole {
-  id         String      @id @default(uuid()) @db.VarChar(36)
-  roleId     String      @db.VarChar(36)
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  roleId     String   @db.VarChar(36)
   role       Role     @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  userId     String      @db.VarChar(36)
+  userId     String   @db.VarChar(36)
   user       User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   assignedAt DateTime @default(now())
   assignedBy String?
@@ -90,10 +119,10 @@ model UserRole {
 }
 
 model RolePermission {
-  id           String        @id @default(uuid()) @db.VarChar(36)
-  roleId       String        @db.VarChar(36)
+  id           String     @id @default(uuid()) @db.VarChar(36)
+  roleId       String     @db.VarChar(36)
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  permissionId String        @db.VarChar(36)
+  permissionId String     @db.VarChar(36)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   assignedAt   DateTime   @default(now())
 
@@ -142,12 +171,12 @@ model City {
 model Review {
   id        String   @id @default(uuid())
   rating    Int // Note de 1 à 5
-  userId    String   // Celui qui laisse la note
-  authorId  String   // Celui qui reçoit la note (auteur du produit)
+  userId    String // Celui qui laisse la note
+  authorId  String // Celui qui reçoit la note (auteur du produit)
   createdAt DateTime @default(now())
 
-  user      User     @relation("Reviewer", fields: [userId], references: [id])
-  author    User     @relation("Author", fields: [authorId], references: [id])
+  user   User @relation("Reviewer", fields: [userId], references: [id])
+  author User @relation("Author", fields: [authorId], references: [id])
 }
 
 model Contact {
@@ -170,4 +199,13 @@ model Favorite {
   createdAt DateTime @default(now())
 
   @@unique([userId, productId])
+}
+
+model ConnectionLog {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  ipAddress String
+  userAgent String
+  userId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 }

@@ -36,9 +36,8 @@ export const authenticate = async (
     req.user = user;
     next();
   } catch (error) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
+  
+    next(error);
     ResponseApi.notFound(res, "Invalid Token");
   }
 };

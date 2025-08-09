@@ -1,9 +1,11 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
+import { hashPassword, comparePassword } from "../utilities/bcrypt.js";
 import {
-  hashPassword,
-  comparePassword,
-} from "../utilities/bcrypt.js";
-import { generateToken, generateResToken, verifyToken } from "../utilities/token.js";
+  generateToken,
+  generateResToken,
+  verifyToken,
+  generateRefreshToken,
+} from "../utilities/token.js";
 import { sendEmail } from "../utilities/mailer.js";
 import { sendSMS } from "../utilities/sms.js";
 import { generateOTP, validateOTP } from "../utilities/otp.js";
@@ -28,10 +30,16 @@ interface LoginData {
 
 export const register = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, password, firstName, lastName, phone }: RegisterData = req.body;
+    const { email, password, firstName, lastName, phone }: RegisterData =
+      req.body;
 
     if (!email || !password || !firstName || !lastName || !phone) {
-      return ResponseApi.error(res, "Tous les champs sont obligatoires", null, 400);
+      return ResponseApi.error(
+        res,
+        "Tous les champs sont obligatoires",
+        null,
+        400
+      );
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -39,7 +47,12 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (existingUser) {
-      return ResponseApi.error(res, "Un utilisateur avec cet email existe déjà", null, 400);
+      return ResponseApi.error(
+        res,
+        "Un utilisateur avec cet email existe déjà",
+        null,
+        400
+      );
     }
 
     const hashedPassword = await hashPassword(password);
@@ -81,12 +94,22 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       data: { otp },
     });
 
-    return ResponseApi.success(res, "Inscription réussie. Veuillez vérifier votre OTP.", {
-      userId: newUser.id,
-    }, 201);
+    return ResponseApi.success(
+      res,
+      "Inscription réussie. Veuillez vérifier votre OTP.",
+      {
+        userId: newUser.id,
+      },
+      201
+    );
   } catch (error: any) {
     console.error("Erreur lors de l'inscription:", error);
-    return ResponseApi.error(res, "Une erreur est survenue lors de l'inscription", error.message, 500);
+    return ResponseApi.error(
+      res,
+      "Une erreur est survenue lors de l'inscription",
+      error.message,
+      500
+    );
   }
 };
 
@@ -126,108 +149,236 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
     return ResponseApi.success(res, "OTP vérifié avec succès", user, 200);
   } catch (error: any) {
     console.error("Erreur lors de la vérification OTP:", error);
-    return ResponseApi.error(res, "Une erreur est survenue lors de la vérification OTP", error.message, 500);
+    return ResponseApi.error(
+      res,
+      "Une erreur est survenue lors de la vérification OTP",
+      error.message,
+      500
+    );
   }
 };
-
-// export const login = async (req: Request, res: Response): Promise<any> => {
-//   try {
-//     const { email, password }: LoginData = req.body;
-
-//     if (!email || !password) {
-//       return ResponseApi.error(res, "Email et mot de passe sont requis", null, 400);
-//     }
-
-//     const user = await prisma.user.findUnique({
-//       where: { email },
-//     });
-
-//     if (!user) {
-//       return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
-//     }
-
-//     if (!user.isVerified) {
-//       return ResponseApi.error(res, "Compte non vérifié. Veuillez vérifier votre email.", null, 403);
-//     }
-
-//     const isPasswordValid = await comparePassword(password, user.password);
-
-//     if (!isPasswordValid) {
-//       return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
-//     }
-
-//     const token = generateToken({
-//       id: user.id,
-//       email: user.email,
-//     });
-
-//     const { password: _, ...userData } = user;
-
-//     return ResponseApi.success(res, "Connexion réussie", {
-//       token,
-//       user: userData,
-//     });
-//   } catch (error: any) {
-//     console.error("Erreur lors de la connexion:", error);
-//     return ResponseApi.error(res, "Une erreur est survenue lors de la connexion", error.message, 500);
-//   }
-// };
 
 
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, phone, password }: { email?: string; phone?: string; password: string } = req.body;
+    const { identifiant, password }: { identifiant: string; password: string } =
+      req.body;
 
-    if ((!email && !phone) || !password) {
-      return ResponseApi.error(res, "Email ou téléphone et mot de passe sont requis", null, 400);
+    if (!identifiant || !password) {
+      return ResponseApi.error(
+        res,
+        "Identifiant et mot de passe sont requis",
+        null,
+        400
+      );
     }
 
     const user = await prisma.user.findFirst({
       where: {
-        OR: [
-          email ? { email } : undefined,
-          phone ? { phone } : undefined,
-        ].filter(Boolean) as any,
+        OR: [{ email: identifiant }, { phone: identifiant }],
+      },
+      include: {
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     if (!user) {
-      return ResponseApi.error(res, "Email/téléphone ou mot de passe incorrect", null, 401);
+      return ResponseApi.error(
+        res,
+        "Identifiant ou mot de passe incorrect",
+        null,
+        401
+      );
     }
 
     if (!user.isVerified) {
-      return ResponseApi.error(res, "Compte non vérifié. Veuillez vérifier votre email.", null, 403);
+      return ResponseApi.error(
+        res,
+        "Compte non vérifié. Veuillez vérifier votre email.",
+        null,
+        403
+      );
     }
 
     const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid) {
-      return ResponseApi.error(res, "Email/téléphone ou mot de passe incorrect", null, 401);
+      return ResponseApi.error(
+        res,
+        " Identifiant ou mot de passe incorrect",
+        null,
+        401
+      );
     }
 
-    const token = generateToken({
+    const AccessToken = generateToken({
+      id: user.id,
+      email: user.email,
+    });
+
+    const refreshToken = generateRefreshToken({
       id: user.id,
       email: user.email,
     });
 
     const { password: _, ...userData } = user;
 
+        const permissions = userData.roles.flatMap((userRole) => {
+      return userRole.role.permissions.map((permission) => {
+        return { permissionKey: permission.permission.permissionKey, title: permission.permission.title };
+      });
+    });
+
+    const permissionKeys = user.roles.flatMap((userRole) => {
+      return userRole.role.permissions.map((permission) => {
+        return permission.permission.permissionKey;
+      });
+    });
+
+    const roles = user.roles.map((userRole) => {
+      return userRole.role.name;
+    });
+
+    // Récuperation des permissions sans doublons
+    const uniquePermissions = Array.from(
+      new Map(
+        permissions.map((permission) => {
+          return [permission.permissionKey, permission];
+        }),
+      ).values(),
+    );
+
+    // userData.roles = roles;
+    // userData.permissions = uniquePermissions;
+    // userData.permissionKeys = permissionKeys;
+
+
     return ResponseApi.success(res, "Connexion réussie", {
-      token,
+      token: {
+        type: "Bearer",
+        AccessToken,
+        refreshToken,
+      },
       user: userData,
     });
   } catch (error: any) {
     console.error("Erreur lors de la connexion:", error);
-    return ResponseApi.error(res, "Une erreur est survenue lors de la connexion", error.message, 500);
+    return ResponseApi.error(
+      res,
+      "Une erreur est survenue lors de la connexion",
+      error.message,
+      500
+    );
   }
 };
 
 
-export const logout = async (req: Request, res: Response): Promise<any> => {
-  return ResponseApi.success(res, "Déconnexion réussie",null);
+/**
+ * Refresh TOKEN
+ */
+
+export const refreshToken = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { jwt } = req.cookies;
+    const refreshToken = jwt;
+
+    if (!refreshToken) {
+      return ResponseApi.error(res, "No Refresh Token found", 400);
+    }
+
+    const decoded = verifyToken(refreshToken);
+    if (!decoded) {
+      return ResponseApi.error(res, "Invalid Refresh Token", 400);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!user) {
+      return ResponseApi.error(res, "User not found", 404);
+    }
+
+    const newAccessToken = generateToken({
+      id: user.id,
+      email: user.email,
+    });
+
+    return ResponseApi.success(res, "Token refreshed successfully", {
+      token: {
+        type: "Bearer",
+        AccessToken: newAccessToken,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error refreshing token:", error);
+    return ResponseApi.error(
+      res,
+      "An error occurred while refreshing token",
+      error.message,
+      500
+    );
+  }
 };
 
-export const forgotPassword = async (req: Request, res: Response): Promise<any> => {
+/**
+ * Déconnexion de l'utilisateur.
+ */
+export const logout = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<any> => {
+  try {
+    const { jwt } = req.cookies;
+    const refreshToken = jwt;
+
+    if (!refreshToken) {
+      return ResponseApi.error(res, "No Refresh Token found", 400);
+    }
+
+    // Révoquer le Refresh Token dans la base de données
+    const user = await prisma.user.findFirst({ where: { refreshToken } });
+    if (!user) {
+      return ResponseApi.error(res, "Invalid Refresh Token", 400);
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken: null },
+    });
+
+    // Supprimer le cookie
+    res.clearCookie("jwt", {
+      httpOnly: true,
+      secure: env.port === "3001" ? false : true,
+    });
+
+    ResponseApi.success(res, "Logout successful !!!", {}, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const forgotPassword = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { email } = req.body;
 
@@ -252,11 +403,11 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
       where: { id: user.id },
       data: {
         resetToken,
-        resetExpires: new Date(Date.now() + 3600000),
+        resetExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
       },
     });
 
-    const resetUrl = `${env.frontendUrl}/reset-password?token=${resetToken}`;
+    const resetUrl = `${env.frontendUrl}?token=${resetToken}`;
     const emailSent = await sendEmail(
       email,
       "Réinitialisation de votre mot de passe",
@@ -265,22 +416,45 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
     );
 
     if (!emailSent) {
-      return ResponseApi.error(res, "Erreur lors de l'envoi de l'email", null, 500);
+      return ResponseApi.error(
+        res,
+        "Erreur lors de l'envoi de l'email",
+        null,
+        500
+      );
     }
 
-    return ResponseApi.success(res, "Email de réinitialisation envoyé", null, 200);
+    return ResponseApi.success(
+      res,
+      "Email de réinitialisation envoyé",
+      null,
+      200
+    );
   } catch (error: any) {
     console.error("Erreur lors de la demande de réinitialisation:", error);
-    return ResponseApi.error(res, "Une erreur est survenue lors de la demande de réinitialisation", error.message, 500);
+    return ResponseApi.error(
+      res,
+      "Une erreur est survenue lors de la demande de réinitialisation",
+      error.message,
+      500
+    );
   }
 };
 
-export const resetPassword = async (req: Request, res: Response): Promise<any> => {
+export const resetPassword = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { token, newPassword } = req.body;
 
     if (!token || !newPassword) {
-      return ResponseApi.error(res, "Token et nouveau mot de passe sont requis", null, 400);
+      return ResponseApi.error(
+        res,
+        "Token et nouveau mot de passe sont requis",
+        null,
+        400
+      );
     }
 
     const decoded = verifyToken(token);
@@ -296,13 +470,13 @@ export const resetPassword = async (req: Request, res: Response): Promise<any> =
       return ResponseApi.error(res, "Token invalide ou expiré", null, 400);
     }
 
-    if (user.resetExpires < new Date()) {
-      return ResponseApi.error(res, "Token expiré", null, 400);
-    }
+    // if (user.resetExpires > new Date()) {
+    //   return ResponseApi.error(res, "Token expiré", null, 400);
+    // }
 
     const hashedPassword = await hashPassword(newPassword);
 
-   const newUser = await prisma.user.update({
+    const newUser = await prisma.user.update({
       where: { id: decoded.id },
       data: {
         password: hashedPassword,
@@ -311,9 +485,95 @@ export const resetPassword = async (req: Request, res: Response): Promise<any> =
       },
     });
 
-    return ResponseApi.success(res, "Mot de passe réinitialisé avec succès", newUser, 200);
+    return ResponseApi.success(
+      res,
+      "Mot de passe réinitialisé avec succès",
+      newUser,
+      200
+    );
   } catch (error: any) {
     console.error("Erreur lors de la réinitialisation du mot de passe:", error);
-    return ResponseApi.error(res, "Une erreur est survenue lors de la réinitialisation du mot de passe", error.message, 500);
+    return ResponseApi.error(
+      res,
+      "Une erreur est survenue lors de la réinitialisation du mot de passe",
+      error.message,
+      500
+    );
+  }
+};
+
+export const getUserProfile = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return ResponseApi.error(res, "Utilisateur non authentifié", null, 401);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        isVerified: true,
+        status: true,
+        products: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            quantity: true,
+            description: true,
+            images: true,
+            status: true,
+            etat: true,
+            quartier: true,
+            telephone: true,
+            createdAt: true,
+            updatedAt: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            city: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return ResponseApi.notFound(res, "Utilisateur non trouvé", 404);
+    }
+
+    return ResponseApi.success(
+      res,
+      "Profil utilisateur récupéré avec succès",
+      user,
+      200
+    );
+  } catch (error: any) {
+    console.error(
+      "Erreur lors de la récupération du profil utilisateur:",
+      error
+    );
+    return ResponseApi.error(
+      res,
+      "Une erreur est survenue lors de la récupération du profil utilisateur",
+      error.message,
+      500
+    );
   }
 };

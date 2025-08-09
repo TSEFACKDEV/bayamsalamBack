@@ -23,7 +23,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetPassword = exports.forgotPassword = exports.logout = exports.login = exports.verifyOTP = exports.register = void 0;
+exports.getUserProfile = exports.resetPassword = exports.forgotPassword = exports.logout = exports.refreshToken = exports.login = exports.verifyOTP = exports.register = void 0;
 const bcrypt_js_1 = require("../utilities/bcrypt.js");
 const token_js_1 = require("../utilities/token.js");
 const mailer_js_1 = require("../utilities/mailer.js");
@@ -117,70 +117,77 @@ const verifyOTP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.verifyOTP = verifyOTP;
-// export const login = async (req: Request, res: Response): Promise<any> => {
-//   try {
-//     const { email, password }: LoginData = req.body;
-//     if (!email || !password) {
-//       return ResponseApi.error(res, "Email et mot de passe sont requis", null, 400);
-//     }
-//     const user = await prisma.user.findUnique({
-//       where: { email },
-//     });
-//     if (!user) {
-//       return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
-//     }
-//     if (!user.isVerified) {
-//       return ResponseApi.error(res, "Compte non vérifié. Veuillez vérifier votre email.", null, 403);
-//     }
-//     const isPasswordValid = await comparePassword(password, user.password);
-//     if (!isPasswordValid) {
-//       return ResponseApi.error(res, "Email ou mot de passe incorrect", null, 401);
-//     }
-//     const token = generateToken({
-//       id: user.id,
-//       email: user.email,
-//     });
-//     const { password: _, ...userData } = user;
-//     return ResponseApi.success(res, "Connexion réussie", {
-//       token,
-//       user: userData,
-//     });
-//   } catch (error: any) {
-//     console.error("Erreur lors de la connexion:", error);
-//     return ResponseApi.error(res, "Une erreur est survenue lors de la connexion", error.message, 500);
-//   }
-// };
 const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { email, phone, password } = req.body;
-        if ((!email && !phone) || !password) {
-            return response_js_1.default.error(res, "Email ou téléphone et mot de passe sont requis", null, 400);
+        const { identifiant, password } = req.body;
+        if (!identifiant || !password) {
+            return response_js_1.default.error(res, "Identifiant et mot de passe sont requis", null, 400);
         }
         const user = yield prisma_client_js_1.default.user.findFirst({
             where: {
-                OR: [
-                    email ? { email } : undefined,
-                    phone ? { phone } : undefined,
-                ].filter(Boolean),
+                OR: [{ email: identifiant }, { phone: identifiant }],
+            },
+            include: {
+                roles: {
+                    include: {
+                        role: {
+                            include: {
+                                permissions: {
+                                    include: {
+                                        permission: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             },
         });
         if (!user) {
-            return response_js_1.default.error(res, "Email/téléphone ou mot de passe incorrect", null, 401);
+            return response_js_1.default.error(res, "Identifiant ou mot de passe incorrect", null, 401);
         }
         if (!user.isVerified) {
             return response_js_1.default.error(res, "Compte non vérifié. Veuillez vérifier votre email.", null, 403);
         }
         const isPasswordValid = yield (0, bcrypt_js_1.comparePassword)(password, user.password);
         if (!isPasswordValid) {
-            return response_js_1.default.error(res, "Email/téléphone ou mot de passe incorrect", null, 401);
+            return response_js_1.default.error(res, " Identifiant ou mot de passe incorrect", null, 401);
         }
-        const token = (0, token_js_1.generateToken)({
+        const AccessToken = (0, token_js_1.generateToken)({
+            id: user.id,
+            email: user.email,
+        });
+        const refreshToken = (0, token_js_1.generateRefreshToken)({
             id: user.id,
             email: user.email,
         });
         const { password: _ } = user, userData = __rest(user, ["password"]);
+        const permissions = userData.roles.flatMap((userRole) => {
+            return userRole.role.permissions.map((permission) => {
+                return { permissionKey: permission.permission.permissionKey, title: permission.permission.title };
+            });
+        });
+        const permissionKeys = user.roles.flatMap((userRole) => {
+            return userRole.role.permissions.map((permission) => {
+                return permission.permission.permissionKey;
+            });
+        });
+        const roles = user.roles.map((userRole) => {
+            return userRole.role.name;
+        });
+        // Récuperation des permissions sans doublons
+        const uniquePermissions = Array.from(new Map(permissions.map((permission) => {
+            return [permission.permissionKey, permission];
+        })).values());
+        // userData.roles = roles;
+        // userData.permissions = uniquePermissions;
+        // userData.permissionKeys = permissionKeys;
         return response_js_1.default.success(res, "Connexion réussie", {
-            token,
+            token: {
+                type: "Bearer",
+                AccessToken,
+                refreshToken,
+            },
             user: userData,
         });
     }
@@ -190,8 +197,72 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.login = login;
-const logout = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    return response_js_1.default.success(res, "Déconnexion réussie", null);
+/**
+ * Refresh TOKEN
+ */
+const refreshToken = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { jwt } = req.cookies;
+        const refreshToken = jwt;
+        if (!refreshToken) {
+            return response_js_1.default.error(res, "No Refresh Token found", 400);
+        }
+        const decoded = (0, token_js_1.verifyToken)(refreshToken);
+        if (!decoded) {
+            return response_js_1.default.error(res, "Invalid Refresh Token", 400);
+        }
+        const user = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: decoded.id },
+        });
+        if (!user) {
+            return response_js_1.default.error(res, "User not found", 404);
+        }
+        const newAccessToken = (0, token_js_1.generateToken)({
+            id: user.id,
+            email: user.email,
+        });
+        return response_js_1.default.success(res, "Token refreshed successfully", {
+            token: {
+                type: "Bearer",
+                AccessToken: newAccessToken,
+            },
+        });
+    }
+    catch (error) {
+        console.error("Error refreshing token:", error);
+        return response_js_1.default.error(res, "An error occurred while refreshing token", error.message, 500);
+    }
+});
+exports.refreshToken = refreshToken;
+/**
+ * Déconnexion de l'utilisateur.
+ */
+const logout = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { jwt } = req.cookies;
+        const refreshToken = jwt;
+        if (!refreshToken) {
+            return response_js_1.default.error(res, "No Refresh Token found", 400);
+        }
+        // Révoquer le Refresh Token dans la base de données
+        const user = yield prisma_client_js_1.default.user.findFirst({ where: { refreshToken } });
+        if (!user) {
+            return response_js_1.default.error(res, "Invalid Refresh Token", 400);
+        }
+        yield prisma_client_js_1.default.user.update({
+            where: { id: user.id },
+            data: { refreshToken: null },
+        });
+        // Supprimer le cookie
+        res.clearCookie("jwt", {
+            httpOnly: true,
+            secure: config_js_1.default.port === "3001" ? false : true,
+        });
+        response_js_1.default.success(res, "Logout successful !!!", {}, 200);
+    }
+    catch (error) {
+        next(error);
+    }
 });
 exports.logout = logout;
 const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -214,10 +285,10 @@ const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
             where: { id: user.id },
             data: {
                 resetToken,
-                resetExpires: new Date(Date.now() + 3600000),
+                resetExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
             },
         });
-        const resetUrl = `${config_js_1.default.frontendUrl}/reset-password?token=${resetToken}`;
+        const resetUrl = `${config_js_1.default.frontendUrl}?token=${resetToken}`;
         const emailSent = yield (0, mailer_js_1.sendEmail)(email, "Réinitialisation de votre mot de passe", `Cliquez sur ce lien pour réinitialiser votre mot de passe: ${resetUrl}`, `<p>Cliquez <a href="${resetUrl}">ici</a> pour réinitialiser votre mot de passe.</p>`);
         if (!emailSent) {
             return response_js_1.default.error(res, "Erreur lors de l'envoi de l'email", null, 500);
@@ -246,9 +317,9 @@ const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         if (!user || user.resetToken !== token || !user.resetExpires) {
             return response_js_1.default.error(res, "Token invalide ou expiré", null, 400);
         }
-        if (user.resetExpires < new Date()) {
-            return response_js_1.default.error(res, "Token expiré", null, 400);
-        }
+        // if (user.resetExpires > new Date()) {
+        //   return ResponseApi.error(res, "Token expiré", null, 400);
+        // }
         const hashedPassword = yield (0, bcrypt_js_1.hashPassword)(newPassword);
         const newUser = yield prisma_client_js_1.default.user.update({
             where: { id: decoded.id },
@@ -266,3 +337,61 @@ const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.resetPassword = resetPassword;
+const getUserProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        if (!userId) {
+            return response_js_1.default.error(res, "Utilisateur non authentifié", null, 401);
+        }
+        const user = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                isVerified: true,
+                status: true,
+                products: {
+                    select: {
+                        id: true,
+                        name: true,
+                        price: true,
+                        quantity: true,
+                        description: true,
+                        images: true,
+                        status: true,
+                        etat: true,
+                        quartier: true,
+                        telephone: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        category: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                        city: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        if (!user) {
+            return response_js_1.default.notFound(res, "Utilisateur non trouvé", 404);
+        }
+        return response_js_1.default.success(res, "Profil utilisateur récupéré avec succès", user, 200);
+    }
+    catch (error) {
+        console.error("Erreur lors de la récupération du profil utilisateur:", error);
+        return response_js_1.default.error(res, "Une erreur est survenue lors de la récupération du profil utilisateur", error.message, 500);
+    }
+});
+exports.getUserProfile = getUserProfile;

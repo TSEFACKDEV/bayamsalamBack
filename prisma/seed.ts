@@ -14,7 +14,50 @@ const USER_PERMISSIONS = [
   "PRODUCT_CREATE", "PRODUCT_UPDATE", "PRODUCT_DELETE"
 ];
 
+const cities = [
+  {name:"Douala"},
+  {name:"Yaoundé"},
+  {name:"Bamenda"},
+  {name:"Garoua"},
+  {name:"Maroua"},
+  {name:"Bertoua"},
+  {name:"Ebolowa"},
+  {name:"Bafoussam"},
+  {name:"Dschang"},
+  {name:"Limbe"},
+  {name:"Buea"},
+  {name:"Nkongsamba"}
+];
+
+const categories = [
+  { name: "Électronique", description:"Appareils et gadgets électroniques" },
+  { name: "Vêtements", description:"Vêtements pour hommes, femmes et enfants" },
+  { name: "Meubles", description:"Meubles pour la maison et le bureau" },
+  { name: "Jouets", description:"Jouets pour enfants de tous âges" },
+  { name: "Livres", description:"Livres de tous genres" },
+  { name: "Sport", description:"Équipements et vêtements de sport" },
+  { name: "Automobile", description:"Véhicules et accessoires automobiles" },
+  { name: "Immobilier", description:"Biens immobiliers et terrains" },
+  { name: "Services", description:"Services divers" },
+  { name: "Autres", description:"Catégories diverses" }
+];
+
 async function main() {
+
+
+      // Créer toutes les permissions
+  for (const key of PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { permissionKey: key },
+      update: {},
+      create: {
+        permissionKey: key,
+        title: key.replace(/_/g, " "),
+        description: `Permission for ${key}`,
+      },
+    });
+  }
+
   // Créer toutes les permissions
   for (const key of PERMISSIONS) {
     await prisma.permission.upsert({
@@ -70,7 +113,41 @@ async function main() {
     });
   }
 
-  console.log("Seed terminé !");
+  // Ajouter les villes
+  for (const city of cities) {
+    await prisma.city.upsert({
+      where: { name: city.name },
+      update: {},
+      create: city,
+    });
+  }
+
+  // Ajouter des catégories
+  for (const category of categories) {
+    await prisma.category.upsert({
+      where: { name: category.name },
+      update: {},
+      create: {
+        name: category.name,
+        description: category.description
+      },
+    });
+  }
+
+  // Créer toutes les permissions
+  for (const key of PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { permissionKey: key },
+      update: {},
+      create: {
+        permissionKey: key,
+        title: key.replace(/_/g, " "),
+        description: `Permission for ${key}`,
+      },
+    });
+  }
+
+  
 }
 
 main()

@@ -12,19 +12,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPendingProducts = exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getAllProducts = void 0;
+exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
+// pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
     try {
-        const where = {
-            status: "VALIDATED",
-        };
+        const where = {};
         if (search) {
             where.name = { contains: search, mode: "insensitive" };
         }
@@ -70,7 +69,91 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
 });
 exports.getAllProducts = getAllProducts;
+//pour recuperer tous les produits sans pagination [pour le developpeur]
+const getAllProductsWithoutPagination = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const products = yield prisma_client_js_1.default.product.findMany({
+            orderBy: { createdAt: "desc" },
+            include: {
+                category: true,
+                city: true,
+                user: true,
+            },
+        });
+        response_js_1.default.success(res, "Products retrieved successfully!", {
+            products,
+        });
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        response_js_1.default.error(res, "Failed to get all products", error.message);
+    }
+});
+exports.getAllProductsWithoutPagination = getAllProductsWithoutPagination;
+//pour recuperer tous les produits avec un status = VALIDATED, pagination et recherche [pour les utilisateurs]
+const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    const search = req.query.search || "";
+    try {
+        const where = { status: "VALIDATED" };
+        if (search) {
+            where.name = { contains: search, mode: "insensitive" };
+        }
+        const products = yield prisma_client_js_1.default.product.findMany({
+            skip: offset,
+            take: limit,
+            orderBy: { createdAt: "desc" },
+            where,
+            include: {
+                category: true,
+                city: true,
+                user: true,
+            },
+        });
+        const total = yield prisma_client_js_1.default.product.count({ where });
+        response_js_1.default.success(res, "Validated products retrieved successfully!", {
+            products,
+            links: {
+                perpage: limit,
+                prevPage: page > 1 ? page - 1 : null,
+                currentPage: page,
+                nextPage: offset + limit < total ? page + 1 : null,
+                totalPage: Math.ceil(total / limit),
+                total: total,
+            },
+        });
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        response_js_1.default.error(res, "Failed to get validated products", error.message);
+    }
+});
+exports.getValidatedProducts = getValidatedProducts;
+// pour voire tous les produits nouvellement creer avec un statut PENDING [administrateurs]
+const getPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const pendingProducts = yield prisma_client_js_1.default.product.findMany({
+            where: { status: 'PENDING' },
+            orderBy: { createdAt: 'desc' },
+        });
+        response_js_1.default.success(res, "Pending products retrieved successfully", pendingProducts);
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        response_js_1.default.error(res, "Failed to retrieve pending products", error.message);
+    }
+});
+exports.getPendingProducts = getPendingProducts;
 const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    ``;
     const id = req.params.id;
     try {
         if (!id) {
@@ -270,20 +353,3 @@ const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.reviewProduct = reviewProduct;
-// pour voire tous les produits nouvellement creer avec un statut PENDING
-const getPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const pendingProducts = yield prisma_client_js_1.default.product.findMany({
-            where: { status: 'PENDING' },
-            orderBy: { createdAt: 'desc' },
-        });
-        response_js_1.default.success(res, "Pending products retrieved successfully", pendingProducts);
-    }
-    catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
-        response_js_1.default.error(res, "Failed to retrieve pending products", error.message);
-    }
-});
-exports.getPendingProducts = getPendingProducts;

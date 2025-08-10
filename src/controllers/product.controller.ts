@@ -3,6 +3,7 @@ import ResponseApi from "../helper/response.js";
 import prisma from "../model/prisma.client.js";
 import Utils from "../helper/utils.js";
 
+// pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 export const getAllProducts = async (
   req: Request,
   res: Response
@@ -12,9 +13,7 @@ export const getAllProducts = async (
   const offset = (page - 1) * limit;
   const search = (req.query.search as string) || "";
   try {
-    const where: any = {
-      status: "VALIDATED",
-    };
+    const where: any = {};
     if (search) {
       where.name = { contains: search, mode: "insensitive" };
     }
@@ -69,10 +68,107 @@ export const getAllProducts = async (
   }
 };
 
-export const getProductById = async (
+//pour recuperer tous les produits sans pagination [pour le developpeur]
+
+export const getAllProductsWithoutPagination = async (
   req: Request,
   res: Response
 ): Promise<any> => {
+  try {
+    const products = await prisma.product.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        category: true,
+        city: true,
+        user: true,
+      },
+    });
+
+    ResponseApi.success(res, "Products retrieved successfully!", {
+      products,
+    });
+  } catch (error: any) {
+    console.log("====================================");
+    console.log(error);
+    console.log("====================================");
+    ResponseApi.error(res, "Failed to get all products", error.message);
+  }
+};
+
+
+//pour recuperer tous les produits avec un status = VALIDATED, pagination et recherche [pour les utilisateurs]
+
+export const getValidatedProducts = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const offset = (page - 1) * limit;
+  const search = (req.query.search as string) || "";
+  try {
+    const where: any = { status: "VALIDATED" };
+    if (search) {
+      where.name = { contains: search, mode: "insensitive" };
+    }
+
+    const products = await prisma.product.findMany({
+      skip: offset,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      where,
+      include: {
+        category: true,
+        city: true,
+        user: true,
+      },
+    });
+
+    const total = await prisma.product.count({ where });
+
+    ResponseApi.success(res, "Validated products retrieved successfully!", {
+      products,
+      links: {
+        perpage: limit,
+        prevPage: page > 1 ? page - 1 : null,
+        currentPage: page,
+        nextPage: offset + limit < total ? page + 1 : null,
+        totalPage: Math.ceil(total / limit),
+        total: total,
+      },
+    });
+  } catch (error: any) {
+    console.log("====================================");
+    console.log(error);
+    console.log("====================================");
+    ResponseApi.error(res, "Failed to get validated products", error.message);
+  }
+};
+
+
+// pour voire tous les produits nouvellement creer avec un statut PENDING [administrateurs]
+export const getPendingProducts = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const pendingProducts = await prisma.product.findMany({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+    });
+    ResponseApi.success(res, "Pending products retrieved successfully", pendingProducts);
+  } catch (error: any) {
+    console.log("====================================");
+    console.log(error);
+    console.log("====================================");
+    ResponseApi.error(res, "Failed to retrieve pending products", error.message);
+  }
+};
+
+export const getProductById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {``
   const id = req.params.id;
   try {
     if (!id) {
@@ -318,22 +414,5 @@ export const reviewProduct = async (
 
 
 
-// pour voire tous les produits nouvellement creer avec un statut PENDING
-export const getPendingProducts = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  try {
-    const pendingProducts = await prisma.product.findMany({
-      where: { status: 'PENDING' },
-      orderBy: { createdAt: 'desc' },
-    });
-    ResponseApi.success(res, "Pending products retrieved successfully", pendingProducts);
-  } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failed to retrieve pending products", error.message);
-  }
-};
+
 

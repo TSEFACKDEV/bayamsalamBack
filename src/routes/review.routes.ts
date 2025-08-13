@@ -10,7 +10,6 @@ import { authenticate } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-
 router.get("/", getAllReviews);
 router.get("/:id", getReviewById);
 

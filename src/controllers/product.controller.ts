@@ -37,8 +37,12 @@ export const getAllProducts = async (
         const userReviews = await prisma.review.findMany({
           where: { userId: product.userId },
         });
-        const totalPoints = userReviews.reduce((sum, r) => sum + (r.rating || 0), 0);
-        const averagePoints = userReviews.length > 0 ? totalPoints / userReviews.length : null;
+        const totalPoints = userReviews.reduce(
+          (sum, r) => sum + (r.rating || 0),
+          0
+        );
+        const averagePoints =
+          userReviews.length > 0 ? totalPoints / userReviews.length : null;
         return {
           ...product,
           userTotalPoints: totalPoints,
@@ -95,7 +99,6 @@ export const getAllProductsWithoutPagination = async (
   }
 };
 
-
 //pour recuperer tous les produits avec un status = VALIDATED, pagination et recherche [pour les utilisateurs]
 
 export const getValidatedProducts = async (
@@ -145,7 +148,6 @@ export const getValidatedProducts = async (
   }
 };
 
-
 // pour voire tous les produits nouvellement creer avec un statut PENDING [administrateurs]
 export const getPendingProducts = async (
   req: Request,
@@ -153,22 +155,31 @@ export const getPendingProducts = async (
 ): Promise<any> => {
   try {
     const pendingProducts = await prisma.product.findMany({
-      where: { status: 'PENDING' },
-      orderBy: { createdAt: 'desc' },
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "desc" },
     });
-    ResponseApi.success(res, "Pending products retrieved successfully", pendingProducts);
+    ResponseApi.success(
+      res,
+      "Pending products retrieved successfully",
+      pendingProducts
+    );
   } catch (error: any) {
     console.log("====================================");
     console.log(error);
     console.log("====================================");
-    ResponseApi.error(res, "Failed to retrieve pending products", error.message);
+    ResponseApi.error(
+      res,
+      "Failed to retrieve pending products",
+      error.message
+    );
   }
 };
 
 export const getProductById = async (
   req: Request,
   res: Response
-): Promise<any> => {``
+): Promise<any> => {
+  ``;
   const id = req.params.id;
   try {
     if (!id) {
@@ -196,10 +207,19 @@ export const createProduct = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone } =
-      req.body;
+    const {
+      name,
+      price,
+      quantity,
+      description,
+      categoryId,
+      cityId,
+      etat,
+      quartier,
+      telephone,
+    } = req.body;
 
-    const userId = req.user?.id
+    const userId = req.user?.id;
 
     // Validation basique
     if (
@@ -209,7 +229,7 @@ export const createProduct = async (
       !description ||
       !categoryId ||
       !cityId ||
-      !etat 
+      !etat
     ) {
       return ResponseApi.error(res, "Tous les champs sont requis", null, 400);
     }
@@ -373,8 +393,6 @@ export const deleteProduct = async (
   }
 };
 
-
-
 export const reviewProduct = async (
   req: Request,
   res: Response
@@ -388,16 +406,16 @@ export const reviewProduct = async (
       return ResponseApi.notFound(res, "Product not found", 404);
     }
     //verifie si l'action est valide
-    if (action === 'validate') {
+    if (action === "validate") {
       await prisma.product.update({
         where: { id },
-        data: { status: 'VALIDATED' },
+        data: { status: "VALIDATED" },
       });
       return ResponseApi.success(res, "Product validated successfully", null);
-    } else if (action === 'reject') {
+    } else if (action === "reject") {
       await prisma.product.update({
         where: { id },
-        data: { status: 'REJECTED' },
+        data: { status: "REJECTED" },
       });
       return ResponseApi.success(res, "Product rejected successfully", null);
     } else {
@@ -408,11 +426,5 @@ export const reviewProduct = async (
     console.log(error);
     console.log("====================================");
     ResponseApi.error(res, "Failed to review product", error.message);
-
   }
-}
-
-
-
-
-
+};

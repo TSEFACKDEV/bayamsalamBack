@@ -25,7 +25,8 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
     try {
         const where = {};
         if (search) {
-            where.name = { contains: search, mode: "insensitive" };
+            // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
+            where.name = { contains: search };
         }
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
@@ -101,7 +102,8 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     try {
         const where = { status: "VALIDATED" };
         if (search) {
-            where.name = { contains: search, mode: "insensitive" };
+            // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
+            where.name = { contains: search };
         }
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,

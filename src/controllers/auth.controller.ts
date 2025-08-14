@@ -13,7 +13,6 @@ import prisma from "../model/prisma.client.js";
 import env from "../config/config.js";
 import ResponseApi from "../helper/response.js";
 
-
 interface RegisterData {
   email: string;
   password: string;
@@ -158,7 +157,6 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {
     const { identifiant, password }: { identifiant: string; password: string } =
@@ -235,9 +233,12 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
     const { password: _, ...userData } = user;
 
-        const permissions = userData.roles.flatMap((userRole) => {
+    const permissions = userData.roles.flatMap((userRole) => {
       return userRole.role.permissions.map((permission) => {
-        return { permissionKey: permission.permission.permissionKey, title: permission.permission.title };
+        return {
+          permissionKey: permission.permission.permissionKey,
+          title: permission.permission.title,
+        };
       });
     });
 
@@ -256,14 +257,13 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       new Map(
         permissions.map((permission) => {
           return [permission.permissionKey, permission];
-        }),
-      ).values(),
+        })
+      ).values()
     );
 
     // userData.roles = roles;
     // userData.permissions = uniquePermissions;
     // userData.permissionKeys = permissionKeys;
-
 
     return ResponseApi.success(res, "Connexion réussie", {
       token: {
@@ -283,7 +283,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     );
   }
 };
-
 
 /**
  * Refresh TOKEN
@@ -523,6 +522,46 @@ export const getUserProfile = async (
         phone: true,
         isVerified: true,
         status: true,
+        avatar: true,
+        createdAt: true,
+        updatedAt: true,
+        lastConnexion: true,
+        roles: {
+          select: {
+            id: true,
+            roleId: true,
+            userId: true,
+            assignedAt: true,
+            assignedBy: true,
+            role: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                createdAt: true,
+                updatedAt: true,
+                permissions: {
+                  select: {
+                    id: true,
+                    roleId: true,
+                    permissionId: true,
+                    assignedAt: true,
+                    permission: {
+                      select: {
+                        id: true,
+                        permissionKey: true,
+                        title: true,
+                        description: true,
+                        createdAt: true,
+                        updatedAt: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         products: {
           select: {
             id: true,

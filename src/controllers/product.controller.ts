@@ -15,7 +15,8 @@ export const getAllProducts = async (
   try {
     const where: any = {};
     if (search) {
-      where.name = { contains: search, mode: "insensitive" };
+      // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
+      where.name = { contains: search };
     }
 
     const products = await prisma.product.findMany({
@@ -112,7 +113,8 @@ export const getValidatedProducts = async (
   try {
     const where: any = { status: "VALIDATED" };
     if (search) {
-      where.name = { contains: search, mode: "insensitive" };
+      // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
+      where.name = { contains: search };
     }
 
     const products = await prisma.product.findMany({

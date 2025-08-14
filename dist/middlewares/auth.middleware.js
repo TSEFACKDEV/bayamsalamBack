@@ -42,8 +42,7 @@ const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         next();
     }
     catch (error) {
-        next(error);
-        response_js_1.default.notFound(res, "Invalid Token");
+        return response_js_1.default.notFound(res, "Invalid Token");
     }
 });
 exports.authenticate = authenticate;

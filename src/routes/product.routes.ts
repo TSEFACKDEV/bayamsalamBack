@@ -15,11 +15,7 @@ import checkPermission from "../middlewares/checkPermission.js";
 
 const router = express.Router();
 
-
-
-//pour recuperer tous les produits avec un status = VALIDATED [utilisateurs]
-
-
+// Routes pour les produits
 
 router.post("/", authenticate, checkPermission("PRODUCT_CREATE"), createProduct);
 router.put("/:id", authenticate, checkPermission("PRODUCT_UPDATE"), updateProduct);
@@ -34,7 +30,7 @@ router.get("/all", authenticate, checkPermission("PRODUCT_READ"), getAllProducts
 //pour recuperer tous les produits sans pagination[developpeurs]
 router.get("/dev", authenticate, checkPermission("PRODUCT_READ"), getAllProductsWithoutPagination);
 
-
+//pour recuperer tous les produits avec un status = VALIDATED [utilisateurs]
 router.get("/", getValidatedProducts);
 router.get("/:id", getProductById);
 

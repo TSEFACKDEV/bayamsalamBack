@@ -66,6 +66,10 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         }
         const otp = (0, otp_js_1.generateOTP)();
         const smsSent = yield (0, sms_js_1.sendSMS)(phone, `Votre code OTP est: ${otp}`);
+        /* log de l'otp pour le developement sans connexion */
+        console.log('====================================');
+        console.log(otp);
+        console.log('====================================');
         if (!smsSent) {
             yield (0, mailer_js_1.sendEmail)(email, "Votre code de vérification", `Votre code OTP est: ${otp}`);
         }

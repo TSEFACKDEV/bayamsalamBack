@@ -80,6 +80,10 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 
     const otp = generateOTP();
     const smsSent = await sendSMS(phone, `Votre code OTP est: ${otp}`);
+/* log de l'otp pour le developement sans connexion */
+    console.log('====================================');
+    console.log(otp);
+    console.log('====================================');
 
     if (!smsSent) {
       await sendEmail(

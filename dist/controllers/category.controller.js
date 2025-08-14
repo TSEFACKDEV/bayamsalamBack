@@ -52,12 +52,12 @@ const getAllCategories = (req, res) => __awaiter(void 0, void 0, void 0, functio
         const skip = (page - 1) * limit;
         // Recherche
         const search = req.query.search || "";
-        // Construction du filtre de recherche
+        // Construction du filtre de recherche - Compatible MySQL
         const where = {};
         if (search) {
             where.OR = [
-                { name: { contains: search, mode: "insensitive" } },
-                { description: { contains: search, mode: "insensitive" } },
+                { name: { contains: search } },
+                { description: { contains: search } },
             ];
         }
         // Récupération des catégories paginées et filtrées

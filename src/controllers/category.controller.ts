@@ -51,12 +51,12 @@ export const getAllCategories = async (
     // Recherche
     const search = (req.query.search as string) || "";
 
-    // Construction du filtre de recherche
+    // Construction du filtre de recherche - Compatible MySQL
     const where: any = {};
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { name: { contains: search } },
+        { description: { contains: search } },
       ];
     }
 

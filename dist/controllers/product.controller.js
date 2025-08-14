@@ -165,6 +165,11 @@ const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function*
             where: {
                 id,
             },
+            include: {
+                category: true,
+                city: true,
+                user: true, // Inclure les données de l'utilisateur
+            },
         });
         if (!result) {
             return response_js_1.default.notFound(res, "Product not found", 404);

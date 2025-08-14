@@ -191,6 +191,11 @@ export const getProductById = async (
       where: {
         id,
       },
+      include: {
+        category: true,
+        city: true,
+        user: true, // Inclure les données de l'utilisateur
+      },
     });
     if (!result) {
       return ResponseApi.notFound(res, "Product not found", 404);

@@ -17,10 +17,12 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.11.0",
+    "@types/cookie-parser": "^1.4.9",
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clx": "^1.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.0.1",
     "express": "^5.1.0",

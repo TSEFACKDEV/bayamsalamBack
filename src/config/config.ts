@@ -38,7 +38,7 @@ const env: Env = {
   nexahUser: process.env.NEXAH_USER || "",
   nexahPassword: process.env.NEXAH_PASSWORD || "",
   nexahSenderId: process.env.NEXAH_SENDER_ID || "",
-  frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173/auth/reset-password",
   refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || ""
 };
 

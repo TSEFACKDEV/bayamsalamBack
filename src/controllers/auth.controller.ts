@@ -79,10 +79,10 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 
     const otp = generateOTP();
     const smsSent = await sendSMS(phone, `Votre code OTP est: ${otp}`);
-/* log de l'otp pour le developement sans connexion */
-    console.log('====================================');
+    /* log de l'otp pour le developement sans connexion */
+    console.log("====================================");
     console.log(otp);
-    console.log('====================================');
+    console.log("====================================");
 
     if (!smsSent) {
       await sendEmail(
@@ -357,6 +357,7 @@ export const logout = async (
 
     // Révoquer le Refresh Token dans la base de données
     const user = await prisma.user.findFirst({ where: { refreshToken } });
+     console.log("Utilisateur trouvé pour ce refreshToken:", user); // Ajoute ce log
     if (!user) {
       return ResponseApi.error(res, "Invalid Refresh Token", 400);
     }
@@ -469,13 +470,15 @@ export const resetPassword = async (
       where: { id: decoded.id },
     });
 
+  
+
     if (!user || user.resetToken !== token || !user.resetExpires) {
       return ResponseApi.error(res, "Token invalide ou expiré", null, 400);
     }
 
-    // if (user.resetExpires > new Date()) {
-    //   return ResponseApi.error(res, "Token expiré", null, 400);
-    // }
+    if (user.resetExpires < new Date()) {
+      return ResponseApi.error(res, "Token expiré", null, 400);
+    }
 
     const hashedPassword = await hashPassword(newPassword);
 

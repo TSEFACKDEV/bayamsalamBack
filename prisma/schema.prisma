@@ -81,7 +81,7 @@ model User {
   token           String?
   expireAtToken   DateTime?
   refreshToken    String?
-  resetToken      String?
+  resetToken      String?   @db.VarChar(512)
   resetExpires    DateTime?
   connectionLog   ConnectionLog[]
 }

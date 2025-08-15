@@ -25,7 +25,8 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
     try {
         const where = {};
         if (search) {
-            where.name = { contains: search, mode: "insensitive" };
+            // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
+            where.name = { contains: search };
         }
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
@@ -101,7 +102,8 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     try {
         const where = { status: "VALIDATED" };
         if (search) {
-            where.name = { contains: search, mode: "insensitive" };
+            // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
+            where.name = { contains: search };
         }
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
@@ -139,8 +141,8 @@ exports.getValidatedProducts = getValidatedProducts;
 const getPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const pendingProducts = yield prisma_client_js_1.default.product.findMany({
-            where: { status: 'PENDING' },
-            orderBy: { createdAt: 'desc' },
+            where: { status: "PENDING" },
+            orderBy: { createdAt: "desc" },
         });
         response_js_1.default.success(res, "Pending products retrieved successfully", pendingProducts);
     }
@@ -163,6 +165,11 @@ const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function*
             where: {
                 id,
             },
+            include: {
+                category: true,
+                city: true,
+                user: true, // Inclure les données de l'utilisateur
+            },
         });
         if (!result) {
             return response_js_1.default.notFound(res, "Product not found", 404);
@@ -180,7 +187,7 @@ exports.getProductById = getProductById;
 const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone } = req.body;
+        const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone, } = req.body;
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         // Validation basique
         if (!name ||
@@ -327,17 +334,17 @@ const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             return response_js_1.default.notFound(res, "Product not found", 404);
         }
         //verifie si l'action est valide
-        if (action === 'validate') {
+        if (action === "validate") {
             yield prisma_client_js_1.default.product.update({
                 where: { id },
-                data: { status: 'VALIDATED' },
+                data: { status: "VALIDATED" },
             });
             return response_js_1.default.success(res, "Product validated successfully", null);
         }
-        else if (action === 'reject') {
+        else if (action === "reject") {
             yield prisma_client_js_1.default.product.update({
                 where: { id },
-                data: { status: 'REJECTED' },
+                data: { status: "REJECTED" },
             });
             return response_js_1.default.success(res, "Product rejected successfully", null);
         }

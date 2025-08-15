@@ -30,7 +30,7 @@ const createCategory = (req, res) => __awaiter(void 0, void 0, void 0, function*
         const category = yield prisma_client_js_1.default.category.create({
             data: {
                 name,
-                description
+                description,
             },
         });
         response_js_1.default.success(res, "Category create succesfully", category);
@@ -52,12 +52,12 @@ const getAllCategories = (req, res) => __awaiter(void 0, void 0, void 0, functio
         const skip = (page - 1) * limit;
         // Recherche
         const search = req.query.search || "";
-        // Construction du filtre de recherche
+        // Construction du filtre de recherche - Compatible MySQL
         const where = {};
         if (search) {
             where.OR = [
-                { name: { contains: search, mode: "insensitive" } },
-                { description: { contains: search, mode: "insensitive" } },
+                { name: { contains: search } },
+                { description: { contains: search } },
             ];
         }
         // Récupération des catégories paginées et filtrées
@@ -137,14 +137,14 @@ const updateCategory = (req, res) => __awaiter(void 0, void 0, void 0, function*
         if (!id) {
             return response_js_1.default.notFound(res, "Id is not Found");
         }
-        //verifions si la categorie existe
-        const existingCategory = yield prisma_client_js_1.default.category.findFirst({
-            where: { name: { equals: name } },
+        //verifions si la categorie existe (par ID, pas par nom!)
+        const existingCategory = yield prisma_client_js_1.default.category.findUnique({
+            where: { id },
         });
         if (!existingCategory) {
             return response_js_1.default.notFound(res, "Category not Found");
         }
-        // Vérifier si le nouveau nom est déjà utilisé
+        // Vérifier si le nouveau nom est déjà utilisé (seulement si le nom change)
         if (name && name.toLowerCase() !== existingCategory.name.toLowerCase()) {
             const nameExists = yield prisma_client_js_1.default.category.findFirst({
                 where: { name: { equals: name }, NOT: { id } },
@@ -181,7 +181,9 @@ const deleteCategory = (req, res) => __awaiter(void 0, void 0, void 0, function*
             return response_js_1.default.notFound(res, "Category not Found");
         }
         // Vérifier si la catégorie contient des produits
-        const productsCount = yield prisma_client_js_1.default.product.count({ where: { categoryId: id } });
+        const productsCount = yield prisma_client_js_1.default.product.count({
+            where: { categoryId: id },
+        });
         if (productsCount > 0) {
             return response_js_1.default.notFound(res, "impossible to Delete Category who have a product");
         }

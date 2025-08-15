@@ -36,14 +36,16 @@ export const authenticate = async (
     req.user = user;
     next();
   } catch (error) {
-  
-    next(error);
-    ResponseApi.notFound(res, "Invalid Token");
+    return ResponseApi.notFound(res, "Invalid Token");
   }
 };
 
 //Middleware pour verifier si un utilisateur a l'authorization de faire certaine taches
-export const isAdmin = (req: Request, res: Response, next: NextFunction): void => {
+export const isAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   const token = req.headers.authorization; // Prend le token tel quel, sans "Bearer "
 
   if (!token) {

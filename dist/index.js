@@ -25,13 +25,13 @@ const bcrypt_js_1 = require("./utilities/bcrypt.js"); // adapte le chemin si bes
 const app = (0, express_1.default)();
 //Middleware
 app.use((0, cors_1.default)());
-app.use((0, morgan_1.default)('dev'));
+app.use((0, morgan_1.default)("dev"));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use((0, express_fileupload_1.default)({
     createParentPath: true,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-    abortOnLimit: true
+    abortOnLimit: true,
 }));
 // Static files
 app.use("/public", express_1.default.static(node_path_1.default.join(__dirname, "../public")));
@@ -39,15 +39,17 @@ app.use("/public", express_1.default.static(node_path_1.default.join(__dirname, 
 console.log("Mounting /api/bayamsalam routes");
 app.use("/api/bayamsalam", index_js_1.default);
 // Health check
-app.get('/api/bayamsalam', (req, res) => {
-    res.status(200).json({ status: 'OK', timestamp: new Date() });
+app.get("/api/bayamsalam", (req, res) => {
+    res.status(200).json({ status: "OK", timestamp: new Date() });
 });
-//creation des admins 
+//creation des admins
 function createSuperAdmin() {
     return __awaiter(this, void 0, void 0, function* () {
         const email = "tsefackcalvinklein@gmail.com";
         try {
-            const superAdminRole = yield prisma_client_js_1.default.role.findUnique({ where: { name: "SUPER_ADMIN" } });
+            const superAdminRole = yield prisma_client_js_1.default.role.findUnique({
+                where: { name: "SUPER_ADMIN" },
+            });
             if (!superAdminRole) {
                 console.error("Le rôle SUPER_ADMIN n'existe pas. Veuillez lancer le seed d'abord.");
                 return;
@@ -72,7 +74,7 @@ function createSuperAdmin() {
             }
             // Assigner le rôle SUPER_ADMIN si ce n'est pas déjà fait
             const alreadyAssigned = yield prisma_client_js_1.default.userRole.findUnique({
-                where: { userId_roleId: { userId: user.id, roleId: superAdminRole.id } }
+                where: { userId_roleId: { userId: user.id, roleId: superAdminRole.id } },
             });
             if (!alreadyAssigned) {
                 yield prisma_client_js_1.default.userRole.create({

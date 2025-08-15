@@ -104,43 +104,42 @@ export const updateCity = async (req: Request, res: Response): Promise<any> => {
       return ResponseApi.notFound(res, "Id is not Found");
     }
 
-    //verifions si la ville existe
-    const existingCity = await prisma.city.findFirst({
-      where: { name: { equals: name } },
+    //verifions si la ville existe par ID
+    const existingCity = await prisma.city.findUnique({
+      where: { id },
     });
 
     if (!existingCity) {
       return ResponseApi.notFound(res, "City not Found");
     }
 
-    // Vérifier si le nouveau nom est déjà utilisé
+    // Vérifier si le nouveau nom est déjà utilisé par une autre ville
     if (name && name.toLowerCase() !== existingCity.name.toLowerCase()) {
       const nameExists = await prisma.city.findFirst({
         where: { name: { equals: name }, NOT: { id } },
       });
       if (nameExists) {
-        return ResponseApi.notFound(res, "city name already in use");
+        return ResponseApi.error(res, "city name already in use", null);
       }
     }
-    const category = await prisma.city.update({
+
+    const updatedCity = await prisma.city.update({
       where: { id },
       data: {
-        name
+        name,
       },
     });
-    ResponseApi.success(res, "city update succesfully", category);
+    ResponseApi.success(res, "city update succesfully", updatedCity);
   } catch (error) {
     console.log("====================================");
-    console.log("Failled to update city");
+    console.log("Failled to update city", error);
     console.log("====================================");
+    ResponseApi.error(res, "Failled to update city", error);
   }
 };
 
 //suprimer une ville
-export const deleteCity = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
+export const deleteCity = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
 

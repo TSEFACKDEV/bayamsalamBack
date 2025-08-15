@@ -23,7 +23,7 @@ export const createCategory = async (
     const category = await prisma.category.create({
       data: {
         name,
-        description
+        description,
       },
     });
 
@@ -51,12 +51,12 @@ export const getAllCategories = async (
     // Recherche
     const search = (req.query.search as string) || "";
 
-    // Construction du filtre de recherche
+    // Construction du filtre de recherche - Compatible MySQL
     const where: any = {};
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { name: { contains: search } },
+        { description: { contains: search } },
       ];
     }
 
@@ -147,16 +147,16 @@ export const updateCategory = async (
       return ResponseApi.notFound(res, "Id is not Found");
     }
 
-    //verifions si la categorie existe
-    const existingCategory = await prisma.category.findFirst({
-      where: { name: { equals: name } },
+    //verifions si la categorie existe (par ID, pas par nom!)
+    const existingCategory = await prisma.category.findUnique({
+      where: { id },
     });
 
     if (!existingCategory) {
       return ResponseApi.notFound(res, "Category not Found");
     }
 
-    // Vérifier si le nouveau nom est déjà utilisé
+    // Vérifier si le nouveau nom est déjà utilisé (seulement si le nom change)
     if (name && name.toLowerCase() !== existingCategory.name.toLowerCase()) {
       const nameExists = await prisma.category.findFirst({
         where: { name: { equals: name }, NOT: { id } },
@@ -196,16 +196,20 @@ export const deleteCategory = async (
     if (!existingCategory) {
       return ResponseApi.notFound(res, "Category not Found");
     }
-        // Vérifier si la catégorie contient des produits
-    const productsCount = await prisma.product.count({ where: { categoryId: id } });
+    // Vérifier si la catégorie contient des produits
+    const productsCount = await prisma.product.count({
+      where: { categoryId: id },
+    });
 
-    if (productsCount> 0) {
-        return ResponseApi.notFound(res,"impossible to Delete Category who have a product")
+    if (productsCount > 0) {
+      return ResponseApi.notFound(
+        res,
+        "impossible to Delete Category who have a product"
+      );
     }
-     // Supprimer la catégorie
+    // Supprimer la catégorie
     const category = await prisma.category.delete({ where: { id } });
-    ResponseApi.success(res,"category Delete succesfully",category)
-
+    ResponseApi.success(res, "category Delete succesfully", category);
   } catch (error) {
     console.log("====================================");
     console.log(error);

@@ -168,7 +168,10 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         const { password: _ } = user, userData = __rest(user, ["password"]);
         const permissions = userData.roles.flatMap((userRole) => {
             return userRole.role.permissions.map((permission) => {
-                return { permissionKey: permission.permission.permissionKey, title: permission.permission.title };
+                return {
+                    permissionKey: permission.permission.permissionKey,
+                    title: permission.permission.title,
+                };
             });
         });
         const permissionKeys = user.roles.flatMap((userRole) => {
@@ -358,6 +361,46 @@ const getUserProfile = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 phone: true,
                 isVerified: true,
                 status: true,
+                avatar: true,
+                createdAt: true,
+                updatedAt: true,
+                lastConnexion: true,
+                roles: {
+                    select: {
+                        id: true,
+                        roleId: true,
+                        userId: true,
+                        assignedAt: true,
+                        assignedBy: true,
+                        role: {
+                            select: {
+                                id: true,
+                                name: true,
+                                description: true,
+                                createdAt: true,
+                                updatedAt: true,
+                                permissions: {
+                                    select: {
+                                        id: true,
+                                        roleId: true,
+                                        permissionId: true,
+                                        assignedAt: true,
+                                        permission: {
+                                            select: {
+                                                id: true,
+                                                permissionKey: true,
+                                                title: true,
+                                                description: true,
+                                                createdAt: true,
+                                                updatedAt: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
                 products: {
                     select: {
                         id: true,

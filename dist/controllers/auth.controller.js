@@ -67,6 +67,10 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         }
         const otp = (0, otp_js_1.generateOTP)();
         const smsSent = yield (0, sms_js_1.sendSMS)(phone, `Votre code OTP est: ${otp}`);
+        /* log de l'otp pour le developement sans connexion */
+        console.log("====================================");
+        console.log(otp);
+        console.log("====================================");
         if (!smsSent) {
             // Plus besoin de logoUrl !
             const htmlTemplate = (0, otpEmailTemplate_js_1.createOTPEmailTemplate)(firstName, lastName, otp);
@@ -252,6 +256,7 @@ const logout = (req, res, next) => __awaiter(void 0, void 0, void 0, function* (
         }
         // Révoquer le Refresh Token dans la base de données
         const user = yield prisma_client_js_1.default.user.findFirst({ where: { refreshToken } });
+        console.log("Utilisateur trouvé pour ce refreshToken:", user); // Ajoute ce log
         if (!user) {
             return response_js_1.default.error(res, "Invalid Refresh Token", 400);
         }
@@ -323,9 +328,9 @@ const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         if (!user || user.resetToken !== token || !user.resetExpires) {
             return response_js_1.default.error(res, "Token invalide ou expiré", null, 400);
         }
-        // if (user.resetExpires > new Date()) {
-        //   return ResponseApi.error(res, "Token expiré", null, 400);
-        // }
+        if (user.resetExpires < new Date()) {
+            return response_js_1.default.error(res, "Token expiré", null, 400);
+        }
         const hashedPassword = yield (0, bcrypt_js_1.hashPassword)(newPassword);
         const newUser = yield prisma_client_js_1.default.user.update({
             where: { id: decoded.id },

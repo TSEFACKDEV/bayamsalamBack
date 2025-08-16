@@ -8,7 +8,7 @@ const product_controller_js_1 = require("../controllers/product.controller.js");
 const auth_middleware_js_1 = require("../middlewares/auth.middleware.js");
 const checkPermission_js_1 = __importDefault(require("../middlewares/checkPermission.js"));
 const router = express_1.default.Router();
-//pour recuperer tous les produits avec un status = VALIDATED [utilisateurs]
+// Routes pour les produits
 router.post("/", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_CREATE"), product_controller_js_1.createProduct);
 router.put("/:id", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_UPDATE"), product_controller_js_1.updateProduct);
 router.delete("/:id", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_DELETE"), product_controller_js_1.deleteProduct);
@@ -20,6 +20,7 @@ router.get("/preview", auth_middleware_js_1.authenticate, (0, checkPermission_js
 router.get("/all", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_READ"), product_controller_js_1.getAllProducts);
 //pour recuperer tous les produits sans pagination[developpeurs]
 router.get("/dev", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_READ"), product_controller_js_1.getAllProductsWithoutPagination);
+//pour recuperer tous les produits avec un status = VALIDATED [utilisateurs]
 router.get("/", product_controller_js_1.getValidatedProducts);
 router.get("/:id", product_controller_js_1.getProductById);
 exports.default = router;

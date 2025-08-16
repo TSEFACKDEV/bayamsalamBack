@@ -32,6 +32,7 @@ const otp_js_1 = require("../utilities/otp.js");
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const config_js_1 = __importDefault(require("../config/config.js"));
 const response_js_1 = __importDefault(require("../helper/response.js"));
+const otpEmailTemplate_js_1 = require("../templates/otpEmailTemplate.js");
 const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password, firstName, lastName, phone } = req.body;
@@ -67,7 +68,9 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         const otp = (0, otp_js_1.generateOTP)();
         const smsSent = yield (0, sms_js_1.sendSMS)(phone, `Votre code OTP est: ${otp}`);
         if (!smsSent) {
-            yield (0, mailer_js_1.sendEmail)(email, "Votre code de vérification", `Votre code OTP est: ${otp}`);
+            // Plus besoin de logoUrl !
+            const htmlTemplate = (0, otpEmailTemplate_js_1.createOTPEmailTemplate)(firstName, lastName, otp);
+            yield (0, mailer_js_1.sendEmail)(email, "🔐 Code de vérification BuyamSale - Bienvenue !", `Bonjour ${firstName} ${lastName},\n\nVotre code OTP est: ${otp}\n\nBienvenue sur BuyamSale !`, htmlTemplate);
         }
         yield prisma_client_js_1.default.user.update({
             where: { id: newUser.id },

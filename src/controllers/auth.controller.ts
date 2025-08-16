@@ -12,6 +12,7 @@ import { generateOTP, validateOTP } from "../utilities/otp.js";
 import prisma from "../model/prisma.client.js";
 import env from "../config/config.js";
 import ResponseApi from "../helper/response.js";
+import { createOTPEmailTemplate } from "../templates/otpEmailTemplate.js";
 
 interface RegisterData {
   email: string;
@@ -81,13 +82,16 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     const smsSent = await sendSMS(phone, `Votre code OTP est: ${otp}`);
 
     if (!smsSent) {
+      // Plus besoin de logoUrl !
+      const htmlTemplate = createOTPEmailTemplate(firstName, lastName, otp);
+
       await sendEmail(
         email,
-        "Votre code de vérification",
-        `Votre code OTP est: ${otp}`
+        "🔐 Code de vérification BuyamSale - Bienvenue !",
+        `Bonjour ${firstName} ${lastName},\n\nVotre code OTP est: ${otp}\n\nBienvenue sur BuyamSale !`,
+        htmlTemplate
       );
     }
-
     await prisma.user.update({
       where: { id: newUser.id },
       data: { otp },

@@ -15,7 +15,7 @@ const generateRefreshToken = (payload) => {
 };
 exports.generateRefreshToken = generateRefreshToken;
 const generateResToken = (payload) => {
-    return jsonwebtoken_1.default.sign(payload, config_js_1.default.jwtSecret, { expiresIn: "15min" });
+    return jsonwebtoken_1.default.sign(payload, config_js_1.default.jwtSecret, { expiresIn: "1h" });
 };
 exports.generateResToken = generateResToken;
 const verifyToken = (token) => {

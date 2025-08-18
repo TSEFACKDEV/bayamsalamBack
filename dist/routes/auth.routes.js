@@ -11,6 +11,7 @@ router.post("/register", auth_controller_js_1.register);
 router.post("/verify-otp", auth_controller_js_1.verifyOTP);
 router.post("/login", auth_controller_js_1.login);
 router.post("/logout", auth_controller_js_1.logout);
+router.post("/refresh-token", auth_controller_js_1.refreshToken);
 router.post("/forgot-password", auth_controller_js_1.forgotPassword);
 router.post("/reset-password", auth_controller_js_1.resetPassword);
 router.use(auth_middleware_js_1.authenticate);

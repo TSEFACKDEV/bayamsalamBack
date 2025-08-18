@@ -48,7 +48,7 @@ const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const cities = yield prisma_client_js_1.default.city.findMany({
             orderBy: { name: "asc" },
         });
-        response_js_1.default.success(res, "Categories retrieved succesfully", cities);
+        response_js_1.default.success(res, "Cities retrieved successfully", cities);
     }
     catch (error) {
         console.log("====================================");

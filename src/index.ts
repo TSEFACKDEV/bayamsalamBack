@@ -13,7 +13,18 @@ import { hashPassword } from "./utilities/bcrypt.js"; // adapte le chemin si bes
 const app: Application = express();
 
 //Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://localhost:5174",
+      "http://127.0.0.1:5174",
+    ], // Frontend URLs autorisées
+    credentials: true, // Permet l'envoi des cookies/credentials
+    optionsSuccessStatus: 200, // Support legacy browsers
+  })
+);
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

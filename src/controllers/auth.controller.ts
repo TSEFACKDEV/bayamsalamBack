@@ -361,7 +361,7 @@ export const logout = async (
 
     // Révoquer le Refresh Token dans la base de données
     const user = await prisma.user.findFirst({ where: { refreshToken } });
-     console.log("Utilisateur trouvé pour ce refreshToken:", user); // Ajoute ce log
+    console.log("Utilisateur trouvé pour ce refreshToken:", user); // Ajoute ce log
     if (!user) {
       return ResponseApi.error(res, "Invalid Refresh Token", 400);
     }
@@ -407,15 +407,37 @@ export const forgotPassword = async (
       email: user.email,
     });
 
+    // 🔍 LOG: Token généré pour forgot password
+    console.log("🔍 Forgot Password - Token généré:", {
+      userId: user.id,
+      tokenLength: resetToken.length,
+      tokenStart: resetToken.substring(0, 50) + "...",
+    });
+
     await prisma.user.update({
       where: { id: user.id },
       data: {
         resetToken,
-        resetExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        resetExpires: new Date(Date.now() + 60 * 60 * 1000), // 1 heure pour correspondre au JWT
       },
     });
 
-    const resetUrl = `${env.frontendUrl}?token=${resetToken}`;
+    // 🔍 LOG: Vérification après sauvegarde
+    const savedUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { resetToken: true, resetExpires: true },
+    });
+    console.log("🔍 Forgot Password - Token sauvegardé:", {
+      savedTokenLength: savedUser?.resetToken?.length,
+      savedTokenStart: savedUser?.resetToken?.substring(0, 50) + "...",
+      expiresAt: savedUser?.resetExpires,
+    });
+
+    // 🔧 CORRECTION : Génération du lien de réinitialisation
+    // PROBLÈME : Avant, le lien pointait vers l'accueil avec ?token=xxx
+    // SOLUTION : Maintenant, le lien pointe vers la page spécifique de reset password
+    const resetUrl = `${env.frontendUrl}/auth/reset-password?token=${resetToken}`;
+
     const emailSent = await sendEmail(
       email,
       "Réinitialisation de votre mot de passe",
@@ -454,8 +476,10 @@ export const resetPassword = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { token, newPassword } = req.body;
+    const { token: rawToken, newPassword } = req.body;
 
+    // Décodage URL du token au cas où il serait encodé
+    const token = decodeURIComponent(rawToken);
     if (!token || !newPassword) {
       return ResponseApi.error(
         res,
@@ -465,7 +489,20 @@ export const resetPassword = async (
       );
     }
 
-    const decoded = verifyToken(token);
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+      console.log("🔍 Reset Password - Token decoded successfully:", {
+        userId: decoded?.id,
+      });
+    } catch (jwtError: any) {
+      console.log("🔍 Reset Password - JWT Error:", {
+        error: jwtError.message,
+        name: jwtError.name,
+      });
+      return ResponseApi.error(res, "Token invalide ou expiré", null, 400);
+    }
+
     if (!decoded) {
       return ResponseApi.error(res, "Token invalide ou expiré", null, 400);
     }
@@ -474,7 +511,26 @@ export const resetPassword = async (
       where: { id: decoded.id },
     });
 
-  
+    // 🔍 LOG 3: Vérification de l'utilisateur et du token stocké
+    console.log("🔍 Reset Password - User check:", {
+      userExists: !!user,
+      hasResetToken: !!user?.resetToken,
+      tokenMatch: user?.resetToken === token,
+      hasResetExpires: !!user?.resetExpires,
+      expiresAt: user?.resetExpires,
+      now: new Date(),
+    });
+
+    // 🔍 LOG 4: Comparaison détaillée des tokens
+    console.log("🔍 Reset Password - Token comparison:", {
+      tokenFromRequest: token.substring(0, 50) + "...",
+      tokenFromDB: user?.resetToken?.substring(0, 50) + "...",
+      tokenLengths: {
+        request: token.length,
+        db: user?.resetToken?.length,
+      },
+      areEqual: user?.resetToken === token,
+    });
 
     if (!user || user.resetToken !== token || !user.resetExpires) {
       return ResponseApi.error(res, "Token invalide ou expiré", null, 400);
@@ -495,6 +551,8 @@ export const resetPassword = async (
       },
     });
 
+    console.log("✅ Reset Password - Succès pour userId:", decoded.id);
+
     return ResponseApi.success(
       res,
       "Mot de passe réinitialisé avec succès",
@@ -502,7 +560,10 @@ export const resetPassword = async (
       200
     );
   } catch (error: any) {
-    console.error("Erreur lors de la réinitialisation du mot de passe:", error);
+    console.error(
+      "❌ Erreur lors de la réinitialisation du mot de passe:",
+      error
+    );
     return ResponseApi.error(
       res,
       "Une erreur est survenue lors de la réinitialisation du mot de passe",

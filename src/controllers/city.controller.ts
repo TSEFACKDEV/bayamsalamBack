@@ -41,7 +41,7 @@ export const getAllCities = async (
     const cities = await prisma.city.findMany({
       orderBy: { name: "asc" },
     });
-    ResponseApi.success(res, "Categories retrieved succesfully", cities);
+    ResponseApi.success(res, "Cities retrieved successfully", cities);
   } catch (error) {
     console.log("====================================");
     console.log(error);

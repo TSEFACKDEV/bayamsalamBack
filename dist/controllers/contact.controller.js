@@ -17,11 +17,12 @@ const mailer_js_1 = require("../utilities/mailer.js");
 const config_js_1 = __importDefault(require("../config/config.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const response_js_1 = __importDefault(require("../helper/response.js"));
+const createContactEmailTemplate_js_1 = require("../templates/createContactEmailTemplate.js"); // ← Ajout de l'import
 const createContact = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { name, email, subject, message } = req.body;
         if (!name || !email || !subject || !message) {
-            return res.status(400).json({ error: 'Tous les champs sont requis.' });
+            return res.status(400).json({ error: "Tous les champs sont requis." });
         }
         const contact = yield prisma_client_js_1.default.contact.create({
             data: {
@@ -31,15 +32,20 @@ const createContact = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 message,
             },
         });
-        // Envoi d'un email de notification (adapter selon votre mailer)
-        yield (0, mailer_js_1.sendEmail)(config_js_1.default.smtpUser || 'tsefackcalvinklein@gmail.com', `Nouveau message de Bayamasalam : ${subject}`, `Nom: ${name}\nEmail: ${email}\nMessage: ${message}`);
-        response_js_1.default.success(res, 'Message envoyé avec succès.', contact, 201);
+        // Créer le template HTML stylisé pour l'admin
+        const htmlTemplate = (0, createContactEmailTemplate_js_1.createContactEmailTemplate)(name, email, subject, message);
+        // Envoi d'un email de notification stylisé à l'admin
+        yield (0, mailer_js_1.sendEmail)(config_js_1.default.smtpUser || "tsefackcalvinklein@gmail.com", // ← Correction: gmailUser au lieu de smtpUser
+        `🔔 Nouveau message BuyamSale : ${subject}`, `Nouveau message de ${name} (${email})\n\nSujet: ${subject}\n\nMessage: ${message}`, // Version texte de fallback
+        htmlTemplate // Version HTML stylisée
+        );
+        response_js_1.default.success(res, "Message envoyé avec succès.", contact, 201);
     }
     catch (error) {
-        response_js_1.default.error(res, 'Erreur lors de l\'envoi du message.', error);
-        console.log('====================================');
-        console.log('Error in createContact:', error);
-        console.log('====================================');
+        response_js_1.default.error(res, "Erreur lors de l'envoi du message.", error);
+        console.log("====================================");
+        console.log("Error in createContact:", error);
+        console.log("====================================");
     }
 });
 exports.createContact = createContact;

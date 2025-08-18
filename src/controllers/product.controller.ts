@@ -46,6 +46,12 @@ export const getAllProducts = async (
           userReviews.length > 0 ? totalPoints / userReviews.length : null;
         return {
           ...product,
+          // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript
+          images: Array.isArray(product.images)
+            ? (product.images as string[]).map((imagePath: string) =>
+                Utils.resolveFileUrl(req, imagePath)
+              )
+            : [], // Tableau vide si pas d'images
           userTotalPoints: totalPoints,
           userAveragePoints: averagePoints,
         };
@@ -135,8 +141,18 @@ export const getValidatedProducts = async (
 
     const total = await prisma.product.count({ where });
 
+    // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour les produits validés
+    const productsWithImageUrls = products.map((product) => ({
+      ...product,
+      images: Array.isArray(product.images)
+        ? (product.images as string[]).map((imagePath: string) =>
+            Utils.resolveFileUrl(req, imagePath)
+          )
+        : [], // Tableau vide si pas d'images
+    }));
+
     ResponseApi.success(res, "Validated products retrieved successfully!", {
-      products,
+      products: productsWithImageUrls,
       links: {
         perpage: limit,
         prevPage: page > 1 ? page - 1 : null,
@@ -204,7 +220,22 @@ export const getProductById = async (
     if (!result) {
       return ResponseApi.notFound(res, "Product not found", 404);
     }
-    ResponseApi.success(res, "Product retrieved successfully", result);
+
+    // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript
+    const productWithImageUrls = {
+      ...result,
+      images: Array.isArray(result.images)
+        ? (result.images as string[]).map((imagePath: string) =>
+            Utils.resolveFileUrl(req, imagePath)
+          )
+        : [], // Tableau vide si pas d'images
+    };
+
+    ResponseApi.success(
+      res,
+      "Product retrieved successfully",
+      productWithImageUrls
+    );
   } catch (error: any) {
     console.log("====================================");
     console.log(error);
@@ -293,25 +324,17 @@ export const createProduct = async (
       },
     });
 
-    // Si forfaitType présent, activer le forfait (admin ou paiement déjà fait)
-    if (forfaitType) {
-      const forfait = await prisma.forfait.findFirst({ where: { type: forfaitType } });
-      if (forfait) {
-        const now = new Date();
-        const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
-        await prisma.productForfait.create({
-          data: {
-            productId: product.id,
-            forfaitId: forfait.id,
-            activatedAt: now,
-            expiresAt,
-            isActive: true,
-          },
-        });
-      }
-    }
+    // 🔧 Conversion sécurisée des chemins relatifs en URLs complètes avec vérification TypeScript pour la réponse
+    const productResponse = {
+      ...product,
+      images: Array.isArray(product.images)
+        ? (product.images as string[]).map((imagePath: string) =>
+            Utils.resolveFileUrl(req, imagePath)
+          )
+        : [], // Tableau vide si pas d'images
+    };
 
-    ResponseApi.success(res, "Produit créé avec succès", product, 201);
+    ResponseApi.success(res, "Produit créé avec succès", productResponse, 201);
   } catch (error: any) {
     console.log("====================================");
     console.log(error);
@@ -375,7 +398,21 @@ export const updateProduct = async (
       },
     });
 
-    ResponseApi.success(res, "Produit mis à jour avec succès", updatedProduct);
+    // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour la réponse
+    const productWithImageUrls = {
+      ...updatedProduct,
+      images: Array.isArray(updatedProduct.images)
+        ? (updatedProduct.images as string[]).map((imagePath: string) =>
+            Utils.resolveFileUrl(req, imagePath)
+          )
+        : [], // Tableau vide si pas d'images
+    };
+
+    ResponseApi.success(
+      res,
+      "Produit mis à jour avec succès",
+      productWithImageUrls
+    );
   } catch (error: any) {
     console.log("====================================");
     console.log(error);

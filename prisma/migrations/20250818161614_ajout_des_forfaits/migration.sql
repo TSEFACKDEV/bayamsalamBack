@@ -17,7 +17,7 @@ CREATE TABLE `User` (
     `token` VARCHAR(191) NULL,
     `expireAtToken` DATETIME(3) NULL,
     `refreshToken` VARCHAR(191) NULL,
-    `resetToken` VARCHAR(512) NULL,
+    `resetToken` TEXT NULL,
     `resetExpires` DATETIME(3) NULL,
 
     UNIQUE INDEX `User_email_key`(`email`),

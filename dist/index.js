@@ -19,17 +19,24 @@ const cors_1 = __importDefault(require("cors"));
 const express_fileupload_1 = __importDefault(require("express-fileupload"));
 const errorHandler_js_1 = require("./middlewares/errorHandler.js");
 const index_js_1 = __importDefault(require("./routes/index.js"));
-const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const node_path_1 = __importDefault(require("node:path"));
 const prisma_client_js_1 = __importDefault(require("./model/prisma.client.js")); // adapte le chemin si besoin
 const bcrypt_js_1 = require("./utilities/bcrypt.js"); // adapte le chemin si besoin
 const app = (0, express_1.default)();
 //Middleware
-app.use((0, cors_1.default)());
+app.use((0, cors_1.default)({
+    origin: [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ], // Frontend URLs autorisées
+    credentials: true, // Permet l'envoi des cookies/credentials
+    optionsSuccessStatus: 200, // Support legacy browsers
+}));
 app.use((0, morgan_1.default)("dev"));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
-app.use((0, cookie_parser_1.default)()); // Ajout du middleware cookie-parser
 app.use((0, express_fileupload_1.default)({
     createParentPath: true,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB

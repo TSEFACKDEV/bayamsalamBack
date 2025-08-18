@@ -47,7 +47,11 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
             });
             const totalPoints = userReviews.reduce((sum, r) => sum + (r.rating || 0), 0);
             const averagePoints = userReviews.length > 0 ? totalPoints / userReviews.length : null;
-            return Object.assign(Object.assign({}, product), { userTotalPoints: totalPoints, userAveragePoints: averagePoints });
+            return Object.assign(Object.assign({}, product), { 
+                // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript
+                images: Array.isArray(product.images)
+                    ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                    : [], userTotalPoints: totalPoints, userAveragePoints: averagePoints });
         })));
         const total = yield prisma_client_js_1.default.product.count({ where });
         response_js_1.default.success(res, "Products retrieved successfully!", {
@@ -121,8 +125,12 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             },
         });
         const total = yield prisma_client_js_1.default.product.count({ where });
+        // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour les produits validés
+        const productsWithImageUrls = products.map((product) => (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
+                ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                : [] })));
         response_js_1.default.success(res, "Validated products retrieved successfully!", {
-            products,
+            products: productsWithImageUrls,
             links: {
                 perpage: limit,
                 prevPage: page > 1 ? page - 1 : null,
@@ -178,7 +186,11 @@ const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function*
         if (!result) {
             return response_js_1.default.notFound(res, "Product not found", 404);
         }
-        response_js_1.default.success(res, "Product retrieved successfully", result);
+        // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript
+        const productWithImageUrls = Object.assign(Object.assign({}, result), { images: Array.isArray(result.images)
+                ? result.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                : [] });
+        response_js_1.default.success(res, "Product retrieved successfully", productWithImageUrls);
     }
     catch (error) {
         console.log("====================================");
@@ -236,24 +248,11 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 telephone,
             },
         });
-        // Si forfaitType présent, activer le forfait (admin ou paiement déjà fait)
-        if (forfaitType) {
-            const forfait = yield prisma_client_js_1.default.forfait.findFirst({ where: { type: forfaitType } });
-            if (forfait) {
-                const now = new Date();
-                const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
-                yield prisma_client_js_1.default.productForfait.create({
-                    data: {
-                        productId: product.id,
-                        forfaitId: forfait.id,
-                        activatedAt: now,
-                        expiresAt,
-                        isActive: true,
-                    },
-                });
-            }
-        }
-        response_js_1.default.success(res, "Produit créé avec succès", product, 201);
+        // 🔧 Conversion sécurisée des chemins relatifs en URLs complètes avec vérification TypeScript pour la réponse
+        const productResponse = Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
+                ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                : [] });
+        response_js_1.default.success(res, "Produit créé avec succès", productResponse, 201);
     }
     catch (error) {
         console.log("====================================");
@@ -304,7 +303,11 @@ const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 cityId: cityId !== null && cityId !== void 0 ? cityId : existingProduct.cityId,
             },
         });
-        response_js_1.default.success(res, "Produit mis à jour avec succès", updatedProduct);
+        // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour la réponse
+        const productWithImageUrls = Object.assign(Object.assign({}, updatedProduct), { images: Array.isArray(updatedProduct.images)
+                ? updatedProduct.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                : [] });
+        response_js_1.default.success(res, "Produit mis à jour avec succès", productWithImageUrls);
     }
     catch (error) {
         console.log("====================================");

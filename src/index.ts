@@ -6,7 +6,6 @@ import fileUpload from "express-fileupload";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import Router from "./routes/index.js";
 import url from "node:url";
-import cookieParser from "cookie-parser";
 import path from "node:path";
 import prisma from "./model/prisma.client.js"; // adapte le chemin si besoin
 import { hashPassword } from "./utilities/bcrypt.js"; // adapte le chemin si besoin
@@ -14,11 +13,21 @@ import { hashPassword } from "./utilities/bcrypt.js"; // adapte le chemin si bes
 const app: Application = express();
 
 //Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://localhost:5174",
+      "http://127.0.0.1:5174",
+    ], // Frontend URLs autorisées
+    credentials: true, // Permet l'envoi des cookies/credentials
+    optionsSuccessStatus: 200, // Support legacy browsers
+  })
+);
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser()); // Ajout du middleware cookie-parser
 app.use(
   fileUpload({
     createParentPath: true,

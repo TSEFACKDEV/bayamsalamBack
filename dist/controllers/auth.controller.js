@@ -32,6 +32,7 @@ const otp_js_1 = require("../utilities/otp.js");
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const config_js_1 = __importDefault(require("../config/config.js"));
 const response_js_1 = __importDefault(require("../helper/response.js"));
+const otpEmailTemplate_js_1 = require("../templates/otpEmailTemplate.js");
 const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password, firstName, lastName, phone } = req.body;
@@ -71,7 +72,9 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         console.log(otp);
         console.log("====================================");
         if (!smsSent) {
-            yield (0, mailer_js_1.sendEmail)(email, "Votre code de vérification", `Votre code OTP est: ${otp}`);
+            // Plus besoin de logoUrl !
+            const htmlTemplate = (0, otpEmailTemplate_js_1.createOTPEmailTemplate)(firstName, lastName, otp);
+            yield (0, mailer_js_1.sendEmail)(email, "🔐 Code de vérification BuyamSale - Bienvenue !", `Bonjour ${firstName} ${lastName},\n\nVotre code OTP est: ${otp}\n\nBienvenue sur BuyamSale !`, htmlTemplate);
         }
         yield prisma_client_js_1.default.user.update({
             where: { id: newUser.id },
@@ -274,6 +277,7 @@ const logout = (req, res, next) => __awaiter(void 0, void 0, void 0, function* (
 });
 exports.logout = logout;
 const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     try {
         const { email } = req.body;
         if (!email) {
@@ -289,14 +293,33 @@ const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
             id: user.id,
             email: user.email,
         });
+        // 🔍 LOG: Token généré pour forgot password
+        console.log("🔍 Forgot Password - Token généré:", {
+            userId: user.id,
+            tokenLength: resetToken.length,
+            tokenStart: resetToken.substring(0, 50) + "...",
+        });
         yield prisma_client_js_1.default.user.update({
             where: { id: user.id },
             data: {
                 resetToken,
-                resetExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+                resetExpires: new Date(Date.now() + 60 * 60 * 1000), // 1 heure pour correspondre au JWT
             },
         });
-        const resetUrl = `${config_js_1.default.frontendUrl}?token=${resetToken}`;
+        // 🔍 LOG: Vérification après sauvegarde
+        const savedUser = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: user.id },
+            select: { resetToken: true, resetExpires: true },
+        });
+        console.log("🔍 Forgot Password - Token sauvegardé:", {
+            savedTokenLength: (_a = savedUser === null || savedUser === void 0 ? void 0 : savedUser.resetToken) === null || _a === void 0 ? void 0 : _a.length,
+            savedTokenStart: ((_b = savedUser === null || savedUser === void 0 ? void 0 : savedUser.resetToken) === null || _b === void 0 ? void 0 : _b.substring(0, 50)) + "...",
+            expiresAt: savedUser === null || savedUser === void 0 ? void 0 : savedUser.resetExpires,
+        });
+        // 🔧 CORRECTION : Génération du lien de réinitialisation
+        // PROBLÈME : Avant, le lien pointait vers l'accueil avec ?token=xxx
+        // SOLUTION : Maintenant, le lien pointe vers la page spécifique de reset password
+        const resetUrl = `${config_js_1.default.frontendUrl}/auth/reset-password?token=${resetToken}`;
         const emailSent = yield (0, mailer_js_1.sendEmail)(email, "Réinitialisation de votre mot de passe", `Cliquez sur ce lien pour réinitialiser votre mot de passe: ${resetUrl}`, `<p>Cliquez <a href="${resetUrl}">ici</a> pour réinitialiser votre mot de passe.</p>`);
         if (!emailSent) {
             return response_js_1.default.error(res, "Erreur lors de l'envoi de l'email", null, 500);
@@ -310,17 +333,52 @@ const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
 });
 exports.forgotPassword = forgotPassword;
 const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     try {
-        const { token, newPassword } = req.body;
+        const { token: rawToken, newPassword } = req.body;
+        // Décodage URL du token au cas où il serait encodé
+        const token = decodeURIComponent(rawToken);
         if (!token || !newPassword) {
             return response_js_1.default.error(res, "Token et nouveau mot de passe sont requis", null, 400);
         }
-        const decoded = (0, token_js_1.verifyToken)(token);
+        let decoded;
+        try {
+            decoded = (0, token_js_1.verifyToken)(token);
+            console.log("🔍 Reset Password - Token decoded successfully:", {
+                userId: decoded === null || decoded === void 0 ? void 0 : decoded.id,
+            });
+        }
+        catch (jwtError) {
+            console.log("🔍 Reset Password - JWT Error:", {
+                error: jwtError.message,
+                name: jwtError.name,
+            });
+            return response_js_1.default.error(res, "Token invalide ou expiré", null, 400);
+        }
         if (!decoded) {
             return response_js_1.default.error(res, "Token invalide ou expiré", null, 400);
         }
         const user = yield prisma_client_js_1.default.user.findUnique({
             where: { id: decoded.id },
+        });
+        // 🔍 LOG 3: Vérification de l'utilisateur et du token stocké
+        console.log("🔍 Reset Password - User check:", {
+            userExists: !!user,
+            hasResetToken: !!(user === null || user === void 0 ? void 0 : user.resetToken),
+            tokenMatch: (user === null || user === void 0 ? void 0 : user.resetToken) === token,
+            hasResetExpires: !!(user === null || user === void 0 ? void 0 : user.resetExpires),
+            expiresAt: user === null || user === void 0 ? void 0 : user.resetExpires,
+            now: new Date(),
+        });
+        // 🔍 LOG 4: Comparaison détaillée des tokens
+        console.log("🔍 Reset Password - Token comparison:", {
+            tokenFromRequest: token.substring(0, 50) + "...",
+            tokenFromDB: ((_a = user === null || user === void 0 ? void 0 : user.resetToken) === null || _a === void 0 ? void 0 : _a.substring(0, 50)) + "...",
+            tokenLengths: {
+                request: token.length,
+                db: (_b = user === null || user === void 0 ? void 0 : user.resetToken) === null || _b === void 0 ? void 0 : _b.length,
+            },
+            areEqual: (user === null || user === void 0 ? void 0 : user.resetToken) === token,
         });
         if (!user || user.resetToken !== token || !user.resetExpires) {
             return response_js_1.default.error(res, "Token invalide ou expiré", null, 400);
@@ -337,10 +395,11 @@ const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 resetExpires: null,
             },
         });
+        console.log("✅ Reset Password - Succès pour userId:", decoded.id);
         return response_js_1.default.success(res, "Mot de passe réinitialisé avec succès", newUser, 200);
     }
     catch (error) {
-        console.error("Erreur lors de la réinitialisation du mot de passe:", error);
+        console.error("❌ Erreur lors de la réinitialisation du mot de passe:", error);
         return response_js_1.default.error(res, "Une erreur est survenue lors de la réinitialisation du mot de passe", error.message, 500);
     }
 });

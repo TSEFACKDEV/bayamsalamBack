@@ -25,10 +25,7 @@ const prisma_client_js_1 = __importDefault(require("./model/prisma.client.js"));
 const bcrypt_js_1 = require("./utilities/bcrypt.js"); // adapte le chemin si besoin
 const app = (0, express_1.default)();
 //Middleware
-app.use((0, cors_1.default)({
-    origin: "http://localhost:5173", // ou ton URL front exacte
-    credentials: true,
-}));
+app.use((0, cors_1.default)());
 app.use((0, morgan_1.default)("dev"));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));

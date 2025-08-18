@@ -126,6 +126,10 @@ export const getValidatedProducts = async (
         category: true,
         city: true,
         user: true,
+         productForfaits: {
+      where: { isActive: true, expiresAt: { gt: new Date() } },
+      include: { forfait: true },
+    },
       },
     });
 
@@ -224,6 +228,7 @@ export const createProduct = async (
       etat,
       quartier,
       telephone,
+      forfaitType,
     } = req.body;
 
     const userId = req.user?.id;
@@ -287,6 +292,24 @@ export const createProduct = async (
         telephone,
       },
     });
+
+    // Si forfaitType présent, activer le forfait (admin ou paiement déjà fait)
+    if (forfaitType) {
+      const forfait = await prisma.forfait.findFirst({ where: { type: forfaitType } });
+      if (forfait) {
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
+        await prisma.productForfait.create({
+          data: {
+            productId: product.id,
+            forfaitId: forfait.id,
+            activatedAt: now,
+            expiresAt,
+            isActive: true,
+          },
+        });
+      }
+    }
 
     ResponseApi.success(res, "Produit créé avec succès", product, 201);
   } catch (error: any) {

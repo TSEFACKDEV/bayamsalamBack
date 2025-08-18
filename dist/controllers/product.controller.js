@@ -114,6 +114,10 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 category: true,
                 city: true,
                 user: true,
+                productForfaits: {
+                    where: { isActive: true, expiresAt: { gt: new Date() } },
+                    include: { forfait: true },
+                },
             },
         });
         const total = yield prisma_client_js_1.default.product.count({ where });
@@ -187,7 +191,7 @@ exports.getProductById = getProductById;
 const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone, } = req.body;
+        const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone, forfaitType, } = req.body;
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         // Validation basique
         if (!name ||
@@ -232,6 +236,23 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 telephone,
             },
         });
+        // Si forfaitType présent, activer le forfait (admin ou paiement déjà fait)
+        if (forfaitType) {
+            const forfait = yield prisma_client_js_1.default.forfait.findFirst({ where: { type: forfaitType } });
+            if (forfait) {
+                const now = new Date();
+                const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
+                yield prisma_client_js_1.default.productForfait.create({
+                    data: {
+                        productId: product.id,
+                        forfaitId: forfait.id,
+                        activatedAt: now,
+                        expiresAt,
+                        isActive: true,
+                    },
+                });
+            }
+        }
         response_js_1.default.success(res, "Produit créé avec succès", product, 201);
     }
     catch (error) {

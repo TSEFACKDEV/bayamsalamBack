@@ -19,7 +19,9 @@ interface Env {
   nexahPassword: string;
   nexahSenderId: string;
   frontendUrl: string;
-  refreshTokenSecretKey: string
+  refreshTokenSecretKey: string;
+  MONETBIL_SERVICE_KEY: string;
+  MONETBIL_BASE_URL: string;
 }
 
 const env: Env = {
@@ -39,7 +41,9 @@ const env: Env = {
   nexahPassword: process.env.NEXAH_PASSWORD || "",
   nexahSenderId: process.env.NEXAH_SENDER_ID || "",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173/auth/reset-password",
-  refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || ""
+  refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || "",
+  MONETBIL_SERVICE_KEY: process.env.MONETBIL_SERVICE_KEY || "7twIVmf2R0B9IBOHr0qWVAQ6yS5ws9gW",
+  MONETBIL_BASE_URL: process.env.MONETBIL_BASE_URL || "https://api.monetbil.com/payment/v1"
 };
 
 export default env;

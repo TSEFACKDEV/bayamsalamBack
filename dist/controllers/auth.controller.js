@@ -251,28 +251,42 @@ const logout = (req, res, next) => __awaiter(void 0, void 0, void 0, function* (
     try {
         const { jwt } = req.cookies;
         const refreshToken = jwt;
+        // Si pas de refresh token, on considère que l'utilisateur est déjà déconnecté
         if (!refreshToken) {
-            return response_js_1.default.error(res, "No Refresh Token found", 400);
+            // Supprimer le cookie quand même par sécurité
+            res.clearCookie("jwt", {
+                httpOnly: true,
+                secure: config_js_1.default.nodeEnv === "production",
+                sameSite: "strict",
+            });
+            return response_js_1.default.success(res, "Already logged out", {}, 200);
         }
         // Révoquer le Refresh Token dans la base de données
         const user = yield prisma_client_js_1.default.user.findFirst({ where: { refreshToken } });
-        console.log("Utilisateur trouvé pour ce refreshToken:", user); // Ajoute ce log
-        if (!user) {
-            return response_js_1.default.error(res, "Invalid Refresh Token", 400);
+        console.log("Utilisateur trouvé pour ce refreshToken:", user);
+        if (user) {
+            yield prisma_client_js_1.default.user.update({
+                where: { id: user.id },
+                data: { refreshToken: null },
+            });
         }
-        yield prisma_client_js_1.default.user.update({
-            where: { id: user.id },
-            data: { refreshToken: null },
-        });
-        // Supprimer le cookie
+        // Supprimer le cookie dans tous les cas
         res.clearCookie("jwt", {
             httpOnly: true,
-            secure: config_js_1.default.port === "3001" ? false : true,
+            secure: config_js_1.default.nodeEnv === "production",
+            sameSite: "strict",
         });
-        response_js_1.default.success(res, "Logout successful !!!", {}, 200);
+        return response_js_1.default.success(res, "Logout successful !!!", {}, 200);
     }
     catch (error) {
-        next(error);
+        console.error("Erreur lors de la déconnexion:", error);
+        // Même en cas d'erreur, supprimer le cookie pour forcer la déconnexion côté client
+        res.clearCookie("jwt", {
+            httpOnly: true,
+            secure: config_js_1.default.nodeEnv === "production",
+            sameSite: "strict",
+        });
+        return response_js_1.default.success(res, "Logout completed with cleanup", {}, 200);
     }
 });
 exports.logout = logout;

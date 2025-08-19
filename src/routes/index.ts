@@ -8,6 +8,7 @@ import favoriteRouter from './favorite.routes.js'
 import contactRouter from './contact.routes.js'
 import roleRouter from './role.routes.js'
 import permissionRouter from './permission.routes.js'
+import forfaitRouter from './forfait.routes.js'
 import express from 'express'
 
 const router = express.Router()
@@ -21,6 +22,7 @@ router.use("/favorite", favoriteRouter)
 router.use("/contact", contactRouter)
 router.use("/role", roleRouter)
 router.use("/permission", permissionRouter)
+router.use("/forfait", forfaitRouter)
 
 export default router
 

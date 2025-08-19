@@ -20,6 +20,8 @@ interface Env {
   nexahSenderId: string;
   frontendUrl: string;
   refreshTokenSecretKey: string;
+  MONETBIL_SERVICE_KEY: string;
+  MONETBIL_BASE_URL: string;
 }
 
 const env: Env = {
@@ -40,6 +42,8 @@ const env: Env = {
   nexahSenderId: process.env.NEXAH_SENDER_ID || "",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
   refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || "",
+  MONETBIL_SERVICE_KEY: process.env.MONETBIL_SERVICE_KEY || "",
+  MONETBIL_BASE_URL: process.env.MONETBIL_BASE_URL || "",
 };
 
 export default env;

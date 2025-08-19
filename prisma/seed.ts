@@ -184,6 +184,37 @@ async function main() {
       },
     });
   }
+
+  //creer les forfaits
+  await prisma.forfait.createMany({
+    data: [
+      {
+        type: "URGENT",
+        price: 100,
+        duration: 7,
+        description: "Badge urgent sur l'annonce",
+      },
+      {
+        type: "TOP_ANNONCE",
+        price: 200,
+        duration: 7,
+        description: "Annonce en tête de page",
+      },
+      {
+        type: "MISE_EN_AVANT",
+        price: 50,
+        duration: 7,
+        description: "Apparaît en premier dans les recherches",
+      },
+      {
+        type: "PREMIUM",
+        price: 500,
+        duration: 7,
+        description: "Tous les privilèges",
+      },
+    ],
+    skipDuplicates: true,
+  });
 }
 
 main()

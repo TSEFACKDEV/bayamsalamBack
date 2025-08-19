@@ -162,6 +162,30 @@ CREATE TABLE `ConnectionLog` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- CreateTable
+CREATE TABLE `Forfait` (
+    `id` VARCHAR(36) NOT NULL,
+    `type` ENUM('URGENT', 'TOP_ANNONCE', 'MISE_EN_AVANT', 'PREMIUM') NOT NULL,
+    `price` INTEGER NOT NULL,
+    `duration` INTEGER NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `ProductForfait` (
+    `id` VARCHAR(36) NOT NULL,
+    `productId` VARCHAR(36) NOT NULL,
+    `forfaitId` VARCHAR(36) NOT NULL,
+    `activatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `expiresAt` DATETIME(3) NOT NULL,
+    `isActive` BOOLEAN NOT NULL DEFAULT true,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- AddForeignKey
 ALTER TABLE `UserRole` ADD CONSTRAINT `UserRole_roleId_fkey` FOREIGN KEY (`roleId`) REFERENCES `Role`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -200,3 +224,9 @@ ALTER TABLE `Favorite` ADD CONSTRAINT `Favorite_productId_fkey` FOREIGN KEY (`pr
 
 -- AddForeignKey
 ALTER TABLE `ConnectionLog` ADD CONSTRAINT `ConnectionLog_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `ProductForfait` ADD CONSTRAINT `ProductForfait_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `ProductForfait` ADD CONSTRAINT `ProductForfait_forfaitId_fkey` FOREIGN KEY (`forfaitId`) REFERENCES `Forfait`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

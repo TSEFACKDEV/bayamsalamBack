@@ -23,5 +23,7 @@ const env = {
     nexahSenderId: process.env.NEXAH_SENDER_ID || "",
     frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
     refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || "",
+    MONETBIL_SERVICE_KEY: process.env.MONETBIL_SERVICE_KEY || "",
+    MONETBIL_BASE_URL: process.env.MONETBIL_BASE_URL || "",
 };
 exports.default = env;

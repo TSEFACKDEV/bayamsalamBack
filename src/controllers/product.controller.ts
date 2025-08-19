@@ -132,6 +132,10 @@ export const getValidatedProducts = async (
         category: true,
         city: true,
         user: true,
+         productForfaits: {
+      where: { isActive: true, expiresAt: { gt: new Date() } },
+      include: { forfait: true },
+    },
       },
     });
 
@@ -255,6 +259,7 @@ export const createProduct = async (
       etat,
       quartier,
       telephone,
+      forfaitType,
     } = req.body;
 
     const userId = req.user?.id;

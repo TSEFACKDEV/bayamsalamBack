@@ -13,4 +13,4 @@ router.put('/:id', checkPermission("ROLE_UPDATE"), update);
 router.delete('/:id', checkPermission("ROLE_DELETE"), destroy);
 router.post('/assign-roles', checkPermission("ROLE_ASSIGN"), assignRolesToUser);
 
-export default router;
+export default router; 

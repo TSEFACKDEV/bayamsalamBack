@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import ResponseApi from "../helper/response.js";
 import prisma from "../model/prisma.client.js";
+import Utils from "../helper/utils.js";
 
 export const addToFavorites = async (
   req: Request,
@@ -87,9 +88,23 @@ export const getUserFavorites = async (
       include: { product: true }, // Inclut les infos du produit
     });
 
-    ResponseApi.success(res, "Favoris récupérés avec succès", favorites, 200);
+    // 🔧 Conversion sécurisée des images en URLs complètes pour chaque produit favori
+    const favoritesWithImageUrls = favorites.map((fav) => ({
+      ...fav,
+      product: fav.product
+        ? {
+            ...fav.product,
+            images: Array.isArray(fav.product.images)
+              ? (fav.product.images as string[]).map((imagePath: string) =>
+                  Utils.resolveFileUrl(req, imagePath)
+                )
+              : [],
+          }
+        : null,
+    }));
+
+    ResponseApi.success(res, "Favoris récupérés avec succès", favoritesWithImageUrls, 200);
   } catch (error: any) {
     ResponseApi.error(res, "Erreur lors de la récupération des favoris", error.message);
   }
 };
-// ...existing code...

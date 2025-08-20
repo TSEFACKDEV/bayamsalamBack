@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserFavorites = exports.removeFromFavorites = exports.addToFavorites = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
+const utils_js_1 = __importDefault(require("../helper/utils.js"));
 const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
@@ -81,11 +82,15 @@ const getUserFavorites = (req, res) => __awaiter(void 0, void 0, void 0, functio
             where: { userId },
             include: { product: true }, // Inclut les infos du produit
         });
-        response_js_1.default.success(res, "Favoris récupérés avec succès", favorites, 200);
+        // 🔧 Conversion sécurisée des images en URLs complètes pour chaque produit favori
+        const favoritesWithImageUrls = favorites.map((fav) => (Object.assign(Object.assign({}, fav), { product: fav.product
+                ? Object.assign(Object.assign({}, fav.product), { images: Array.isArray(fav.product.images)
+                        ? fav.product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                        : [] }) : null })));
+        response_js_1.default.success(res, "Favoris récupérés avec succès", favoritesWithImageUrls, 200);
     }
     catch (error) {
         response_js_1.default.error(res, "Erreur lors de la récupération des favoris", error.message);
     }
 });
 exports.getUserFavorites = getUserFavorites;
-// ...existing code...

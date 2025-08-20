@@ -60,19 +60,39 @@ const getAllCategories = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 { description: { contains: search } },
             ];
         }
-        // Récupération des catégories paginées et filtrées
+        // Récupération des catégories paginées et filtrées avec enrichissement
         const [categories, total] = yield Promise.all([
             prisma_client_js_1.default.category.findMany({
                 where,
                 orderBy: { name: "asc" },
                 skip,
                 take: limit,
+                include: {
+                    _count: {
+                        select: {
+                            products: true,
+                        },
+                    },
+                },
             }),
             prisma_client_js_1.default.category.count({ where }),
         ]);
+        // Enrichir les données des catégories
+        const enrichedCategories = categories.map((category) => ({
+            id: category.id,
+            name: category.name,
+            description: category.description,
+            icon: null, // Pas encore défini dans le schéma
+            color: "#f97316", // Couleur par défaut orange
+            isActive: true, // Valeur par défaut (toutes actives)
+            productCount: category._count.products,
+            parentId: null, // Pas de hiérarchie pour l'instant
+            createdAt: category.createdAt.toISOString(),
+            updatedAt: category.updatedAt.toISOString(),
+        }));
         const totalPages = Math.ceil(total / limit);
         response_js_1.default.success(res, "Categories retrieved succesfully", {
-            categories,
+            categories: enrichedCategories,
             pagination: {
                 total,
                 page,

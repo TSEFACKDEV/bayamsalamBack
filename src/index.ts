@@ -39,7 +39,6 @@ app.use(
 app.use("/public", express.static(path.join(__dirname, "../public")));
 
 //Routes
-console.log("Mounting /api/bayamsalam routes");
 app.use("/api/bayamsalam", Router);
 
 // Health check

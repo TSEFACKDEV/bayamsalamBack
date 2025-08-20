@@ -16,13 +16,28 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
     }
 
     //creer la ville
-    const category = await prisma.city.create({
+    const city = await prisma.city.create({
       data: {
         name,
       },
     });
 
-    ResponseApi.success(res, "City create succesfully", category);
+    // Enrichir les données comme dans getAllCities pour maintenir la cohérence
+    const enrichedCity = {
+      id: city.id,
+      name: city.name,
+      region: null,
+      country: "Cameroun",
+      latitude: null,
+      longitude: null,
+      userCount: 0, // Nouvelle ville = 0 utilisateurs
+      productCount: 0, // Nouvelle ville = 0 produits
+      isActive: true,
+      createdAt: city.createdAt.toISOString(),
+      updatedAt: city.updatedAt.toISOString(),
+    };
+
+    ResponseApi.success(res, "City create succesfully", enrichedCity);
   } catch (error) {
     console.log("====================================");
     console.log(error);
@@ -40,8 +55,46 @@ export const getAllCities = async (
   try {
     const cities = await prisma.city.findMany({
       orderBy: { name: "asc" },
+      include: {
+        _count: {
+          select: {
+            products: true,
+          },
+        },
+      },
     });
-    ResponseApi.success(res, "Cities retrieved successfully", cities);
+
+    // Enrichir les données avec les comptes d'utilisateurs et formater la réponse
+    const enrichedCities = await Promise.all(
+      cities.map(async (city) => {
+        // Compter les utilisateurs uniques ayant des produits dans cette ville
+        const userCount = await prisma.user.count({
+          where: {
+            products: {
+              some: {
+                cityId: city.id,
+              },
+            },
+          },
+        });
+
+        return {
+          id: city.id,
+          name: city.name,
+          region: null, // Pas encore défini dans le schéma
+          country: "Cameroun", // Valeur par défaut
+          latitude: null,
+          longitude: null,
+          userCount,
+          productCount: city._count.products,
+          isActive: true, // Valeur par défaut
+          createdAt: city.createdAt.toISOString(),
+          updatedAt: city.updatedAt.toISOString(),
+        };
+      })
+    );
+
+    ResponseApi.success(res, "Cities retrieved successfully", enrichedCities);
   } catch (error) {
     console.log("====================================");
     console.log(error);
@@ -129,7 +182,39 @@ export const updateCity = async (req: Request, res: Response): Promise<any> => {
         name,
       },
     });
-    ResponseApi.success(res, "city update succesfully", updatedCity);
+
+    // Enrichir les données comme dans getAllCities pour maintenir la cohérence
+    const userCount = await prisma.user.count({
+      where: {
+        products: {
+          some: {
+            cityId: updatedCity.id,
+          },
+        },
+      },
+    });
+
+    const productCount = await prisma.product.count({
+      where: {
+        cityId: updatedCity.id,
+      },
+    });
+
+    const enrichedCity = {
+      id: updatedCity.id,
+      name: updatedCity.name,
+      region: null,
+      country: "Cameroun",
+      latitude: null,
+      longitude: null,
+      userCount,
+      productCount,
+      isActive: true,
+      createdAt: updatedCity.createdAt.toISOString(),
+      updatedAt: updatedCity.updatedAt.toISOString(),
+    };
+
+    ResponseApi.success(res, "city update succesfully", enrichedCity);
   } catch (error) {
     console.log("====================================");
     console.log("Failled to update city", error);

@@ -27,12 +27,26 @@ const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             return response_js_1.default.notFound(res, "City Already exist");
         }
         //creer la ville
-        const category = yield prisma_client_js_1.default.city.create({
+        const city = yield prisma_client_js_1.default.city.create({
             data: {
                 name,
             },
         });
-        response_js_1.default.success(res, "City create succesfully", category);
+        // Enrichir les données comme dans getAllCities pour maintenir la cohérence
+        const enrichedCity = {
+            id: city.id,
+            name: city.name,
+            region: null,
+            country: "Cameroun",
+            latitude: null,
+            longitude: null,
+            userCount: 0, // Nouvelle ville = 0 utilisateurs
+            productCount: 0, // Nouvelle ville = 0 produits
+            isActive: true,
+            createdAt: city.createdAt.toISOString(),
+            updatedAt: city.updatedAt.toISOString(),
+        };
+        response_js_1.default.success(res, "City create succesfully", enrichedCity);
     }
     catch (error) {
         console.log("====================================");
@@ -47,8 +61,41 @@ const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     try {
         const cities = yield prisma_client_js_1.default.city.findMany({
             orderBy: { name: "asc" },
+            include: {
+                _count: {
+                    select: {
+                        products: true,
+                    },
+                },
+            },
         });
-        response_js_1.default.success(res, "Cities retrieved successfully", cities);
+        // Enrichir les données avec les comptes d'utilisateurs et formater la réponse
+        const enrichedCities = yield Promise.all(cities.map((city) => __awaiter(void 0, void 0, void 0, function* () {
+            // Compter les utilisateurs uniques ayant des produits dans cette ville
+            const userCount = yield prisma_client_js_1.default.user.count({
+                where: {
+                    products: {
+                        some: {
+                            cityId: city.id,
+                        },
+                    },
+                },
+            });
+            return {
+                id: city.id,
+                name: city.name,
+                region: null, // Pas encore défini dans le schéma
+                country: "Cameroun", // Valeur par défaut
+                latitude: null,
+                longitude: null,
+                userCount,
+                productCount: city._count.products,
+                isActive: true, // Valeur par défaut
+                createdAt: city.createdAt.toISOString(),
+                updatedAt: city.updatedAt.toISOString(),
+            };
+        })));
+        response_js_1.default.success(res, "Cities retrieved successfully", enrichedCities);
     }
     catch (error) {
         console.log("====================================");
@@ -128,7 +175,35 @@ const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
                 name,
             },
         });
-        response_js_1.default.success(res, "city update succesfully", updatedCity);
+        // Enrichir les données comme dans getAllCities pour maintenir la cohérence
+        const userCount = yield prisma_client_js_1.default.user.count({
+            where: {
+                products: {
+                    some: {
+                        cityId: updatedCity.id,
+                    },
+                },
+            },
+        });
+        const productCount = yield prisma_client_js_1.default.product.count({
+            where: {
+                cityId: updatedCity.id,
+            },
+        });
+        const enrichedCity = {
+            id: updatedCity.id,
+            name: updatedCity.name,
+            region: null,
+            country: "Cameroun",
+            latitude: null,
+            longitude: null,
+            userCount,
+            productCount,
+            isActive: true,
+            createdAt: updatedCity.createdAt.toISOString(),
+            updatedAt: updatedCity.updatedAt.toISOString(),
+        };
+        response_js_1.default.success(res, "city update succesfully", enrichedCity);
     }
     catch (error) {
         console.log("====================================");

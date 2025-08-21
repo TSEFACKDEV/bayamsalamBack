@@ -29,7 +29,7 @@ const utils_js_1 = __importDefault(require("../helper/utils.js"));
  */
 const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
     try {

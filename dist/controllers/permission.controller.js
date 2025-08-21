@@ -18,7 +18,7 @@ const response_js_1 = __importDefault(require("../helper/response.js"));
 const getAll = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     // Pagination parameters
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 100;
+    const limit = parseInt(req.query.limit) || 10;
     const { search } = req.query;
     const searchString = typeof search === "string" ? search : undefined;
     const offset = (page - 1) * limit;

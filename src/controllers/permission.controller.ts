@@ -7,7 +7,7 @@ import ResponseApi from "../helper/response.js";
 export const getAll = async (req:Request, res:Response, next:NextFunction):Promise<any> => {
     // Pagination parameters
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 100;
+  const limit = parseInt(req.query.limit as string) || 10;
   const { search } = req.query;
   const searchString = typeof search === "string" ? search : undefined;
   const offset = (page - 1) * limit;

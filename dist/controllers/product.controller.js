@@ -335,7 +335,22 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         if (!product) {
             return response_js_1.default.notFound(res, "Product not found", 404);
         }
-        // Supprimer les images associées
+        // Transaction pour supprimer toutes les données liées
+        yield prisma_client_js_1.default.$transaction((tx) => __awaiter(void 0, void 0, void 0, function* () {
+            // 1. Supprimer tous les favoris liés à ce produit
+            yield tx.favorite.deleteMany({
+                where: { productId: id },
+            });
+            // 2. Supprimer tous les forfaits produits liés
+            yield tx.productForfait.deleteMany({
+                where: { productId: id },
+            });
+            // 3. Supprimer le produit
+            yield tx.product.delete({
+                where: { id },
+            });
+        }));
+        // Supprimer les images associées après suppression réussie de la DB
         if (product.images && Array.isArray(product.images)) {
             for (const img of product.images) {
                 if (typeof img === "string") {
@@ -343,14 +358,11 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 }
             }
         }
-        const result = yield prisma_client_js_1.default.product.delete({
-            where: { id },
-        });
-        response_js_1.default.success(res, "Product deleted successfully", result);
+        response_js_1.default.success(res, "Product deleted successfully", { id });
     }
     catch (error) {
         console.log("====================================");
-        console.log(error);
+        console.log("Product deletion error:", error);
         console.log("====================================");
         response_js_1.default.error(res, "Failed to delete product", error.message);
     }

@@ -451,7 +451,25 @@ export const deleteProduct = async (
       return ResponseApi.notFound(res, "Product not found", 404);
     }
 
-    // Supprimer les images associées
+    // Transaction pour supprimer toutes les données liées
+    await prisma.$transaction(async (tx) => {
+      // 1. Supprimer tous les favoris liés à ce produit
+      await tx.favorite.deleteMany({
+        where: { productId: id },
+      });
+
+      // 2. Supprimer tous les forfaits produits liés
+      await tx.productForfait.deleteMany({
+        where: { productId: id },
+      });
+
+      // 3. Supprimer le produit
+      await tx.product.delete({
+        where: { id },
+      });
+    });
+
+    // Supprimer les images associées après suppression réussie de la DB
     if (product.images && Array.isArray(product.images)) {
       for (const img of product.images) {
         if (typeof img === "string") {
@@ -460,13 +478,10 @@ export const deleteProduct = async (
       }
     }
 
-    const result = await prisma.product.delete({
-      where: { id },
-    });
-    ResponseApi.success(res, "Product deleted successfully", result);
+    ResponseApi.success(res, "Product deleted successfully", { id });
   } catch (error: any) {
     console.log("====================================");
-    console.log(error);
+    console.log("Product deletion error:", error);
     console.log("====================================");
     ResponseApi.error(res, "Failed to delete product", error.message);
   }

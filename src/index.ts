@@ -2,6 +2,7 @@ import express, { Application, Request, Response } from "express";
 import env from "./config/config.js";
 import morgan from "morgan";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import fileUpload from "express-fileupload";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import Router from "./routes/index.js";
@@ -13,7 +14,8 @@ import { hashPassword } from "./utilities/bcrypt.js"; // adapte le chemin si bes
 const app: Application = express();
 
 //Middleware
-app.use(cors({
+app.use(
+  cors({
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
@@ -22,7 +24,9 @@ app.use(cors({
     ], // Frontend URLs autorisées
     credentials: true, // Permet l'envoi des cookies/credentials
     optionsSuccessStatus: 200, // Support legacy browsers
-  }));
+  })
+);
+app.use(cookieParser()); // ✅ Middleware pour parser les cookies
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

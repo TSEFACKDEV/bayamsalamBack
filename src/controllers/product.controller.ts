@@ -116,11 +116,23 @@ export const getValidatedProducts = async (
   const limit = parseInt(req.query.limit as string) || 10;
   const offset = (page - 1) * limit;
   const search = (req.query.search as string) || "";
+  const categoryId = req.query.categoryId as string;
+  const cityId = req.query.cityId as string;
+
   try {
     const where: any = { status: "VALIDATED" };
+
     if (search) {
       // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
       where.name = { contains: search };
+    }
+
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    if (cityId) {
+      where.cityId = cityId;
     }
 
     const products = await prisma.product.findMany({
@@ -132,10 +144,10 @@ export const getValidatedProducts = async (
         category: true,
         city: true,
         user: true,
-         productForfaits: {
-      where: { isActive: true, expiresAt: { gt: new Date() } },
-      include: { forfait: true },
-    },
+        productForfaits: {
+          where: { isActive: true, expiresAt: { gt: new Date() } },
+          include: { forfait: true },
+        },
       },
     });
 
@@ -465,26 +477,77 @@ export const reviewProduct = async (
   res: Response
 ): Promise<any> => {
   const { id } = req.params;
-  const { action } = req.body;
+  const { action, reviewReason } = req.body;
   try {
     //verifie si le produit existe
-    const product = await prisma.product.findUnique({ where: { id } });
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        city: true,
+        user: true,
+      },
+    });
     if (!product) {
       return ResponseApi.notFound(res, "Product not found", 404);
     }
+
+    let updatedProduct;
     //verifie si l'action est valide
     if (action === "validate") {
-      await prisma.product.update({
+      updatedProduct = await prisma.product.update({
         where: { id },
         data: { status: "VALIDATED" },
+        include: {
+          category: true,
+          city: true,
+          user: true,
+        },
       });
-      return ResponseApi.success(res, "Product validated successfully", null);
+
+      // Conversion des images en URLs complètes
+      const productWithImageUrls = {
+        ...updatedProduct,
+        images: Array.isArray(updatedProduct.images)
+          ? (updatedProduct.images as string[]).map((imagePath: string) =>
+              Utils.resolveFileUrl(req, imagePath)
+            )
+          : [],
+      };
+
+      return ResponseApi.success(
+        res,
+        "Product validated successfully",
+        productWithImageUrls
+      );
     } else if (action === "reject") {
-      await prisma.product.update({
+      updatedProduct = await prisma.product.update({
         where: { id },
-        data: { status: "REJECTED" },
+        data: {
+          status: "REJECTED",
+        },
+        include: {
+          category: true,
+          city: true,
+          user: true,
+        },
       });
-      return ResponseApi.success(res, "Product rejected successfully", null);
+
+      // Conversion des images en URLs complètes
+      const productWithImageUrls = {
+        ...updatedProduct,
+        images: Array.isArray(updatedProduct.images)
+          ? (updatedProduct.images as string[]).map((imagePath: string) =>
+              Utils.resolveFileUrl(req, imagePath)
+            )
+          : [],
+      };
+
+      return ResponseApi.success(
+        res,
+        "Product rejected successfully",
+        productWithImageUrls
+      );
     } else {
       return ResponseApi.error(res, "Invalid action", null, 400);
     }

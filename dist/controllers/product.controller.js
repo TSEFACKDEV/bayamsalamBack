@@ -103,11 +103,19 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
+    const categoryId = req.query.categoryId;
+    const cityId = req.query.cityId;
     try {
         const where = { status: "VALIDATED" };
         if (search) {
             // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
             where.name = { contains: search };
+        }
+        if (categoryId) {
+            where.categoryId = categoryId;
+        }
+        if (cityId) {
+            where.cityId = cityId;
         }
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
@@ -350,27 +358,55 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
 exports.deleteProduct = deleteProduct;
 const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
-    const { action } = req.body;
+    const { action, reviewReason } = req.body;
     try {
         //verifie si le produit existe
-        const product = yield prisma_client_js_1.default.product.findUnique({ where: { id } });
+        const product = yield prisma_client_js_1.default.product.findUnique({
+            where: { id },
+            include: {
+                category: true,
+                city: true,
+                user: true,
+            },
+        });
         if (!product) {
             return response_js_1.default.notFound(res, "Product not found", 404);
         }
+        let updatedProduct;
         //verifie si l'action est valide
         if (action === "validate") {
-            yield prisma_client_js_1.default.product.update({
+            updatedProduct = yield prisma_client_js_1.default.product.update({
                 where: { id },
                 data: { status: "VALIDATED" },
+                include: {
+                    category: true,
+                    city: true,
+                    user: true,
+                },
             });
-            return response_js_1.default.success(res, "Product validated successfully", null);
+            // Conversion des images en URLs complètes
+            const productWithImageUrls = Object.assign(Object.assign({}, updatedProduct), { images: Array.isArray(updatedProduct.images)
+                    ? updatedProduct.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                    : [] });
+            return response_js_1.default.success(res, "Product validated successfully", productWithImageUrls);
         }
         else if (action === "reject") {
-            yield prisma_client_js_1.default.product.update({
+            updatedProduct = yield prisma_client_js_1.default.product.update({
                 where: { id },
-                data: { status: "REJECTED" },
+                data: {
+                    status: "REJECTED",
+                },
+                include: {
+                    category: true,
+                    city: true,
+                    user: true,
+                },
             });
-            return response_js_1.default.success(res, "Product rejected successfully", null);
+            // Conversion des images en URLs complètes
+            const productWithImageUrls = Object.assign(Object.assign({}, updatedProduct), { images: Array.isArray(updatedProduct.images)
+                    ? updatedProduct.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                    : [] });
+            return response_js_1.default.success(res, "Product rejected successfully", productWithImageUrls);
         }
         else {
             return response_js_1.default.error(res, "Invalid action", null, 400);

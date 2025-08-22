@@ -20,7 +20,7 @@ export const getAllUsers = async (
   res: Response
 ): Promise<any> => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const limit = parseInt(req.query.limit as string) || 20;
   const offset = (page - 1) * limit;
   const search = (req.query.search as string) || "";
 

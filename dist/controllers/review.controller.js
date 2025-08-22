@@ -12,14 +12,29 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReviewsForUser = exports.deleteReview = exports.updateReview = exports.createReview = exports.getReviewById = exports.getAllReviews = void 0;
+exports.getReviewsByUser = exports.getReviewsForUser = exports.deleteReview = exports.updateReview = exports.createReview = exports.getReviewById = exports.getAllReviews = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const getAllReviews = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const reviews = yield prisma_client_js_1.default.review.findMany({
             include: {
-                user: true
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+                author: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
             },
             orderBy: {
                 createdAt: "desc",
@@ -37,12 +52,27 @@ const getReviewById = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     const id = req.params.id;
     try {
         if (!id) {
-            return response_js_1.default.notFound(res, "Review ID is required", 422);
+            return response_js_1.default.error(res, "Review ID is required", null, 422);
         }
         const review = yield prisma_client_js_1.default.review.findUnique({
             where: { id },
             include: {
-                user: true
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+                author: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
             },
         });
         if (!review) {
@@ -58,26 +88,59 @@ const getReviewById = (req, res) => __awaiter(void 0, void 0, void 0, function* 
 exports.getReviewById = getReviewById;
 const createReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
-    const { productId, rating, comment } = req.body;
+    const { sellerId, rating } = req.body; // On utilise sellerId directement au lieu de productId
     const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id; // Celui qui laisse la note
     try {
-        if (!productId || !rating) {
-            return response_js_1.default.error(res, "All fields are required", null, 400);
+        if (!sellerId || !rating) {
+            return response_js_1.default.error(res, "Seller ID and rating are required", null, 400);
         }
-        // Trouver l'auteur du produit
-        const product = yield prisma_client_js_1.default.product.findUnique({
-            where: { id: productId },
-            select: { userId: true }
+        if (rating < 1 || rating > 5) {
+            return response_js_1.default.error(res, "Rating must be between 1 and 5", null, 400);
+        }
+        // Vérifier que l'utilisateur ne se note pas lui-même
+        if (userId === sellerId) {
+            return response_js_1.default.error(res, "You cannot rate yourself", null, 400);
+        }
+        // Vérifier que le vendeur existe
+        const seller = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: sellerId },
         });
-        if (!product) {
-            return response_js_1.default.notFound(res, "Product not found", 404);
+        if (!seller) {
+            return response_js_1.default.notFound(res, "Seller not found", 404);
         }
-        const authorId = product.userId;
+        // Vérifier si l'utilisateur a déjà noté ce vendeur
+        const existingReview = yield prisma_client_js_1.default.review.findFirst({
+            where: {
+                userId: userId,
+                authorId: sellerId,
+            },
+        });
+        if (existingReview) {
+            return response_js_1.default.error(res, "You have already rated this seller", null, 400);
+        }
         const review = yield prisma_client_js_1.default.review.create({
             data: {
-                authorId,
+                authorId: sellerId,
                 userId,
-                rating
+                rating,
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+                author: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
             },
         });
         response_js_1.default.success(res, "Review created successfully", review, 201);
@@ -89,11 +152,16 @@ const createReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
 });
 exports.createReview = createReview;
 const updateReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     const id = req.params.id;
     const { rating } = req.body;
+    const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
     try {
         if (!id) {
-            return response_js_1.default.notFound(res, "Review ID is required", 422);
+            return response_js_1.default.error(res, "Review ID is required", null, 422);
+        }
+        if (!rating || rating < 1 || rating > 5) {
+            return response_js_1.default.error(res, "Valid rating (1-5) is required", null, 400);
         }
         const review = yield prisma_client_js_1.default.review.findUnique({
             where: { id },
@@ -101,10 +169,32 @@ const updateReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         if (!review) {
             return response_js_1.default.notFound(res, "Review not found", 404);
         }
+        // Vérifier que l'utilisateur ne peut modifier que ses propres reviews
+        if (review.userId !== userId) {
+            return response_js_1.default.error(res, "You can only update your own reviews", null, 403);
+        }
         const updatedReview = yield prisma_client_js_1.default.review.update({
             where: { id },
             data: {
-                rating
+                rating,
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+                author: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
             },
         });
         response_js_1.default.success(res, "Review updated successfully", updatedReview);
@@ -116,10 +206,12 @@ const updateReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
 });
 exports.updateReview = updateReview;
 const deleteReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     const id = req.params.id;
+    const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
     try {
         if (!id) {
-            return response_js_1.default.notFound(res, "Review ID is required", 422);
+            return response_js_1.default.error(res, "Review ID is required", null, 422);
         }
         const review = yield prisma_client_js_1.default.review.findUnique({
             where: { id },
@@ -127,10 +219,14 @@ const deleteReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         if (!review) {
             return response_js_1.default.notFound(res, "Review not found", 404);
         }
+        // Vérifier que l'utilisateur ne peut supprimer que ses propres reviews
+        if (review.userId !== userId) {
+            return response_js_1.default.error(res, "You can only delete your own reviews", null, 403);
+        }
         yield prisma_client_js_1.default.review.delete({
             where: { id },
         });
-        response_js_1.default.success(res, "Review deleted successfully", null, 204);
+        response_js_1.default.success(res, "Review deleted successfully", null);
     }
     catch (error) {
         console.error("Error deleting review:", error);
@@ -139,34 +235,96 @@ const deleteReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
 });
 exports.deleteReview = deleteReview;
 const getReviewsForUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const authorId = req.params.userId;
+    const sellerId = req.params.userId;
     try {
-        if (!authorId) {
-            return response_js_1.default.notFound(res, "User ID is required", 422);
+        if (!sellerId) {
+            return response_js_1.default.error(res, "Seller ID is required", null, 422);
         }
-        // Récupérer toutes les reviews pour cet utilisateur
+        // Vérifier que le vendeur existe
+        const seller = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: sellerId },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+            },
+        });
+        if (!seller) {
+            return response_js_1.default.notFound(res, "Seller not found", 404);
+        }
+        // Récupérer toutes les reviews pour ce vendeur
         const reviews = yield prisma_client_js_1.default.review.findMany({
-            where: { authorId },
+            where: { authorId: sellerId },
             include: {
-                user: true, // Celui qui a noté
-                author: true, // Celui qui est noté
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
             },
             orderBy: {
                 createdAt: "desc",
             },
         });
-        // Calculer la moyenne des notes
-        const average = reviews.length > 0
-            ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-            : null;
-        response_js_1.default.success(res, "Reviews for user retrieved successfully", {
+        // Calculer la moyenne et les statistiques
+        const totalReviews = reviews.length;
+        const averageRating = totalReviews > 0
+            ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews) * 10) / 10
+            : 0;
+        // Calculer la répartition des étoiles
+        const ratingDistribution = {
+            5: reviews.filter((r) => r.rating === 5).length,
+            4: reviews.filter((r) => r.rating === 4).length,
+            3: reviews.filter((r) => r.rating === 3).length,
+            2: reviews.filter((r) => r.rating === 2).length,
+            1: reviews.filter((r) => r.rating === 1).length,
+        };
+        response_js_1.default.success(res, "Seller reviews retrieved successfully", {
+            seller,
             reviews,
-            averageRating: average,
+            statistics: {
+                totalReviews,
+                averageRating,
+                ratingDistribution,
+            },
         });
     }
     catch (error) {
-        console.error("Error retrieving reviews for user:", error);
-        response_js_1.default.error(res, "Failed to retrieve reviews for user", 500);
+        console.error("Error retrieving reviews for seller:", error);
+        response_js_1.default.error(res, "Failed to retrieve reviews for seller", 500);
     }
 });
 exports.getReviewsForUser = getReviewsForUser;
+const getReviewsByUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+    try {
+        // Récupérer toutes les reviews données par cet utilisateur
+        const reviews = yield prisma_client_js_1.default.review.findMany({
+            where: { userId },
+            include: {
+                author: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: "desc",
+            },
+        });
+        response_js_1.default.success(res, "Your reviews retrieved successfully", reviews);
+    }
+    catch (error) {
+        console.error("Error retrieving user reviews:", error);
+        response_js_1.default.error(res, "Failed to retrieve your reviews", 500);
+    }
+});
+exports.getReviewsByUser = getReviewsByUser;

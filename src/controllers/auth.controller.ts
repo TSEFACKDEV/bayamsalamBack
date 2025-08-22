@@ -153,6 +153,23 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
+    // Envoi du mail de bienvenue après vérification OTP
+    try {
+      // Import dynamique pour éviter les problèmes d'import circulaire
+      const { createWelcomeTemplate } = await import("../templates/welComeTemplate.js");
+      const htmlTemplate = createWelcomeTemplate(user.firstName, user.lastName);
+
+      await sendEmail(
+        user.email,
+        "🎉 Bienvenue sur BuyamSale !",
+        `Bonjour ${user.firstName} ${user.lastName},\n\nVotre compte a été vérifié avec succès. Bienvenue sur BuyamSale !`,
+        htmlTemplate
+      );
+    } catch (mailError) {
+      console.error("Erreur lors de l'envoi du mail de bienvenue:", mailError);
+      // On ne bloque pas la réponse si le mail échoue
+    }
+
     return ResponseApi.success(res, "OTP vérifié avec succès", user, 200);
   } catch (error: any) {
     console.error("Erreur lors de la vérification OTP:", error);

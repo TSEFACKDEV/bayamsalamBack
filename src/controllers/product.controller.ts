@@ -2,7 +2,8 @@ import { Request, Response } from "express";
 import ResponseApi from "../helper/response.js";
 import prisma from "../model/prisma.client.js";
 import Utils from "../helper/utils.js";
-
+import { sendEmail } from "../utilities/mailer.js";
+import { reviewProductTemplate } from "../templates/reviewProductTemplate.js";
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 export const getAllProducts = async (
   req: Request,
@@ -467,27 +468,52 @@ export const reviewProduct = async (
   const { id } = req.params;
   const { action } = req.body;
   try {
-    //verifie si le produit existe
-    const product = await prisma.product.findUnique({ where: { id } });
+    // Vérifie si le produit existe
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: { user: true },
+    });
     if (!product) {
       return ResponseApi.notFound(res, "Product not found", 404);
     }
-    //verifie si l'action est valide
+
+    let newStatus: "VALIDATED" | "REJECTED" | null = null;
+    let subject = "";
+    let message = "";
+
     if (action === "validate") {
-      await prisma.product.update({
-        where: { id },
-        data: { status: "VALIDATED" },
-      });
-      return ResponseApi.success(res, "Product validated successfully", null);
+      newStatus = "VALIDATED";
+      subject = "Votre produit a été validé";
+      message = "Félicitations ! Votre produit a été validé et est désormais visible sur la plateforme.";
     } else if (action === "reject") {
-      await prisma.product.update({
-        where: { id },
-        data: { status: "REJECTED" },
-      });
-      return ResponseApi.success(res, "Product rejected successfully", null);
+      newStatus = "REJECTED";
+      subject = "Votre produit a été rejeté";
+      message = "Nous sommes désolés, votre produit a été rejeté. Veuillez vérifier les informations et réessayer.";
     } else {
       return ResponseApi.error(res, "Invalid action", null, 400);
     }
+
+    await prisma.product.update({
+      where: { id },
+      data: { status: newStatus },
+    });
+
+    // Envoi de l'email à l'utilisateur
+    if (product.user?.email) {
+      const html = reviewProductTemplate({
+        userName: product.user.firstName || "Utilisateur",
+        productName: product.name,
+        status: newStatus,
+        message,
+      });
+      await sendEmail(product.user.email, subject, message, html);
+    }
+
+    return ResponseApi.success(
+      res,
+      `Product ${newStatus === "VALIDATED" ? "validated" : "rejected"} successfully`,
+      null
+    );
   } catch (error: any) {
     console.log("====================================");
     console.log(error);

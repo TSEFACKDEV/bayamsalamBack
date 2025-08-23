@@ -13,6 +13,7 @@ import prisma from "../model/prisma.client.js";
 import env from "../config/config.js";
 import ResponseApi from "../helper/response.js";
 import { createOTPEmailTemplate } from "../templates/otpEmailTemplate.js";
+import { createNotification } from "../services/notification.service.js";
 
 interface RegisterData {
   email: string;
@@ -151,6 +152,12 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
         isVerified: true,
         status: "ACTIVE",
       },
+    });
+
+    // Créer notification de bienvenue
+    await createNotification(user.id, "Bienvenue sur BuyamSale", "Votre compte a été vérifié avec succès. Bienvenue !", {
+      type: "WELCOME",
+      link: "/",
     });
 
     // Envoi du mail de bienvenue après vérification OTP

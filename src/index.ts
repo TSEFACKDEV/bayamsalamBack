@@ -10,6 +10,8 @@ import url from "node:url";
 import path from "node:path";
 import prisma from "./model/prisma.client.js"; // adapte le chemin si besoin
 import { hashPassword } from "./utilities/bcrypt.js"; // adapte le chemin si besoin
+import http from "http";
+import { initSockets } from "./utilities/socket.js";
 
 const app: Application = express();
 
@@ -106,6 +108,10 @@ createSuperAdmin().catch(console.error);
 // Gestion des erreurs
 app.use(errorHandler);
 
-app.listen(env.port, () => {
+// Remplace app.listen par http server + initSockets
+const server = http.createServer(app);
+initSockets(server);
+
+server.listen(env.port, () => {
   console.log(`Server is running on http://${env.host}:${env.port}`);
 });

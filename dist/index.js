@@ -23,6 +23,8 @@ const index_js_1 = __importDefault(require("./routes/index.js"));
 const node_path_1 = __importDefault(require("node:path"));
 const prisma_client_js_1 = __importDefault(require("./model/prisma.client.js")); // adapte le chemin si besoin
 const bcrypt_js_1 = require("./utilities/bcrypt.js"); // adapte le chemin si besoin
+const http_1 = __importDefault(require("http"));
+const socket_js_1 = require("./utilities/socket.js");
 const app = (0, express_1.default)();
 //Middleware
 app.use((0, cors_1.default)({
@@ -108,6 +110,9 @@ function createSuperAdmin() {
 createSuperAdmin().catch(console.error);
 // Gestion des erreurs
 app.use(errorHandler_js_1.errorHandler);
-app.listen(config_js_1.default.port, () => {
+// Remplace app.listen par http server + initSockets
+const server = http_1.default.createServer(app);
+(0, socket_js_1.initSockets)(server);
+server.listen(config_js_1.default.port, () => {
     console.log(`Server is running on http://${config_js_1.default.host}:${config_js_1.default.port}`);
 });

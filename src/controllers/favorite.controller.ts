@@ -12,11 +12,18 @@ export const addToFavorites = async (
     const { productId } = req.body;
 
     if (!userId || !productId) {
-      return ResponseApi.error(res, "userId et productId sont requis", null, 400);
+      return ResponseApi.error(
+        res,
+        "userId et productId sont requis",
+        null,
+        400
+      );
     }
 
     // Vérifie si le produit existe
-    const product = await prisma.product.findUnique({ where: { id: productId } });
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
     if (!product) {
       return ResponseApi.notFound(res, "Produit introuvable", 404);
     }
@@ -31,14 +38,34 @@ export const addToFavorites = async (
 
     const favorite = await prisma.favorite.create({
       data: { userId, productId },
+      include: { product: true }, // Inclure le produit dans la réponse
     });
 
-    ResponseApi.success(res, "Produit ajouté aux favoris", favorite, 201);
+    // 🔧 Conversion sécurisée des images en URLs complètes
+    const favoriteWithImageUrls = {
+      ...favorite,
+      product: favorite.product
+        ? {
+            ...favorite.product,
+            images: Array.isArray(favorite.product.images)
+              ? (favorite.product.images as string[]).map((imagePath: string) =>
+                  Utils.resolveFileUrl(req, imagePath)
+                )
+              : [],
+          }
+        : null,
+    };
+
+    ResponseApi.success(
+      res,
+      "Produit ajouté aux favoris",
+      favoriteWithImageUrls,
+      201
+    );
   } catch (error: any) {
     ResponseApi.error(res, "Erreur lors de l'ajout aux favoris", error.message);
   }
 };
-
 
 export const removeFromFavorites = async (
   req: Request,
@@ -49,7 +76,12 @@ export const removeFromFavorites = async (
     const { productId } = req.body;
 
     if (!userId || !productId) {
-      return ResponseApi.error(res, "userId et productId sont requis", null, 400);
+      return ResponseApi.error(
+        res,
+        "userId et productId sont requis",
+        null,
+        400
+      );
     }
 
     // Vérifie si le produit est en favoris
@@ -57,7 +89,11 @@ export const removeFromFavorites = async (
       where: { userId_productId: { userId, productId } },
     });
     if (!favorite) {
-      return ResponseApi.notFound(res, "Produit non trouvé dans les favoris", 404);
+      return ResponseApi.notFound(
+        res,
+        "Produit non trouvé dans les favoris",
+        404
+      );
     }
 
     await prisma.favorite.delete({
@@ -69,8 +105,6 @@ export const removeFromFavorites = async (
     ResponseApi.error(res, "Erreur lors du retrait des favoris", error.message);
   }
 };
-
-
 
 export const getUserFavorites = async (
   req: Request,
@@ -103,8 +137,17 @@ export const getUserFavorites = async (
         : null,
     }));
 
-    ResponseApi.success(res, "Favoris récupérés avec succès", favoritesWithImageUrls, 200);
+    ResponseApi.success(
+      res,
+      "Favoris récupérés avec succès",
+      favoritesWithImageUrls,
+      200
+    );
   } catch (error: any) {
-    ResponseApi.error(res, "Erreur lors de la récupération des favoris", error.message);
+    ResponseApi.error(
+      res,
+      "Erreur lors de la récupération des favoris",
+      error.message
+    );
   }
 };

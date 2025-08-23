@@ -25,7 +25,9 @@ const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function*
             return response_js_1.default.error(res, "userId et productId sont requis", null, 400);
         }
         // Vérifie si le produit existe
-        const product = yield prisma_client_js_1.default.product.findUnique({ where: { id: productId } });
+        const product = yield prisma_client_js_1.default.product.findUnique({
+            where: { id: productId },
+        });
         if (!product) {
             return response_js_1.default.notFound(res, "Produit introuvable", 404);
         }
@@ -38,8 +40,14 @@ const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function*
         }
         const favorite = yield prisma_client_js_1.default.favorite.create({
             data: { userId, productId },
+            include: { product: true }, // Inclure le produit dans la réponse
         });
-        response_js_1.default.success(res, "Produit ajouté aux favoris", favorite, 201);
+        // 🔧 Conversion sécurisée des images en URLs complètes
+        const favoriteWithImageUrls = Object.assign(Object.assign({}, favorite), { product: favorite.product
+                ? Object.assign(Object.assign({}, favorite.product), { images: Array.isArray(favorite.product.images)
+                        ? favorite.product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                        : [] }) : null });
+        response_js_1.default.success(res, "Produit ajouté aux favoris", favoriteWithImageUrls, 201);
     }
     catch (error) {
         response_js_1.default.error(res, "Erreur lors de l'ajout aux favoris", error.message);

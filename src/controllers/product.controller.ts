@@ -4,6 +4,7 @@ import prisma from "../model/prisma.client.js";
 import Utils from "../helper/utils.js";
 import { sendEmail } from "../utilities/mailer.js";
 import { reviewProductTemplate } from "../templates/reviewProductTemplate.js";
+import { createNotification } from "../services/notification.service.js";
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 export const getAllProducts = async (
   req: Request,
@@ -497,6 +498,21 @@ export const reviewProduct = async (
       where: { id },
       data: { status: newStatus },
     });
+
+    // Création notification persistée + realtime
+    if (product.user?.id) {
+      const notifTitle =
+        newStatus === "VALIDATED" ? "Produit validé" : "Produit rejeté";
+      const notifMessage =
+        newStatus === "VALIDATED"
+          ? `Votre produit "${product.name}" a été validé.`
+          : `Votre produit "${product.name}" a été rejeté.`;
+
+      await createNotification(product.user.id, notifTitle, notifMessage, {
+        type: "PRODUCT",
+        link: `/product/${id}`,
+      });
+    }
 
     // Envoi de l'email à l'utilisateur
     if (product.user?.email) {

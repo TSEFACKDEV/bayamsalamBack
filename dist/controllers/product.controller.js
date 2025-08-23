@@ -18,6 +18,7 @@ const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"))
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
 const mailer_js_1 = require("../utilities/mailer.js");
 const reviewProductTemplate_js_1 = require("../templates/reviewProductTemplate.js");
+const notification_service_js_1 = require("../services/notification.service.js");
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
@@ -351,7 +352,7 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
 });
 exports.deleteProduct = deleteProduct;
 const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b;
     const { id } = req.params;
     const { action } = req.body;
     try {
@@ -383,8 +384,19 @@ const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             where: { id },
             data: { status: newStatus },
         });
+        // Création notification persistée + realtime
+        if ((_a = product.user) === null || _a === void 0 ? void 0 : _a.id) {
+            const notifTitle = newStatus === "VALIDATED" ? "Produit validé" : "Produit rejeté";
+            const notifMessage = newStatus === "VALIDATED"
+                ? `Votre produit "${product.name}" a été validé.`
+                : `Votre produit "${product.name}" a été rejeté.`;
+            yield (0, notification_service_js_1.createNotification)(product.user.id, notifTitle, notifMessage, {
+                type: "PRODUCT",
+                link: `/product/${id}`,
+            });
+        }
         // Envoi de l'email à l'utilisateur
-        if ((_a = product.user) === null || _a === void 0 ? void 0 : _a.email) {
+        if ((_b = product.user) === null || _b === void 0 ? void 0 : _b.email) {
             const html = (0, reviewProductTemplate_js_1.reviewProductTemplate)({
                 userName: product.user.firstName || "Utilisateur",
                 productName: product.name,

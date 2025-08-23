@@ -66,6 +66,7 @@ const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"))
 const config_js_1 = __importDefault(require("../config/config.js"));
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const otpEmailTemplate_js_1 = require("../templates/otpEmailTemplate.js");
+const notification_service_js_1 = require("../services/notification.service.js");
 const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password, firstName, lastName, phone } = req.body;
@@ -148,6 +149,11 @@ const verifyOTP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 isVerified: true,
                 status: "ACTIVE",
             },
+        });
+        // Créer notification de bienvenue
+        yield (0, notification_service_js_1.createNotification)(user.id, "Bienvenue sur BuyamSale", "Votre compte a été vérifié avec succès. Bienvenue !", {
+            type: "WELCOME",
+            link: "/",
         });
         // Envoi du mail de bienvenue après vérification OTP
         try {

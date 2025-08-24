@@ -20,16 +20,22 @@ const mailer_js_1 = require("../utilities/mailer.js");
 const reviewProductTemplate_js_1 = require("../templates/reviewProductTemplate.js");
 const notification_service_js_1 = require("../services/notification.service.js");
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
+// ✅ UPDATED: Ajout du support du filtrage par status
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
+    const status = req.query.status; // ✅ Récupérer le paramètre status
     try {
         const where = {};
         if (search) {
             // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
             where.name = { contains: search };
+        }
+        // ✅ Ajouter le filtre par status si fourni
+        if (status && ["PENDING", "VALIDATED", "REJECTED"].includes(status)) {
+            where.status = status;
         }
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
@@ -106,11 +112,20 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
+    const categoryId = req.query.categoryId; // ✅ Ajout du filtre catégorie
+    const cityId = req.query.cityId; // ✅ Ajout du filtre ville
     try {
         const where = { status: "VALIDATED" };
         if (search) {
             // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
             where.name = { contains: search };
+        }
+        // ✅ Ajout des filtres par catégorie et ville
+        if (categoryId) {
+            where.categoryId = categoryId;
+        }
+        if (cityId) {
+            where.cityId = cityId;
         }
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
@@ -338,6 +353,8 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 }
             }
         }
+        // Grâce à onDelete: Cascade dans le schéma, les favoris et forfaits
+        // seront automatiquement supprimés
         const result = yield prisma_client_js_1.default.product.delete({
             where: { id },
         });
@@ -352,66 +369,88 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
 });
 exports.deleteProduct = deleteProduct;
 const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
     const { id } = req.params;
     const { action } = req.body;
     try {
-        // Vérifie si le produit existe
-        const product = yield prisma_client_js_1.default.product.findUnique({
-            where: { id },
-            include: { user: true },
-        });
+        // ✅ 1. Validation et récupération des données en parallèle
+        const [product] = yield Promise.all([
+            prisma_client_js_1.default.product.findUnique({
+                where: { id },
+                include: { user: true },
+            }),
+            // On peut ajouter d'autres vérifications en parallèle ici si besoin
+        ]);
         if (!product) {
             return response_js_1.default.notFound(res, "Product not found", 404);
         }
+        // ✅ 2. Préparation des données (synchrone - très rapide)
         let newStatus = null;
         let subject = "";
         let message = "";
         if (action === "validate") {
             newStatus = "VALIDATED";
             subject = "Votre produit a été validé";
-            message = "Félicitations ! Votre produit a été validé et est désormais visible sur la plateforme.";
+            message =
+                "Félicitations ! Votre produit a été validé et est désormais visible sur la plateforme.";
         }
         else if (action === "reject") {
             newStatus = "REJECTED";
             subject = "Votre produit a été rejeté";
-            message = "Nous sommes désolés, votre produit a été rejeté. Veuillez vérifier les informations et réessayer.";
+            message =
+                "Nous sommes désolés, votre produit a été rejeté. Veuillez vérifier les informations et réessayer.";
         }
         else {
             return response_js_1.default.error(res, "Invalid action", null, 400);
         }
+        // ✅ 3. Mise à jour du produit (opération critique - doit être synchrone)
         yield prisma_client_js_1.default.product.update({
             where: { id },
             data: { status: newStatus },
         });
-        // Création notification persistée + realtime
-        if ((_a = product.user) === null || _a === void 0 ? void 0 : _a.id) {
-            const notifTitle = newStatus === "VALIDATED" ? "Produit validé" : "Produit rejeté";
-            const notifMessage = newStatus === "VALIDATED"
-                ? `Votre produit "${product.name}" a été validé.`
-                : `Votre produit "${product.name}" a été rejeté.`;
-            yield (0, notification_service_js_1.createNotification)(product.user.id, notifTitle, notifMessage, {
-                type: "PRODUCT",
-                link: `/product/${id}`,
-            });
-        }
-        // Envoi de l'email à l'utilisateur
-        if ((_b = product.user) === null || _b === void 0 ? void 0 : _b.email) {
-            const html = (0, reviewProductTemplate_js_1.reviewProductTemplate)({
-                userName: product.user.firstName || "Utilisateur",
-                productName: product.name,
-                status: newStatus,
-                message,
-            });
-            yield (0, mailer_js_1.sendEmail)(product.user.email, subject, message, html);
-        }
-        return response_js_1.default.success(res, `Product ${newStatus === "VALIDATED" ? "validated" : "rejected"} successfully`, null);
+        // ✅ 4. RÉPONSE IMMÉDIATE au client (performance critique)
+        const response = response_js_1.default.success(res, `Product ${newStatus === "VALIDATED" ? "validated" : "rejected"} successfully`, null);
+        // ✅ 5. Tâches d'arrière-plan APRÈS la réponse (non-bloquantes)
+        // Utilisation de setImmediate/process.nextTick pour éviter de bloquer la réponse
+        setImmediate(() => __awaiter(void 0, void 0, void 0, function* () {
+            var _a, _b;
+            try {
+                const backgroundTasks = [];
+                // Création notification (en parallèle)
+                if ((_a = product.user) === null || _a === void 0 ? void 0 : _a.id) {
+                    const notifTitle = newStatus === "VALIDATED" ? "Produit validé" : "Produit rejeté";
+                    const notifMessage = newStatus === "VALIDATED"
+                        ? `Votre produit "${product.name}" a été validé.`
+                        : `Votre produit "${product.name}" a été rejeté.`;
+                    backgroundTasks.push((0, notification_service_js_1.createNotification)(product.user.id, notifTitle, notifMessage, {
+                        type: "PRODUCT",
+                        link: `/product/${id}`,
+                    }));
+                }
+                // Envoi email (en parallèle)
+                if ((_b = product.user) === null || _b === void 0 ? void 0 : _b.email) {
+                    const html = (0, reviewProductTemplate_js_1.reviewProductTemplate)({
+                        userName: product.user.firstName || "Utilisateur",
+                        productName: product.name,
+                        status: newStatus,
+                        message,
+                    });
+                    backgroundTasks.push((0, mailer_js_1.sendEmail)(product.user.email, subject, message, html));
+                }
+                // ✅ Exécution parallèle des tâches d'arrière-plan
+                yield Promise.allSettled(backgroundTasks);
+            }
+            catch (bgError) {
+                // Log l'erreur mais ne pas faire échouer la requête principale
+                console.error("Background task error in reviewProduct:", bgError);
+            }
+        }));
+        return response;
     }
     catch (error) {
         console.log("====================================");
-        console.log(error);
+        console.log("Error in reviewProduct:", error);
         console.log("====================================");
-        response_js_1.default.error(res, "Failed to review product", error.message);
+        return response_js_1.default.error(res, "Failed to review product", error.message);
     }
 });
 exports.reviewProduct = reviewProduct;

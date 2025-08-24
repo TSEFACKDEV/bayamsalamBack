@@ -469,6 +469,8 @@ export const deleteProduct = async (
       }
     }
 
+    // Grâce à onDelete: Cascade dans le schéma, les favoris et forfaits
+    // seront automatiquement supprimés
     const result = await prisma.product.delete({
       where: { id },
     });

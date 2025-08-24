@@ -353,6 +353,8 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 }
             }
         }
+        // Grâce à onDelete: Cascade dans le schéma, les favoris et forfaits
+        // seront automatiquement supprimés
         const result = yield prisma_client_js_1.default.product.delete({
             where: { id },
         });

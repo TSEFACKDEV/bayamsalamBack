@@ -7,27 +7,39 @@ export const createNotification = async (
   message: string,
   options?: { data?: any; link?: string; type?: string }
 ) => {
-  const notification = await prisma.notification.create({
-    data: {
-      userId,
-      title,
-      message,
-      data: options?.data ?? null,
-      link: options?.link ?? null,
-      type: options?.type ?? null,
-    },
-  });
-
-  // Émettre en temps réel vers la room userId (si connecté)
   try {
-    const io = getIO();
-    io.to(userId).emit("notification", notification);
-  } catch (e) {
-    // socket pas initialisé -> ignore
-    console.warn("Socket.io not initialized, skipping real-time emit.");
-  }
+    // ✅ Création de la notification en base (opération critique)
+    const notification = await prisma.notification.create({
+      data: {
+        userId,
+        title,
+        message,
+        data: options?.data ?? null,
+        link: options?.link ?? null,
+        type: options?.type ?? null,
+      },
+    });
 
-  return notification;
+    // ✅ Émission Socket.io en arrière-plan (non-critique)
+    // Utiliser setImmediate pour ne pas bloquer la réponse
+    setImmediate(() => {
+      try {
+        const io = getIO();
+        io.to(userId).emit("notification", notification);
+      } catch (socketError) {
+        // Socket pas initialisé ou utilisateur déconnecté -> ignore silencieusement
+        console.warn(
+          `Socket.io notification failed for user ${userId}:`,
+          socketError
+        );
+      }
+    });
+
+    return notification;
+  } catch (error) {
+    console.error("Failed to create notification:", error);
+    throw error; // Re-throw pour que l'appelant puisse gérer l'erreur
+  }
 };
 
 export const getUserNotifications = async (userId: string) => {

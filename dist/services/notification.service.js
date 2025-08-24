@@ -17,26 +17,36 @@ const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"))
 const socket_js_1 = require("../utilities/socket.js");
 const createNotification = (userId, title, message, options) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
-    const notification = yield prisma_client_js_1.default.notification.create({
-        data: {
-            userId,
-            title,
-            message,
-            data: (_a = options === null || options === void 0 ? void 0 : options.data) !== null && _a !== void 0 ? _a : null,
-            link: (_b = options === null || options === void 0 ? void 0 : options.link) !== null && _b !== void 0 ? _b : null,
-            type: (_c = options === null || options === void 0 ? void 0 : options.type) !== null && _c !== void 0 ? _c : null,
-        },
-    });
-    // Émettre en temps réel vers la room userId (si connecté)
     try {
-        const io = (0, socket_js_1.getIO)();
-        io.to(userId).emit("notification", notification);
+        // ✅ Création de la notification en base (opération critique)
+        const notification = yield prisma_client_js_1.default.notification.create({
+            data: {
+                userId,
+                title,
+                message,
+                data: (_a = options === null || options === void 0 ? void 0 : options.data) !== null && _a !== void 0 ? _a : null,
+                link: (_b = options === null || options === void 0 ? void 0 : options.link) !== null && _b !== void 0 ? _b : null,
+                type: (_c = options === null || options === void 0 ? void 0 : options.type) !== null && _c !== void 0 ? _c : null,
+            },
+        });
+        // ✅ Émission Socket.io en arrière-plan (non-critique)
+        // Utiliser setImmediate pour ne pas bloquer la réponse
+        setImmediate(() => {
+            try {
+                const io = (0, socket_js_1.getIO)();
+                io.to(userId).emit("notification", notification);
+            }
+            catch (socketError) {
+                // Socket pas initialisé ou utilisateur déconnecté -> ignore silencieusement
+                console.warn(`Socket.io notification failed for user ${userId}:`, socketError);
+            }
+        });
+        return notification;
     }
-    catch (e) {
-        // socket pas initialisé -> ignore
-        console.warn("Socket.io not initialized, skipping real-time emit.");
+    catch (error) {
+        console.error("Failed to create notification:", error);
+        throw error; // Re-throw pour que l'appelant puisse gérer l'erreur
     }
-    return notification;
 });
 exports.createNotification = createNotification;
 const getUserNotifications = (userId) => __awaiter(void 0, void 0, void 0, function* () {

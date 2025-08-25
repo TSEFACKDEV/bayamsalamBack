@@ -349,7 +349,7 @@ export const createProduct = async (
       await createNotification(
         userId, 
         "Annonce créée avec succès", 
-        `Votre produit "${name}" a été créé avec succès et est en attente de validation par nos équipes.`,
+        `Votre produit "${name}" a été créé avec succès et est en attente de validation par nos équipes...`,
         {
           type: "PRODUCT",
           link: `/product/${product.id}`,

@@ -267,7 +267,7 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             },
         });
         if (userId) {
-            yield (0, notification_service_js_1.createNotification)(userId, "Annonce créée avec succès", `Votre produit "${name}" a été créé avec succès et est en attente de validation par nos équipes.`, {
+            yield (0, notification_service_js_1.createNotification)(userId, "Annonce créée avec succès", `Votre produit "${name}" a été créé avec succès et est en attente de validation par nos équipes...`, {
                 type: "PRODUCT",
                 link: `/product/${product.id}`,
             });

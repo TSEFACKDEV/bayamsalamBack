@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markNotificationRead = exports.getUserNotifications = exports.createNotification = void 0;
+exports.markAllNotificationsRead = exports.markNotificationRead = exports.getUserNotifications = exports.createNotification = void 0;
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const socket_js_1 = require("../utilities/socket.js");
 const createNotification = (userId, title, message, options) => __awaiter(void 0, void 0, void 0, function* () {
@@ -63,3 +63,13 @@ const markNotificationRead = (notificationId) => __awaiter(void 0, void 0, void 
     });
 });
 exports.markNotificationRead = markNotificationRead;
+const markAllNotificationsRead = (userId) => __awaiter(void 0, void 0, void 0, function* () {
+    return prisma_client_js_1.default.notification.updateMany({
+        where: {
+            userId,
+            read: false,
+        },
+        data: { read: true },
+    });
+});
+exports.markAllNotificationsRead = markAllNotificationsRead;

@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markRead = exports.listNotifications = void 0;
+exports.markAllAsRead = exports.markRead = exports.listNotifications = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const notification_service_js_1 = require("../services/notification.service.js");
 const listNotifications = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -40,3 +40,17 @@ const markRead = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.markRead = markRead;
+const markAllAsRead = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        if (!userId)
+            return response_js_1.default.error(res, "Unauthorized", null, 401);
+        yield (0, notification_service_js_1.markAllNotificationsRead)(userId);
+        return response_js_1.default.success(res, "All notifications marked as read", null, 200);
+    }
+    catch (e) {
+        return response_js_1.default.error(res, "Failed to mark all notifications as read", e.message, 500);
+    }
+});
+exports.markAllAsRead = markAllAsRead;

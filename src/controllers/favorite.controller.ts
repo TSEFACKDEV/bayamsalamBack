@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import ResponseApi from "../helper/response.js";
 import prisma from "../model/prisma.client.js";
 import Utils from "../helper/utils.js";
+import { createNotification } from "../services/notification.service.js";
 
 export const addToFavorites = async (
   req: Request,
@@ -23,6 +24,7 @@ export const addToFavorites = async (
     // Vérifie si le produit existe
     const product = await prisma.product.findUnique({
       where: { id: productId },
+      include: { user: true }, // Inclure le propriétaire du produit
     });
     if (!product) {
       return ResponseApi.notFound(res, "Produit introuvable", 404);
@@ -38,7 +40,7 @@ export const addToFavorites = async (
 
     const favorite = await prisma.favorite.create({
       data: { userId, productId },
-      include: { product: true }, // Inclure le produit dans la réponse
+      include: { product: true, user: true }, // Inclure le produit et l'utilisateur
     });
 
     // 🔧 Conversion sécurisée des images en URLs complètes
@@ -55,6 +57,27 @@ export const addToFavorites = async (
           }
         : null,
     };
+
+    // Envoyer une notification au propriétaire du produit (si différent de l'utilisateur)
+    if (product.userId && product.userId !== userId) {
+      const userName = favorite.user?.firstName || "Un utilisateur";
+      const productName = product.name || "votre produit";
+      
+      await createNotification(
+        product.userId,
+        "Nouveau favori",
+        `${userName} a ajouté ${productName} à ses favoris`,
+        {
+          type: "favorite",
+          link: `/products/${productId}`,
+          data: { 
+            productId,
+            userId,
+            productName: product.name
+          }
+        }
+      );
+    }
 
     ResponseApi.success(
       res,

@@ -345,6 +345,17 @@ export const createProduct = async (
       },
     });
 
+     if (userId) {
+      await createNotification(
+        userId, 
+        "Annonce créée avec succès", 
+        `Votre produit "${name}" a été créé avec succès et est en attente de validation par nos équipes.`,
+        {
+          type: "PRODUCT",
+          link: `/product/${product.id}`,
+        }
+      );
+    }
     // 🔧 Conversion sécurisée des chemins relatifs en URLs complètes avec vérification TypeScript pour la réponse
     const productResponse = {
       ...product,

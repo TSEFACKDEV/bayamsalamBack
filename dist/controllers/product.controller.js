@@ -266,6 +266,12 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 telephone,
             },
         });
+        if (userId) {
+            yield (0, notification_service_js_1.createNotification)(userId, "Annonce créée avec succès", `Votre produit "${name}" a été créé avec succès et est en attente de validation par nos équipes.`, {
+                type: "PRODUCT",
+                link: `/product/${product.id}`,
+            });
+        }
         // 🔧 Conversion sécurisée des chemins relatifs en URLs complètes avec vérification TypeScript pour la réponse
         const productResponse = Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
                 ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))

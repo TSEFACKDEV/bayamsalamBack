@@ -16,8 +16,9 @@ exports.getUserFavorites = exports.removeFromFavorites = exports.addToFavorites 
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
+const notification_service_js_1 = require("../services/notification.service.js");
 const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b;
     try {
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const { productId } = req.body;
@@ -27,6 +28,7 @@ const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function*
         // Vérifie si le produit existe
         const product = yield prisma_client_js_1.default.product.findUnique({
             where: { id: productId },
+            include: { user: true }, // Inclure le propriétaire du produit
         });
         if (!product) {
             return response_js_1.default.notFound(res, "Produit introuvable", 404);
@@ -40,13 +42,27 @@ const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function*
         }
         const favorite = yield prisma_client_js_1.default.favorite.create({
             data: { userId, productId },
-            include: { product: true }, // Inclure le produit dans la réponse
+            include: { product: true, user: true }, // Inclure le produit et l'utilisateur
         });
         // 🔧 Conversion sécurisée des images en URLs complètes
         const favoriteWithImageUrls = Object.assign(Object.assign({}, favorite), { product: favorite.product
                 ? Object.assign(Object.assign({}, favorite.product), { images: Array.isArray(favorite.product.images)
                         ? favorite.product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
                         : [] }) : null });
+        // Envoyer une notification au propriétaire du produit (si différent de l'utilisateur)
+        if (product.userId && product.userId !== userId) {
+            const userName = ((_b = favorite.user) === null || _b === void 0 ? void 0 : _b.firstName) || "Un utilisateur";
+            const productName = product.name || "votre produit";
+            yield (0, notification_service_js_1.createNotification)(product.userId, "Nouveau favori", `${userName} a ajouté ${productName} à ses favoris`, {
+                type: "favorite",
+                link: `/products/${productId}`,
+                data: {
+                    productId,
+                    userId,
+                    productName: product.name
+                }
+            });
+        }
         response_js_1.default.success(res, "Produit ajouté aux favoris", favoriteWithImageUrls, 201);
     }
     catch (error) {

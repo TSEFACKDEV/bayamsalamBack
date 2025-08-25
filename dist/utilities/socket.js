@@ -24,6 +24,13 @@ const initSockets = (server) => {
                 console.log(`Socket ${socket.id} joined room ${userId}`);
             }
         });
+        // client peut émettre 'leave' pour quitter sa room
+        socket.on("leave", (userId) => {
+            if (userId) {
+                socket.leave(userId);
+                console.log(`Socket ${socket.id} left room ${userId}`);
+            }
+        });
         socket.on("disconnect", () => {
             console.log("Socket disconnected:", socket.id);
         });

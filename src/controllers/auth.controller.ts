@@ -12,6 +12,7 @@ import { generateOTP, validateOTP } from "../utilities/otp.js";
 import prisma from "../model/prisma.client.js";
 import env from "../config/config.js";
 import ResponseApi from "../helper/response.js";
+import Utils from "../helper/utils.js";
 import { createOTPEmailTemplate } from "../templates/otpEmailTemplate.js";
 import { createNotification } from "../services/notification.service.js";
 
@@ -155,15 +156,22 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
     });
 
     // Créer notification de bienvenue
-    await createNotification(user.id, "Bienvenue sur BuyamSale", "Votre compte a été vérifié avec succès. Bienvenue !", {
-      type: "WELCOME",
-      link: "/",
-    });
+    await createNotification(
+      user.id,
+      "Bienvenue sur BuyamSale",
+      "Votre compte a été vérifié avec succès. Bienvenue !",
+      {
+        type: "WELCOME",
+        link: "/",
+      }
+    );
 
     // Envoi du mail de bienvenue après vérification OTP
     try {
       // Import dynamique pour éviter les problèmes d'import circulaire
-      const { createWelcomeTemplate } = await import("../templates/welComeTemplate.js");
+      const { createWelcomeTemplate } = await import(
+        "../templates/welComeTemplate.js"
+      );
       const htmlTemplate = createWelcomeTemplate(user.firstName, user.lastName);
 
       await sendEmail(
@@ -710,10 +718,24 @@ export const getUserProfile = async (
       return ResponseApi.notFound(res, "Utilisateur non trouvé", 404);
     }
 
+    // 🔧 Transformer les images des produits en URLs complètes
+    const userWithImageUrls = {
+      ...user,
+      products:
+        user.products?.map((product) => ({
+          ...product,
+          images: Array.isArray(product.images)
+            ? (product.images as string[]).map((imagePath: string) =>
+                Utils.resolveFileUrl(req, imagePath)
+              )
+            : [], // Tableau vide si pas d'images
+        })) || [],
+    };
+
     return ResponseApi.success(
       res,
       "Profil utilisateur récupéré avec succès",
-      user,
+      userWithImageUrls,
       200
     );
   } catch (error: any) {

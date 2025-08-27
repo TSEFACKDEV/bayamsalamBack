@@ -65,6 +65,7 @@ const otp_js_1 = require("../utilities/otp.js");
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const config_js_1 = __importDefault(require("../config/config.js"));
 const response_js_1 = __importDefault(require("../helper/response.js"));
+const utils_js_1 = __importDefault(require("../helper/utils.js"));
 const otpEmailTemplate_js_1 = require("../templates/otpEmailTemplate.js");
 const notification_service_js_1 = require("../services/notification.service.js");
 const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -469,7 +470,7 @@ const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* 
 });
 exports.resetPassword = resetPassword;
 const getUserProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b;
     try {
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
@@ -558,7 +559,11 @@ const getUserProfile = (req, res) => __awaiter(void 0, void 0, void 0, function*
         if (!user) {
             return response_js_1.default.notFound(res, "Utilisateur non trouvé", 404);
         }
-        return response_js_1.default.success(res, "Profil utilisateur récupéré avec succès", user, 200);
+        // 🔧 Transformer les images des produits en URLs complètes
+        const userWithImageUrls = Object.assign(Object.assign({}, user), { products: ((_b = user.products) === null || _b === void 0 ? void 0 : _b.map((product) => (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
+                    ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                    : [] })))) || [] });
+        return response_js_1.default.success(res, "Profil utilisateur récupéré avec succès", userWithImageUrls, 200);
     }
     catch (error) {
         console.error("Erreur lors de la récupération du profil utilisateur:", error);

@@ -5,6 +5,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from "../services/notification.service.js";
+import prisma from "../model/prisma.client.js";
 
 export const listNotifications = async (
   req: Request,
@@ -64,3 +65,24 @@ export const markAllAsRead = async (
     );
   }
 };
+
+const deleteOldNotifications = async () => {
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+  const deleted = await prisma.notification.deleteMany({
+    where: {
+      createdAt: {
+        lt: fiveDaysAgo,
+      },
+    },
+  });
+
+    console.log(`Deleted ${deleted.count} notifications older than 5 days.`);
+}
+
+deleteOldNotifications()
+  .catch((e) => {
+    console.error(e);
+  })
+  .finally(() => {
+    prisma.$disconnect();
+  });

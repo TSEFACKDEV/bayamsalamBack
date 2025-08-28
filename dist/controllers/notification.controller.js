@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.markAllAsRead = exports.markRead = exports.listNotifications = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const notification_service_js_1 = require("../services/notification.service.js");
+const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const listNotifications = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
@@ -54,3 +55,21 @@ const markAllAsRead = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.markAllAsRead = markAllAsRead;
+const deleteOldNotifications = () => __awaiter(void 0, void 0, void 0, function* () {
+    const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    const deleted = yield prisma_client_js_1.default.notification.deleteMany({
+        where: {
+            createdAt: {
+                lt: fiveDaysAgo,
+            },
+        },
+    });
+    console.log(`Deleted ${deleted.count} notifications older than 5 days.`);
+});
+deleteOldNotifications()
+    .catch((e) => {
+    console.error(e);
+})
+    .finally(() => {
+    prisma_client_js_1.default.$disconnect();
+});

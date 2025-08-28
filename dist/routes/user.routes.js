@@ -14,4 +14,6 @@ router.get("/", (0, checkPermission_js_1.default)("USER_GET_ALL"), user_controll
 router.get("/:id", (0, checkPermission_js_1.default)("USER_GET_BY_ID"), user_controller_js_1.getUserById);
 router.put("/:id", (0, checkPermission_js_1.default)("USER_UPDATE"), user_controller_js_1.updateUser);
 router.delete("/:id", (0, checkPermission_js_1.default)("USER_DELETE"), user_controller_js_1.deleteUser);
+// route pour signaler un utilisateur
+router.post("/report/:id", (0, checkPermission_js_1.default)("USER_REPORT"), user_controller_js_1.reportUser);
 exports.default = router;

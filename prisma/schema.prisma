@@ -85,6 +85,8 @@ model User {
   resetToken      String?         @db.Text
   resetExpires    DateTime?
   connectionLog   ConnectionLog[]
+  reportsMade     UserReport[]    @relation("ReportingUser")
+  reportsReceived UserReport[]    @relation("ReportedUser")
 }
 
 model Role {
@@ -253,4 +255,16 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+
+model UserReport {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  reportedUserId   String   @db.VarChar(36)
+  reportingUserId  String   @db.VarChar(36)
+  reason           String
+  details          String?
+  createdAt        DateTime @default(now())
+  reportedUser     User     @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  reportingUser    User     @relation("ReportingUser", fields: [reportingUserId], references: [id], onDelete: Cascade)
 }

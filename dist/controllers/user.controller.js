@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.updateUser = exports.createUser = exports.getUserById = exports.getAllUsers = void 0;
+exports.reportUser = exports.deleteUser = exports.updateUser = exports.createUser = exports.getUserById = exports.getAllUsers = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const bcrypt_js_1 = require("../utilities/bcrypt.js");
@@ -316,3 +316,38 @@ const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.deleteUser = deleteUser;
+// rajoutons une fonctionaliter permettant de signaler un utilisateur 
+const reportUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const reportedUserId = req.params.id;
+    const { reason, details } = req.body;
+    const reportingUserId = req.body.reportingUserId; // ID de l'utilisateur qui signale
+    if (!reportedUserId || !reason || !reportingUserId) {
+        return response_js_1.default.error(res, "Missing required fields", 400);
+    }
+    try {
+        // Vérifier si l'utilisateur signalé existe
+        const reportedUser = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: reportedUserId },
+        });
+        if (!reportedUser) {
+            return response_js_1.default.notFound(res, "Reported user not found", 404);
+        }
+        // Créer le signalement
+        const report = yield prisma_client_js_1.default.userReport.create({
+            data: {
+                reportedUserId,
+                reportingUserId,
+                reason,
+                details,
+            },
+        });
+        response_js_1.default.success(res, "User reported successfully!", report);
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log(error);
+        console.log("====================================");
+        response_js_1.default.error(res, "Failed to report user", error.message);
+    }
+});
+exports.reportUser = reportUser;

@@ -4,6 +4,7 @@ import {
   deleteUser,
   getAllUsers,
   getUserById,
+  reportUser,
   updateUser,
 } from "../controllers/user.controller.js";
 import { authenticate} from "../middlewares/auth.middleware.js";
@@ -18,5 +19,7 @@ router.get("/", checkPermission("USER_GET_ALL"), getAllUsers);
 router.get("/:id", checkPermission("USER_GET_BY_ID"), getUserById);
 router.put("/:id", checkPermission("USER_UPDATE"), updateUser);
 router.delete("/:id", checkPermission("USER_DELETE"), deleteUser);
+// route pour signaler un utilisateur
+router.post("/report/:id", checkPermission("USER_REPORT"), reportUser);
 
 export default router;

@@ -330,3 +330,42 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
     ResponseApi.error(res, "Failed to delete user", error.message);
   }
 };
+
+
+// rajoutons une fonctionaliter permettant de signaler un utilisateur 
+export const reportUser = async (req: Request, res: Response): Promise<any> => {
+  const reportedUserId = req.params.id;
+  const { reason, details } = req.body;
+  const reportingUserId = req.body.reportingUserId; // ID de l'utilisateur qui signale
+
+  if (!reportedUserId || !reason || !reportingUserId) {
+    return ResponseApi.error(res, "Missing required fields", 400);
+  }
+
+  try {
+    // Vérifier si l'utilisateur signalé existe
+    const reportedUser = await prisma.user.findUnique({
+      where: { id: reportedUserId },
+    });
+    if (!reportedUser) {
+      return ResponseApi.notFound(res, "Reported user not found", 404);
+    }
+
+    // Créer le signalement
+    const report = await prisma.userReport.create({
+      data: {
+        reportedUserId,
+        reportingUserId,
+        reason,
+        details,
+      },
+    });
+
+    ResponseApi.success(res, "User reported successfully!", report);
+  } catch (error: any) {
+    console.log("====================================");
+    console.log(error);
+    console.log("====================================");
+    ResponseApi.error(res, "Failed to report user", error.message);
+  }
+};

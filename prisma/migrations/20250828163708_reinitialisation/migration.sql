@@ -202,6 +202,18 @@ CREATE TABLE `Notification` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- CreateTable
+CREATE TABLE `UserReport` (
+    `id` VARCHAR(36) NOT NULL,
+    `reportedUserId` VARCHAR(36) NOT NULL,
+    `reportingUserId` VARCHAR(36) NOT NULL,
+    `reason` VARCHAR(191) NOT NULL,
+    `details` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- AddForeignKey
 ALTER TABLE `UserRole` ADD CONSTRAINT `UserRole_roleId_fkey` FOREIGN KEY (`roleId`) REFERENCES `Role`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -249,3 +261,9 @@ ALTER TABLE `ProductForfait` ADD CONSTRAINT `ProductForfait_forfaitId_fkey` FORE
 
 -- AddForeignKey
 ALTER TABLE `Notification` ADD CONSTRAINT `Notification_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `UserReport` ADD CONSTRAINT `UserReport_reportedUserId_fkey` FOREIGN KEY (`reportedUserId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `UserReport` ADD CONSTRAINT `UserReport_reportingUserId_fkey` FOREIGN KEY (`reportingUserId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

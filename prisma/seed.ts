@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { hash } from "bcryptjs";
 const prisma = new PrismaClient();
 
 const PERMISSIONS = [
@@ -71,19 +72,6 @@ const categories = [
 ];
 
 async function main() {
-  // Créer toutes les permissions
-  for (const key of PERMISSIONS) {
-    await prisma.permission.upsert({
-      where: { permissionKey: key },
-      update: {},
-      create: {
-        permissionKey: key,
-        title: key.replace(/_/g, " "),
-        description: `Permission for ${key}`,
-      },
-    });
-  }
-
   // Créer toutes les permissions
   for (const key of PERMISSIONS) {
     await prisma.permission.upsert({
@@ -172,20 +160,7 @@ async function main() {
     });
   }
 
-  // Créer toutes les permissions
-  for (const key of PERMISSIONS) {
-    await prisma.permission.upsert({
-      where: { permissionKey: key },
-      update: {},
-      create: {
-        permissionKey: key,
-        title: key.replace(/_/g, " "),
-        description: `Permission for ${key}`,
-      },
-    });
-  }
-
-  //creer les forfaits
+  // Créer les forfaits
   await prisma.forfait.createMany({
     data: [
       {
@@ -215,6 +190,42 @@ async function main() {
     ],
     skipDuplicates: true,
   });
+
+  // Création du super admin
+  const superAdminEmail = "buyandsalecmr@gmail.com";
+  let superAdmin = await prisma.user.findUnique({ where: { email: superAdminEmail } });
+  if (!superAdmin) {
+    superAdmin = await prisma.user.create({
+      data: {
+        firstName: "NANA MBEZOU",
+        lastName: "Armand",
+        email: superAdminEmail,
+        password: await hash("Buy&sale237", 10),
+        phone: "+237 690984805",
+        status: "ACTIVE",
+        isVerified: true,
+      },
+    });
+    console.log("Super admin créé avec succès !");
+  } else {
+    console.log("Le super admin existe déjà.");
+  }
+
+  // Assigner le rôle SUPER_ADMIN au super admin
+  const alreadyAssigned = await prisma.userRole.findUnique({
+    where: { userId_roleId: { userId: superAdmin.id, roleId: superAdminRole.id } },
+  });
+  if (!alreadyAssigned) {
+    await prisma.userRole.create({
+      data: {
+        userId: superAdmin.id,
+        roleId: superAdminRole.id,
+      },
+    });
+    console.log("Rôle SUPER_ADMIN assigné au super admin.");
+  } else {
+    console.log("Le super admin a déjà le rôle SUPER_ADMIN.");
+  }
 }
 
 main()

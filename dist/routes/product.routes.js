@@ -7,13 +7,15 @@ const express_1 = __importDefault(require("express"));
 const product_controller_js_1 = require("../controllers/product.controller.js");
 const auth_middleware_js_1 = require("../middlewares/auth.middleware.js");
 const checkPermission_js_1 = __importDefault(require("../middlewares/checkPermission.js"));
+const validation_js_1 = __importDefault(require("../middlewares/validation.js"));
+const product_validation_js_1 = require("../validations/product.validation.js");
 const router = express_1.default.Router();
 // Routes pour les produits
-router.post("/", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_CREATE"), product_controller_js_1.createProduct);
+router.post("/", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_CREATE"), (0, validation_js_1.default)(product_validation_js_1.createProductSchema), product_controller_js_1.createProduct);
 router.put("/:id", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_UPDATE"), product_controller_js_1.updateProduct);
 router.delete("/:id", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_DELETE"), product_controller_js_1.deleteProduct);
 //pour valider ou rejeter une annonce [administrateurs]
-router.patch('/:id/check', auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_REVIEW"), product_controller_js_1.reviewProduct);
+router.patch('/:id/check', auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_REVIEW"), (0, validation_js_1.default)(product_validation_js_1.reviewProductSchema), product_controller_js_1.reviewProduct);
 //pour recuperer les annonces en attente [administrateurs]
 router.get("/preview", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_PREVIEW"), product_controller_js_1.getPendingProducts);
 //pour recuperer tous les produits [administrateurs]

@@ -31,6 +31,8 @@ const PERMISSIONS = [
   "CATEGORY_CREATE",
   "CATEGORY_UPDATE",
   "CATEGORY_DELETE",
+  "USER_GET_ALL_REPORTS",
+  "USER_REPORT",
 ];
 
 const USER_PERMISSIONS = [
@@ -193,7 +195,9 @@ async function main() {
 
   // Création du super admin
   const superAdminEmail = "buyandsalecmr@gmail.com";
-  let superAdmin = await prisma.user.findUnique({ where: { email: superAdminEmail } });
+  let superAdmin = await prisma.user.findUnique({
+    where: { email: superAdminEmail },
+  });
   if (!superAdmin) {
     superAdmin = await prisma.user.create({
       data: {
@@ -213,7 +217,9 @@ async function main() {
 
   // Assigner le rôle SUPER_ADMIN au super admin
   const alreadyAssigned = await prisma.userRole.findUnique({
-    where: { userId_roleId: { userId: superAdmin.id, roleId: superAdminRole.id } },
+    where: {
+      userId_roleId: { userId: superAdmin.id, roleId: superAdminRole.id },
+    },
   });
   if (!alreadyAssigned) {
     await prisma.userRole.create({

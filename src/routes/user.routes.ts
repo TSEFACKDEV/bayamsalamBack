@@ -2,6 +2,7 @@ import express from "express";
 import {
   createUser,
   deleteUser,
+  getAllReportUser,
   getAllUsers,
   getUserById,
   reportUser,
@@ -21,5 +22,8 @@ router.put("/:id", checkPermission("USER_UPDATE"), updateUser);
 router.delete("/:id", checkPermission("USER_DELETE"), deleteUser);
 // route pour signaler un utilisateur
 router.post("/report/:id", checkPermission("USER_REPORT"), reportUser);
+
+// pour recuperer tous les user signalés
+router.get("/reports", checkPermission("USER_GET_ALL_REPORTS"), getAllReportUser);
 
 export default router;

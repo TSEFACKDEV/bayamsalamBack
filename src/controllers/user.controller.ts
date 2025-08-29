@@ -369,3 +369,21 @@ export const reportUser = async (req: Request, res: Response): Promise<any> => {
     ResponseApi.error(res, "Failed to report user", error.message);
   }
 };
+
+
+export const getAllReportUser = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const reports = await prisma.userReport.findMany({
+      include: {
+        reportedUser: true,
+        reportingUser: true,
+      },
+    });
+    ResponseApi.success(res, "All user reports retrieved successfully!", reports);
+  } catch (error: any) {
+    console.log("====================================");
+    console.log(error);
+    console.log("====================================");
+    ResponseApi.error(res, "Failed to retrieve user reports", error.message);
+  }
+};

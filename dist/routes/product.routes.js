@@ -15,9 +15,11 @@ router.post("/", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.def
 router.put("/:id", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_UPDATE"), product_controller_js_1.updateProduct);
 router.delete("/:id", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_DELETE"), product_controller_js_1.deleteProduct);
 //pour valider ou rejeter une annonce [administrateurs]
-router.patch('/:id/check', auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_REVIEW"), (0, validation_js_1.default)(product_validation_js_1.reviewProductSchema), product_controller_js_1.reviewProduct);
+router.patch("/:id/check", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_REVIEW"), (0, validation_js_1.default)(product_validation_js_1.reviewProductSchema), product_controller_js_1.reviewProduct);
 //pour recuperer les annonces en attente [administrateurs]
 router.get("/preview", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_PREVIEW"), product_controller_js_1.getPendingProducts);
+//pour recuperer les propres annonces en attente de l'utilisateur connecté [utilisateurs]
+router.get("/my-pending", auth_middleware_js_1.authenticate, product_controller_js_1.getUserPendingProducts);
 //pour recuperer tous les produits [administrateurs]
 router.get("/all", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_READ"), product_controller_js_1.getAllProducts);
 //pour recuperer tous les produits sans pagination[developpeurs]

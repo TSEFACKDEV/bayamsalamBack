@@ -218,6 +218,78 @@ export const getPendingProducts = async (
   }
 };
 
+// ✅ NOUVEAU: Endpoint pour que les utilisateurs récupèrent leurs propres produits en attente
+export const getUserPendingProducts = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return ResponseApi.error(res, "User not authenticated", null, 401);
+    }
+
+    const userPendingProducts = await prisma.product.findMany({
+      where: {
+        status: "PENDING",
+        userId: userId,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        city: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    // ✅ CORRECTION: Transformation des images en URLs complètes comme dans les autres endpoints
+    const userPendingProductsWithImageUrls = userPendingProducts.map(
+      (product) => ({
+        ...product,
+        images: Array.isArray(product.images)
+          ? (product.images as string[]).map((imagePath: string) =>
+              Utils.resolveFileUrl(req, imagePath)
+            )
+          : [], // Tableau vide si pas d'images
+      })
+    );
+
+    ResponseApi.success(res, "User pending products retrieved successfully", {
+      products: userPendingProductsWithImageUrls,
+      links: {
+        total: userPendingProductsWithImageUrls.length,
+      },
+    });
+  } catch (error: any) {
+    console.log("====================================");
+    console.log("Error fetching user pending products:", error);
+    console.log("====================================");
+    ResponseApi.error(
+      res,
+      "Failed to retrieve user pending products",
+      error.message
+    );
+  }
+};
+
 export const getProductById = async (
   req: Request,
   res: Response
@@ -345,10 +417,10 @@ export const createProduct = async (
       },
     });
 
-     if (userId) {
+    if (userId) {
       await createNotification(
-        userId, 
-        "Annonce créée avec succès", 
+        userId,
+        "Annonce créée avec succès",
         `Votre produit "${name}" a été créé avec succès et est en attente de validation par nos équipes...`,
         {
           type: "PRODUCT",

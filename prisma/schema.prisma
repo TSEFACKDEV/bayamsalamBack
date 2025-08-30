@@ -17,6 +17,7 @@ enum AccountStatus {
   PENDING
   ACTIVE
   SUSPENDED
+  BANNED
 }
 
 enum ProductStatus {
@@ -257,14 +258,27 @@ model Notification {
   @@index([userId])
 }
 
+enum ReportStatus {
+  PENDING
+  DISMISSED
+  PROCESSED
+}
 
 model UserReport {
-  id               String   @id @default(uuid()) @db.VarChar(36)
-  reportedUserId   String   @db.VarChar(36)
-  reportingUserId  String   @db.VarChar(36)
-  reason           String
-  details          String?
-  createdAt        DateTime @default(now())
-  reportedUser     User     @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
-  reportingUser    User     @relation("ReportingUser", fields: [reportingUserId], references: [id], onDelete: Cascade)
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  reportedUserId  String       @db.VarChar(36)
+  reportingUserId String       @db.VarChar(36)
+  reason          String
+  details         String?
+  status          ReportStatus @default(PENDING)
+  adminNotes      String?      @db.Text
+  processedAt     DateTime?
+  processedBy     String?      @db.VarChar(36)
+  createdAt       DateTime     @default(now())
+  reportedUser    User         @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  reportingUser   User         @relation("ReportingUser", fields: [reportingUserId], references: [id], onDelete: Cascade)
+
+  @@index([reportedUserId])
+  @@index([reportingUserId])
+  @@index([status])
 }

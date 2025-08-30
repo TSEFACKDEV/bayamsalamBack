@@ -10,6 +10,7 @@ import roleRouter from "./role.routes.js";
 import permissionRouter from "./permission.routes.js";
 import forfaitRouter from "./forfait.routes.js";
 import notificationRouter from "./notification.routes.js";
+import reportRouter from "./report.routes.js"; // ✅ AJOUT des routes de signalement
 import express from "express";
 
 const router = express.Router();
@@ -26,16 +27,6 @@ router.use("/role", roleRouter);
 router.use("/permission", permissionRouter);
 router.use("/forfait", forfaitRouter);
 router.use("/notification", notificationRouter);
+router.use("/reports", reportRouter); // ✅ AJOUT de l'endpoint /reports
 
 export default router;
-
-
-
-
-
-
-
-
-
-
-

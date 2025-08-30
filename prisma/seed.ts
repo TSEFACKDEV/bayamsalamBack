@@ -8,6 +8,10 @@ const PERMISSIONS = [
   "USER_GET_BY_ID",
   "USER_UPDATE",
   "USER_DELETE",
+  "USER_REPORT", // ✅ AJOUT de la permission de signalement
+  "REPORT_VIEW_ALL", // ✅ Voir tous les signalements (Admin)
+  "REPORT_VIEW", // ✅ Voir un signalement spécifique (Admin)
+  "REPORT_PROCESS", // ✅ Traiter les signalements (Admin)
   "ROLE_GET_ALL",
   "ROLE_GET_BY_ID",
   "ROLE_CREATE",
@@ -38,6 +42,7 @@ const USER_PERMISSIONS = [
   "PRODUCT_UPDATE",
   "PRODUCT_DELETE",
   "USER_UPDATE",
+  "USER_REPORT", // ✅ AJOUT : Les utilisateurs peuvent signaler d'autres utilisateurs
 ];
 
 const cities = [
@@ -193,7 +198,9 @@ async function main() {
 
   // Création du super admin
   const superAdminEmail = "buyandsalecmr@gmail.com";
-  let superAdmin = await prisma.user.findUnique({ where: { email: superAdminEmail } });
+  let superAdmin = await prisma.user.findUnique({
+    where: { email: superAdminEmail },
+  });
   if (!superAdmin) {
     superAdmin = await prisma.user.create({
       data: {
@@ -213,7 +220,9 @@ async function main() {
 
   // Assigner le rôle SUPER_ADMIN au super admin
   const alreadyAssigned = await prisma.userRole.findUnique({
-    where: { userId_roleId: { userId: superAdmin.id, roleId: superAdminRole.id } },
+    where: {
+      userId_roleId: { userId: superAdmin.id, roleId: superAdminRole.id },
+    },
   });
   if (!alreadyAssigned) {
     await prisma.userRole.create({

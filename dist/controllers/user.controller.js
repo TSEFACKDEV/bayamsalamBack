@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllReportUser = exports.reportUser = exports.deleteUser = exports.updateUser = exports.createUser = exports.getUserById = exports.getAllUsers = void 0;
+exports.reportUser = exports.deleteUser = exports.updateUser = exports.createUser = exports.getUserById = exports.getAllUsers = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const bcrypt_js_1 = require("../utilities/bcrypt.js");
@@ -366,21 +366,3 @@ const reportUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.reportUser = reportUser;
-const getAllReportUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const reports = yield prisma_client_js_1.default.userReport.findMany({
-            include: {
-                reportedUser: true,
-                reportingUser: true,
-            },
-        });
-        response_js_1.default.success(res, "All user reports retrieved successfully!", reports);
-    }
-    catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
-        response_js_1.default.error(res, "Failed to retrieve user reports", error.message);
-    }
-});
-exports.getAllReportUser = getAllReportUser;

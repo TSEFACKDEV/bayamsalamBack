@@ -15,6 +15,7 @@ const role_routes_js_1 = __importDefault(require("./role.routes.js"));
 const permission_routes_js_1 = __importDefault(require("./permission.routes.js"));
 const forfait_routes_js_1 = __importDefault(require("./forfait.routes.js"));
 const notification_routes_js_1 = __importDefault(require("./notification.routes.js"));
+const report_routes_js_1 = __importDefault(require("./report.routes.js")); // ✅ AJOUT des routes de signalement
 const express_1 = __importDefault(require("express"));
 const router = express_1.default.Router();
 router.use("/category", category_routes_js_1.default);
@@ -29,4 +30,5 @@ router.use("/role", role_routes_js_1.default);
 router.use("/permission", permission_routes_js_1.default);
 router.use("/forfait", forfait_routes_js_1.default);
 router.use("/notification", notification_routes_js_1.default);
+router.use("/reports", report_routes_js_1.default); // ✅ AJOUT de l'endpoint /reports
 exports.default = router;

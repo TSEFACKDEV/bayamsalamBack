@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = void 0;
+exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getUserPendingProducts = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
@@ -184,6 +184,62 @@ const getPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.getPendingProducts = getPendingProducts;
+// ✅ NOUVEAU: Endpoint pour que les utilisateurs récupèrent leurs propres produits en attente
+const getUserPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        if (!userId) {
+            return response_js_1.default.error(res, "User not authenticated", null, 401);
+        }
+        const userPendingProducts = yield prisma_client_js_1.default.product.findMany({
+            where: {
+                status: "PENDING",
+                userId: userId,
+            },
+            orderBy: { createdAt: "desc" },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+                city: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+            },
+        });
+        // ✅ CORRECTION: Transformation des images en URLs complètes comme dans les autres endpoints
+        const userPendingProductsWithImageUrls = userPendingProducts.map((product) => (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
+                ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                : [] })));
+        response_js_1.default.success(res, "User pending products retrieved successfully", {
+            products: userPendingProductsWithImageUrls,
+            links: {
+                total: userPendingProductsWithImageUrls.length,
+            },
+        });
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log("Error fetching user pending products:", error);
+        console.log("====================================");
+        response_js_1.default.error(res, "Failed to retrieve user pending products", error.message);
+    }
+});
+exports.getUserPendingProducts = getUserPendingProducts;
 const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     ``;
     const id = req.params.id;

@@ -316,21 +316,36 @@ const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.deleteUser = deleteUser;
-// rajoutons une fonctionaliter permettant de signaler un utilisateur 
+// rajoutons une fonctionaliter permettant de signaler un utilisateur
 const reportUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const reportedUserId = req.params.id;
     const { reason, details } = req.body;
-    const reportingUserId = req.body.reportingUserId; // ID de l'utilisateur qui signale
-    if (!reportedUserId || !reason || !reportingUserId) {
+    // ✅ CORRECTION : Utiliser l'utilisateur authentifié depuis le middleware
+    const reportingUserId = req.user.id; // ID de l'utilisateur qui signale
+    if (!reportedUserId || !reason) {
         return response_js_1.default.error(res, "Missing required fields", 400);
     }
     try {
+        // ✅ CORRECTION : Empêcher l'auto-signalement
+        if (reportedUserId === reportingUserId) {
+            return response_js_1.default.error(res, "You cannot report yourself", 400);
+        }
         // Vérifier si l'utilisateur signalé existe
         const reportedUser = yield prisma_client_js_1.default.user.findUnique({
             where: { id: reportedUserId },
         });
         if (!reportedUser) {
             return response_js_1.default.notFound(res, "Reported user not found", 404);
+        }
+        // ✅ CORRECTION : Empêcher les signalements en double
+        const existingReport = yield prisma_client_js_1.default.userReport.findFirst({
+            where: {
+                reportedUserId,
+                reportingUserId,
+            },
+        });
+        if (existingReport) {
+            return response_js_1.default.error(res, "You have already reported this user", 400);
         }
         // Créer le signalement
         const report = yield prisma_client_js_1.default.userReport.create({

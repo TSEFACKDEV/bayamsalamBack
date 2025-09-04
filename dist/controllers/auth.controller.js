@@ -56,7 +56,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserProfile = exports.resetPassword = exports.forgotPassword = exports.logout = exports.refreshToken = exports.login = exports.verifyOTP = exports.register = void 0;
+exports.googleCallback = exports.getUserProfile = exports.resetPassword = exports.forgotPassword = exports.logout = exports.refreshToken = exports.login = exports.verifyOTP = exports.register = void 0;
 const bcrypt_js_1 = require("../utilities/bcrypt.js");
 const token_js_1 = require("../utilities/token.js");
 const mailer_js_1 = require("../utilities/mailer.js");
@@ -472,7 +472,7 @@ exports.resetPassword = resetPassword;
 const getUserProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
     try {
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return response_js_1.default.error(res, "Utilisateur non authentifié", null, 401);
         }
@@ -571,3 +571,52 @@ const getUserProfile = (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
 });
 exports.getUserProfile = getUserProfile;
+/**
+ * Fonction de callback après authentification Google réussie
+ */
+const googleCallback = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        // L'utilisateur est disponible dans req.user grâce à passport
+        const user = req.user;
+        if (!user) {
+            res.redirect(`${config_js_1.default.frontendUrl}/auth/login?error=auth_failed`);
+            return;
+        }
+        // Générer les tokens
+        const AccessToken = (0, token_js_1.generateToken)({
+            id: user.id,
+            email: user.email,
+        });
+        const refreshToken = (0, token_js_1.generateRefreshToken)({
+            id: user.id,
+            email: user.email,
+        });
+        // Mettre à jour le refresh token dans la base de données
+        yield prisma_client_js_1.default.user.update({
+            where: { id: user.id },
+            data: {
+                refreshToken,
+                lastConnexion: new Date()
+            },
+        });
+        // Stocker le refreshToken dans un cookie HTTP-only
+        res.cookie("jwt", refreshToken, {
+            httpOnly: true,
+            secure: config_js_1.default.nodeEnv === "production",
+            sameSite: "lax",
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+        });
+        console.log("[DEBUG] GoogleCallback - Utilisateur authentifié:", {
+            id: user.id,
+            email: user.email,
+            tokenGenere: true
+        });
+        // Rediriger vers le frontend avec le token en paramètre
+        res.redirect(`${config_js_1.default.frontendUrl}/auth/social-callback?token=${encodeURIComponent(AccessToken)}`);
+    }
+    catch (error) {
+        console.error("Erreur lors de la connexion Google:", error);
+        res.redirect(`${config_js_1.default.frontendUrl}/auth/login?error=server_error`);
+    }
+});
+exports.googleCallback = googleCallback;

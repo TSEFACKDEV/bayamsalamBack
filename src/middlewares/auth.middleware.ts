@@ -4,39 +4,48 @@ import jwt from "jsonwebtoken";
 import env from "../config/config.js";
 import prisma from "../model/prisma.client.js";
 
-//Middlewqre pour verifier si l'utilisateur est authentifier
+//Middleware pour verifier si l'utilisateur est authentifier
 export const authenticate = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<any> => {
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
+    // Récupérer le token de l'en-tête Authorization
+    const authHeader = req.header("Authorization");
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7) // Enlever "Bearer " pour obtenir le token
+      : authHeader; // Utiliser le token tel quel s'il n'y a pas "Bearer "
+
     if (!token) {
-      return ResponseApi.notFound(res, "Authentification required");
+      return ResponseApi.error(res, "Utilisateur non authentifié", null, 401);
     }
+
+    // Décoder le token JWT
     const decoded = jwt.verify(token, env.jwtSecret) as {
       id: string;
-      role: string;
+      email: string;
     };
 
-    //  console.log('====================================');
-    // console.log("decoded", decoded);
-    // console.log('====================================');
+    console.log('====================================');
+    console.log("Token decoded:", decoded);
+    console.log('====================================');
+
+    // Récupérer l'utilisateur à partir de l'ID dans le token
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
     });
+
     if (!user) {
-      return ResponseApi.notFound(res, "User not Found");
+      return ResponseApi.error(res, "Utilisateur non trouvé", null, 404);
     }
 
-    // console.log('====================================');
-    // console.log(user);
-    // console.log('====================================');
-    req.user = user;
+    // Attacher l'utilisateur à la requête pour les contrôleurs
+    req.authUser = user;
     next();
   } catch (error) {
-    return ResponseApi.notFound(res, "Invalid Token");
+    console.error("Erreur d'authentification:", error);
+    return ResponseApi.error(res, "Utilisateur non authentifié", null, 401);
   }
 };
 

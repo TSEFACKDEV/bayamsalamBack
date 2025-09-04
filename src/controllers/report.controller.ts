@@ -165,7 +165,7 @@ export const processReport = async (
 ): Promise<any> => {
   const reportId = req.params.id;
   const { action, adminNotes } = req.body; // action: 'dismiss', 'warn', 'suspend', 'ban'
-  const adminUserId = req.user.id;
+  const adminUserId = req.authUser?.id;
 
   if (!action) {
     return ResponseApi.error(res, "Action is required", 400);

@@ -81,8 +81,11 @@ export const createReview = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { sellerId, rating } = req.body; // On utilise sellerId directement au lieu de productId
-  const userId = req.user?.id; // Celui qui laisse la note
+  const { sellerId, rating } = req.body; // On utilise sellerId directement au lieu de 
+  if (!req.authUser?.id) {
+    return ResponseApi.error(res, "User not authenticated", null, 401);
+  }
+  const userId = req.authUser?.id; // Celui qui laisse la note
 
   try {
     if (!sellerId || !rating) {
@@ -173,7 +176,7 @@ export const updateReview = async (
 ): Promise<any> => {
   const id = req.params.id;
   const { rating } = req.body;
-  const userId = req.user?.id;
+  const userId = req.authUser?.id;
 
   try {
     if (!id) {
@@ -244,7 +247,7 @@ export const deleteReview = async (
   res: Response
 ): Promise<any> => {
   const id = req.params.id;
-  const userId = req.user?.id;
+  const userId = req.authUser?.id;
 
   try {
     if (!id) {
@@ -360,7 +363,7 @@ export const getReviewsByUser = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const userId = req.user?.id;
+  const userId = req.authUser?.id;
   try {
     // Récupérer toutes les reviews données par cet utilisateur
     const reviews = await prisma.review.findMany({

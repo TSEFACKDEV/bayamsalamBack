@@ -627,7 +627,7 @@ export const getUserProfile = async (
   res: Response
 ): Promise<any> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.authUser?.id;
 
     if (!userId) {
       return ResponseApi.error(res, "Utilisateur non authentifié", null, 401);
@@ -749,5 +749,65 @@ export const getUserProfile = async (
       error.message,
       500
     );
+  }
+};
+
+/**
+ * Fonction de callback après authentification Google réussie
+ */
+export const googleCallback = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // L'utilisateur est disponible dans req.user grâce à passport
+    const user = req.user as any;
+
+    if (!user) {
+      res.redirect(`${env.frontendUrl}/auth/login?error=auth_failed`);
+      return;
+    }
+
+    // Générer les tokens
+    const AccessToken = generateToken({
+      id: user.id,
+      email: user.email,
+    });
+
+    const refreshToken = generateRefreshToken({
+      id: user.id,
+      email: user.email,
+    });
+
+    // Mettre à jour le refresh token dans la base de données
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { 
+        refreshToken, 
+        lastConnexion: new Date() 
+      },
+    });
+
+    // Stocker le refreshToken dans un cookie HTTP-only
+    res.cookie("jwt", refreshToken, {
+      httpOnly: true,
+      secure: env.nodeEnv === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+    });
+
+    console.log("[DEBUG] GoogleCallback - Utilisateur authentifié:", {
+      id: user.id,
+      email: user.email,
+      tokenGenere: true
+    });
+
+    // Rediriger vers le frontend avec le token en paramètre
+    res.redirect(
+      `${env.frontendUrl}/auth/social-callback?token=${encodeURIComponent(AccessToken)}`
+    );
+  } catch (error) {
+    console.error("Erreur lors de la connexion Google:", error);
+    res.redirect(`${env.frontendUrl}/auth/login?error=server_error`);
   }
 };

@@ -1,9 +1,11 @@
-import { User } from "../../model/User.type"; // adapte ce chemin selon ton projet
+import { User as ModelUser } from "@prisma/client";
+
 
 declare global {
   namespace Express {
     interface Request {
-      user?: User; // ou adapte le type selon ta structure utilisateur
+      authUser?: ModelUser; // Utiliser authUser au lieu de user
+      user?: any; // Ajouter cette ligne pour Passport.js
     }
   }
 }

@@ -87,9 +87,12 @@ const getReviewById = (req, res) => __awaiter(void 0, void 0, void 0, function* 
 });
 exports.getReviewById = getReviewById;
 const createReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
-    const { sellerId, rating } = req.body; // On utilise sellerId directement au lieu de productId
-    const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id; // Celui qui laisse la note
+    var _a, _b;
+    const { sellerId, rating } = req.body; // On utilise sellerId directement au lieu de 
+    if (!((_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id)) {
+        return response_js_1.default.error(res, "User not authenticated", null, 401);
+    }
+    const userId = (_b = req.authUser) === null || _b === void 0 ? void 0 : _b.id; // Celui qui laisse la note
     try {
         if (!sellerId || !rating) {
             return response_js_1.default.error(res, "Seller ID and rating are required", null, 400);
@@ -155,7 +158,7 @@ const updateReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     var _a;
     const id = req.params.id;
     const { rating } = req.body;
-    const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+    const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
     try {
         if (!id) {
             return response_js_1.default.error(res, "Review ID is required", null, 422);
@@ -208,7 +211,7 @@ exports.updateReview = updateReview;
 const deleteReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     const id = req.params.id;
-    const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+    const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
     try {
         if (!id) {
             return response_js_1.default.error(res, "Review ID is required", null, 422);
@@ -301,7 +304,7 @@ const getReviewsForUser = (req, res) => __awaiter(void 0, void 0, void 0, functi
 exports.getReviewsForUser = getReviewsForUser;
 const getReviewsByUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
-    const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+    const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
     try {
         // Récupérer toutes les reviews données par cet utilisateur
         const reviews = yield prisma_client_js_1.default.review.findMany({

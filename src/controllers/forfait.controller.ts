@@ -47,9 +47,9 @@ export const payAndActivateForfait = async (req: Request, res: Response): Promis
       item_ref: productId,
       payment_ref: `${productId}_${Date.now()}`,
       // Optionnel: infos utilisateur
-      first_name: req.user?.firstName,
-      last_name: req.user?.lastName,
-      email: req.user?.email,
+      first_name: req.authUser?.firstName,
+      last_name: req.authUser?.lastName,
+      email: req.authUser?.email,
     });
 
     if (payment.status !== "REQUEST_ACCEPTED") {

@@ -188,7 +188,7 @@ exports.getPendingProducts = getPendingProducts;
 const getUserPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return response_js_1.default.error(res, "User not authenticated", null, 401);
         }
@@ -275,10 +275,13 @@ const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function*
 });
 exports.getProductById = getProductById;
 const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b;
     try {
         const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone, forfaitType, } = req.body;
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        if (!((_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id)) {
+            return response_js_1.default.error(res, "User not authenticated", null, 401);
+        }
+        const userId = (_b = req.authUser) === null || _b === void 0 ? void 0 : _b.id;
         // Validation basique
         if (!name ||
             !price ||

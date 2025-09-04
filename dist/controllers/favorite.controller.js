@@ -20,7 +20,7 @@ const notification_service_js_1 = require("../services/notification.service.js")
 const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
     try {
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         const { productId } = req.body;
         if (!userId || !productId) {
             return response_js_1.default.error(res, "userId et productId sont requis", null, 400);
@@ -73,7 +73,7 @@ exports.addToFavorites = addToFavorites;
 const removeFromFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         const { productId } = req.body;
         if (!userId || !productId) {
             return response_js_1.default.error(res, "userId et productId sont requis", null, 400);
@@ -98,7 +98,7 @@ exports.removeFromFavorites = removeFromFavorites;
 const getUserFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return response_js_1.default.error(res, "userId requis", null, 400);
         }

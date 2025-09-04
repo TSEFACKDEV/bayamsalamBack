@@ -12,7 +12,7 @@ export const listNotifications = async (
   res: Response
 ): Promise<any> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.authUser?.id;
     if (!userId) return ResponseApi.error(res, "Unauthorized", null, 401);
     const notifs = await getUserNotifications(userId);
     return ResponseApi.success(res, "Notifications fetched", notifs, 200);
@@ -46,7 +46,7 @@ export const markAllAsRead = async (
   res: Response
 ): Promise<any> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.authUser?.id;
     if (!userId) return ResponseApi.error(res, "Unauthorized", null, 401);
 
     await markAllNotificationsRead(userId);

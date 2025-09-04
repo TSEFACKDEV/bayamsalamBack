@@ -19,7 +19,7 @@ const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"))
 const listNotifications = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId)
             return response_js_1.default.error(res, "Unauthorized", null, 401);
         const notifs = yield (0, notification_service_js_1.getUserNotifications)(userId);
@@ -44,7 +44,7 @@ exports.markRead = markRead;
 const markAllAsRead = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId)
             return response_js_1.default.error(res, "Unauthorized", null, 401);
         yield (0, notification_service_js_1.markAllNotificationsRead)(userId);

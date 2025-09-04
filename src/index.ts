@@ -12,7 +12,8 @@ import prisma from "./model/prisma.client.js"; // adapte le chemin si besoin
 import { hashPassword } from "./utilities/bcrypt.js"; // adapte le chemin si besoin
 import http from "http";
 import { initSockets } from "./utilities/socket.js";
-
+import passport from "passport";
+import "./config/passport.config.js";
 const app: Application = express();
 
 //Middleware
@@ -43,13 +44,13 @@ app.use(
 app.use("/public", express.static(path.join(__dirname, "../public")));
 
 //Routes
+app.use(passport.initialize());
 app.use("/api/bayamsalam", Router);
 
 // Health check
 app.get("/api/bayamsalam", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date() });
 });
-
 
 // Gestion des erreurs
 app.use(errorHandler);

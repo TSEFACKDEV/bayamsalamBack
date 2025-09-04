@@ -17,32 +17,36 @@ const response_js_1 = __importDefault(require("../helper/response.js"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const config_js_1 = __importDefault(require("../config/config.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
-//Middlewqre pour verifier si l'utilisateur est authentifier
+//Middleware pour verifier si l'utilisateur est authentifier
 const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
     try {
-        const token = (_a = req.header("Authorization")) === null || _a === void 0 ? void 0 : _a.replace("Bearer ", "");
+        // Récupérer le token de l'en-tête Authorization
+        const authHeader = req.header("Authorization");
+        const token = (authHeader === null || authHeader === void 0 ? void 0 : authHeader.startsWith("Bearer "))
+            ? authHeader.substring(7) // Enlever "Bearer " pour obtenir le token
+            : authHeader; // Utiliser le token tel quel s'il n'y a pas "Bearer "
         if (!token) {
-            return response_js_1.default.notFound(res, "Authentification required");
+            return response_js_1.default.error(res, "Utilisateur non authentifié", null, 401);
         }
+        // Décoder le token JWT
         const decoded = jsonwebtoken_1.default.verify(token, config_js_1.default.jwtSecret);
-        //  console.log('====================================');
-        // console.log("decoded", decoded);
-        // console.log('====================================');
+        console.log('====================================');
+        console.log("Token decoded:", decoded);
+        console.log('====================================');
+        // Récupérer l'utilisateur à partir de l'ID dans le token
         const user = yield prisma_client_js_1.default.user.findUnique({
             where: { id: decoded.id },
         });
         if (!user) {
-            return response_js_1.default.notFound(res, "User not Found");
+            return response_js_1.default.error(res, "Utilisateur non trouvé", null, 404);
         }
-        // console.log('====================================');
-        // console.log(user);
-        // console.log('====================================');
-        req.user = user;
+        // Attacher l'utilisateur à la requête pour les contrôleurs
+        req.authUser = user;
         next();
     }
     catch (error) {
-        return response_js_1.default.notFound(res, "Invalid Token");
+        console.error("Erreur d'authentification:", error);
+        return response_js_1.default.error(res, "Utilisateur non authentifié", null, 401);
     }
 });
 exports.authenticate = authenticate;

@@ -60,9 +60,9 @@ const payAndActivateForfait = (req, res) => __awaiter(void 0, void 0, void 0, fu
             item_ref: productId,
             payment_ref: `${productId}_${Date.now()}`,
             // Optionnel: infos utilisateur
-            first_name: (_a = req.user) === null || _a === void 0 ? void 0 : _a.firstName,
-            last_name: (_b = req.user) === null || _b === void 0 ? void 0 : _b.lastName,
-            email: (_c = req.user) === null || _c === void 0 ? void 0 : _c.email,
+            first_name: (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.firstName,
+            last_name: (_b = req.authUser) === null || _b === void 0 ? void 0 : _b.lastName,
+            email: (_c = req.authUser) === null || _c === void 0 ? void 0 : _c.email,
         });
         if (payment.status !== "REQUEST_ACCEPTED") {
             return response_js_1.default.error(res, "Paiement non accepté", payment.message, 400);

@@ -318,10 +318,14 @@ const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 exports.deleteUser = deleteUser;
 // rajoutons une fonctionaliter permettant de signaler un utilisateur
 const reportUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     const reportedUserId = req.params.id;
     const { reason, details } = req.body;
     // ✅ CORRECTION : Utiliser l'utilisateur authentifié depuis le middleware
-    const reportingUserId = req.user.id; // ID de l'utilisateur qui signale
+    if (!((_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id)) {
+        return response_js_1.default.error(res, "User not authenticated", null, 401);
+    }
+    const reportingUserId = (_b = req.authUser) === null || _b === void 0 ? void 0 : _b.id; // ID de l'utilisateur qui signale
     if (!reportedUserId || !reason) {
         return response_js_1.default.error(res, "Missing required fields", 400);
     }

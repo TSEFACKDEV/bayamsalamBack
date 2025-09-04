@@ -22,6 +22,11 @@ interface Env {
   refreshTokenSecretKey: string;
   MONETBIL_SERVICE_KEY: string;
   MONETBIL_BASE_URL: string;
+
+  // Nouveaux champs pour Google OAuth
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+  GOOGLE_CALLBACK_URL: string;
 }
 
 const env: Env = {
@@ -44,6 +49,11 @@ const env: Env = {
   refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || "",
   MONETBIL_SERVICE_KEY: process.env.MONETBIL_SERVICE_KEY || "",
   MONETBIL_BASE_URL: process.env.MONETBIL_BASE_URL || "",
+
+    // Nouveaux champs pour Google OAuth
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
+  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || `http://127.0.0.1:3001/api/bayamsalam/auth/google/callback`,
 };
 
 export default env;

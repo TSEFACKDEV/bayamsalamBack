@@ -5,7 +5,7 @@ import ResponseApi from "../helper/response.js";
 
 const checkPermission = (permissionKey: string) => {
   return async (req:Request, res: Response, next: NextFunction):Promise<any> => {
-    const userId = req.user.id;
+    const userId = req.authUser?.id;
 
     try {
       const user = await prisma.user.findUnique({

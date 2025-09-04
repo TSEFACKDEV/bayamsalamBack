@@ -224,7 +224,7 @@ export const getUserPendingProducts = async (
   res: Response
 ): Promise<any> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.authUser?.id;
 
     if (!userId) {
       return ResponseApi.error(res, "User not authenticated", null, 401);
@@ -354,8 +354,10 @@ export const createProduct = async (
       telephone,
       forfaitType,
     } = req.body;
-
-    const userId = req.user?.id;
+    if (!req.authUser?.id) {
+      return ResponseApi.error(res, "User not authenticated", null, 401);
+    }
+    const userId = req.authUser?.id;
 
     // Validation basique
     if (

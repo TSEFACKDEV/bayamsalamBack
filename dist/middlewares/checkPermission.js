@@ -16,7 +16,8 @@ const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"))
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const checkPermission = (permissionKey) => {
     return (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-        const userId = req.user.id;
+        var _a;
+        const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         try {
             const user = yield prisma_client_js_1.default.user.findUnique({
                 where: { id: userId },

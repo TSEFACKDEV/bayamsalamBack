@@ -336,7 +336,10 @@ export const reportUser = async (req: Request, res: Response): Promise<any> => {
   const reportedUserId = req.params.id;
   const { reason, details } = req.body;
   // ✅ CORRECTION : Utiliser l'utilisateur authentifié depuis le middleware
-  const reportingUserId = req.user.id; // ID de l'utilisateur qui signale
+  if(!req.authUser?.id) {
+    return ResponseApi.error(res, "User not authenticated", null, 401);
+  }
+  const reportingUserId = req.authUser?.id; // ID de l'utilisateur qui signale
 
   if (!reportedUserId || !reason) {
     return ResponseApi.error(res, "Missing required fields", 400);

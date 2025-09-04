@@ -160,9 +160,10 @@ exports.getReportById = getReportById;
  * Permet aux administrateurs de traiter un signalement
  */
 const processReport = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     const reportId = req.params.id;
     const { action, adminNotes } = req.body; // action: 'dismiss', 'warn', 'suspend', 'ban'
-    const adminUserId = req.user.id;
+    const adminUserId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
     if (!action) {
         return response_js_1.default.error(res, "Action is required", 400);
     }

@@ -14,6 +14,8 @@ const index_js_1 = __importDefault(require("./routes/index.js"));
 const node_path_1 = __importDefault(require("node:path"));
 const http_1 = __importDefault(require("http"));
 const socket_js_1 = require("./utilities/socket.js");
+const passport_1 = __importDefault(require("passport"));
+require("./config/passport.config.js");
 const app = (0, express_1.default)();
 //Middleware
 app.use((0, cors_1.default)({
@@ -38,6 +40,7 @@ app.use((0, express_fileupload_1.default)({
 // Static files
 app.use("/public", express_1.default.static(node_path_1.default.join(__dirname, "../public")));
 //Routes
+app.use(passport_1.default.initialize());
 app.use("/api/bayamsalam", index_js_1.default);
 // Health check
 app.get("/api/bayamsalam", (req, res) => {

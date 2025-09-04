@@ -9,7 +9,7 @@ export const addToFavorites = async (
   res: Response
 ): Promise<any> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.authUser?.id;
     const { productId } = req.body;
 
     if (!userId || !productId) {
@@ -95,7 +95,7 @@ export const removeFromFavorites = async (
   res: Response
 ): Promise<any> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.authUser?.id;
     const { productId } = req.body;
 
     if (!userId || !productId) {
@@ -134,7 +134,7 @@ export const getUserFavorites = async (
   res: Response
 ): Promise<any> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.authUser?.id;
 
     if (!userId) {
       return ResponseApi.error(res, "userId requis", null, 400);

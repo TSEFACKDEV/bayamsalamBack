@@ -180,7 +180,7 @@ model Review {
   authorId  String // Celui qui reçoit la note (auteur du produit)
   createdAt DateTime @default(now())
 
-  user   User @relation("Reviewer", fields: [userId], references: [id], onDelete: Cascade)
+  user   User @relation("Reviewer", fields: [userId], references: [id], onDeslete: Cascade)
   author User @relation("Author", fields: [authorId], references: [id], onDelete: Cascade)
 }
 

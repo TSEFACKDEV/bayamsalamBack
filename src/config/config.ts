@@ -20,8 +20,7 @@ interface Env {
   nexahSenderId: string;
   frontendUrl: string;
   refreshTokenSecretKey: string;
-  MONETBIL_SERVICE_KEY: string;
-  MONETBIL_BASE_URL: string;
+
 
   // Nouveaux champs pour Google OAuth
   GOOGLE_CLIENT_ID: string;
@@ -47,8 +46,7 @@ const env: Env = {
   nexahSenderId: process.env.NEXAH_SENDER_ID || "",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
   refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || "",
-  MONETBIL_SERVICE_KEY: process.env.MONETBIL_SERVICE_KEY || "",
-  MONETBIL_BASE_URL: process.env.MONETBIL_BASE_URL || "",
+ 
 
     // Nouveaux champs pour Google OAuth
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",

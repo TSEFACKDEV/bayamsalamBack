@@ -336,7 +336,7 @@ export const reportUser = async (req: Request, res: Response): Promise<any> => {
   const reportedUserId = req.params.id;
   const { reason, details } = req.body;
   // ✅ CORRECTION : Utiliser l'utilisateur authentifié depuis le middleware
-  if(!req.authUser?.id) {
+  if (!req.authUser?.id) {
     return ResponseApi.error(res, "User not authenticated", null, 401);
   }
   const reportingUserId = req.authUser?.id; // ID de l'utilisateur qui signale
@@ -388,3 +388,5 @@ export const reportUser = async (req: Request, res: Response): Promise<any> => {
     ResponseApi.error(res, "Failed to report user", error.message);
   }
 };
+
+

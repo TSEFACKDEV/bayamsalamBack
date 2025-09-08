@@ -2,6 +2,7 @@ import express from "express";
 import {
   createProduct,
   deleteProduct,
+  deleteProductOfSuspendedUser, // Changer ici
   getAllProducts,
   getAllProductsWithoutPagination,
   getPendingProducts,
@@ -78,5 +79,13 @@ router.get(
 //pour recuperer tous les produits avec un status = VALIDATED [utilisateurs]
 router.get("/", getValidatedProducts);
 router.get("/:id", getProductById);
+
+// Route pour supprimer tous les produits d'un utilisateur suspendu
+router.post(
+  "/delete-of-suspended-user",
+  authenticate,
+  checkPermission("PRODUCT_DELETE"),
+  deleteProductOfSuspendedUser
+);
 
 export default router;

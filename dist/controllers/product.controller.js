@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getUserPendingProducts = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = void 0;
+exports.deleteProductOfSuspendedUser = exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getUserPendingProducts = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
@@ -519,3 +519,52 @@ const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.reviewProduct = reviewProduct;
+// Méthode pour supprimer tous les produits d'un utilisateur suspendu
+const deleteProductOfSuspendedUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { userId } = req.body;
+    try {
+        // Validation de l'entrée
+        if (!userId) {
+            return response_js_1.default.error(res, "L'ID utilisateur est requis", null, 400);
+        }
+        // Vérifier que l'utilisateur est bien suspendu
+        const user = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: userId },
+            select: { status: true, firstName: true, lastName: true }
+        });
+        if (!user) {
+            return response_js_1.default.notFound(res, "Utilisateur non trouvé", 404);
+        }
+        if (user.status !== "SUSPENDED") {
+            return response_js_1.default.error(res, "Cette action n'est possible que pour les utilisateurs suspendus", null, 400);
+        }
+        // Récupérer d'abord tous les produits pour supprimer les images
+        const products = yield prisma_client_js_1.default.product.findMany({
+            where: { userId },
+            select: { id: true, images: true }
+        });
+        if (products.length === 0) {
+            return response_js_1.default.success(res, "Aucun produit trouvé pour cet utilisateur suspendu", { count: 0 });
+        }
+        // Supprimer les images associées
+        const imagePromises = products.flatMap(product => {
+            const images = product.images;
+            return images.map(img => utils_js_1.default.deleteFile(img));
+        });
+        // Attendre que toutes les suppressions d'images soient terminées
+        yield Promise.allSettled(imagePromises);
+        // Supprimer tous les produits
+        const result = yield prisma_client_js_1.default.product.deleteMany({
+            where: { userId }
+        });
+        const userName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : "l'utilisateur suspendu";
+        return response_js_1.default.success(res, `${result.count} produits de ${userName} ont été supprimés avec succès`, { count: result.count });
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log("Error in delete product of suspended user:", error);
+        console.log("====================================");
+        return response_js_1.default.error(res, "Échec de la suppression des produits de l'utilisateur suspendu", error.message);
+    }
+});
+exports.deleteProductOfSuspendedUser = deleteProductOfSuspendedUser;

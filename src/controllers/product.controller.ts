@@ -676,3 +676,64 @@ export const reviewProduct = async (
     return ResponseApi.error(res, "Failed to review product", error.message);
   }
 };
+
+// Méthode pour supprimer tous les produits d'un utilisateur suspendu
+export const deleteProductOfSuspendedUser = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const { userId } = req.body;
+
+  try {
+    // Validation de l'entrée
+    if (!userId) {
+      return ResponseApi.error(res, "L'ID utilisateur est requis", null, 400);
+    }
+
+    // Vérifier que l'utilisateur est bien suspendu
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { status: true, firstName: true, lastName: true }
+    });
+
+    if (!user) {
+      return ResponseApi.notFound(res, "Utilisateur non trouvé", 404);
+    }
+
+    if (user.status !== "SUSPENDED") {
+      return ResponseApi.error(res, "Cette action n'est possible que pour les utilisateurs suspendus", null, 400);
+    }
+
+    // Récupérer d'abord tous les produits pour supprimer les images
+    const products = await prisma.product.findMany({
+      where: { userId },
+      select: { id: true, images: true }
+    });
+
+    if (products.length === 0) {
+      return ResponseApi.success(res, "Aucun produit trouvé pour cet utilisateur suspendu", { count: 0 });
+    }
+
+    // Supprimer les images associées
+    const imagePromises = products.flatMap(product => {
+      const images = product.images as string[];
+      return images.map(img => Utils.deleteFile(img));
+    });
+    
+    // Attendre que toutes les suppressions d'images soient terminées
+    await Promise.allSettled(imagePromises);
+
+    // Supprimer tous les produits
+    const result = await prisma.product.deleteMany({
+      where: { userId }
+    });
+
+    const userName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : "l'utilisateur suspendu";
+    return ResponseApi.success(res, `${result.count} produits de ${userName} ont été supprimés avec succès`, { count: result.count });
+  } catch (error: any) {
+    console.log("====================================");
+    console.log("Error in delete product of suspended user:", error);
+    console.log("====================================");
+    return ResponseApi.error(res, "Échec de la suppression des produits de l'utilisateur suspendu", error.message);
+  }
+};

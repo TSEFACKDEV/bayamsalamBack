@@ -796,11 +796,11 @@ export const googleCallback = async (
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
     });
 
-    console.log("[DEBUG] GoogleCallback - Utilisateur authentifié:", {
-      id: user.id,
-      email: user.email,
-      tokenGenere: true
-    });
+    // console.log("[DEBUG] GoogleCallback - Utilisateur authentifié:", {
+    //   id: user.id,
+    //   email: user.email,
+    //   tokenGenere: true
+    // });
 
     // Rediriger vers le frontend avec le token en paramètre
     res.redirect(

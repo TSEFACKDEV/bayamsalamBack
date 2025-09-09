@@ -30,9 +30,9 @@ const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         }
         // Décoder le token JWT
         const decoded = jsonwebtoken_1.default.verify(token, config_js_1.default.jwtSecret);
-        console.log('====================================');
-        console.log("Token decoded:", decoded);
-        console.log('====================================');
+        // console.log('====================================');
+        // console.log("Token decoded:", decoded);
+        // console.log('====================================');
         // Récupérer l'utilisateur à partir de l'ID dans le token
         const user = yield prisma_client_js_1.default.user.findUnique({
             where: { id: decoded.id },

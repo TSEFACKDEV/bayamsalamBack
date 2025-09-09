@@ -27,9 +27,9 @@ export const authenticate = async (
       email: string;
     };
 
-    console.log('====================================');
-    console.log("Token decoded:", decoded);
-    console.log('====================================');
+    // console.log('====================================');
+    // console.log("Token decoded:", decoded);
+    // console.log('====================================');
 
     // Récupérer l'utilisateur à partir de l'ID dans le token
     const user = await prisma.user.findUnique({

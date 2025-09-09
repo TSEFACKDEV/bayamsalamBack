@@ -221,6 +221,7 @@ enum ForfaitType {
   TOP_ANNONCE
   MISE_EN_AVANT
   PREMIUM
+  A_LA_UNE
 }
 
 model Forfait {

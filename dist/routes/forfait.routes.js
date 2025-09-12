@@ -9,5 +9,5 @@ const auth_middleware_js_1 = require("../middlewares/auth.middleware.js");
 const checkPermission_js_1 = __importDefault(require("../middlewares/checkPermission.js"));
 const router = express_1.default.Router();
 // Activation par admin (sans paiement)
-router.post("/activate", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_UPDATE"), forfait_controller_js_1.activateForfait);
+router.post("/activate", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("ASSIGN_FORFAIT"), forfait_controller_js_1.activateForfait);
 exports.default = router;

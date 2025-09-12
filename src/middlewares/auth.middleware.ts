@@ -66,7 +66,7 @@ export const isAdmin = (
     const decoded: any = jwt.verify(token, env.jwtSecret);
 
     // Vérifie si l'utilisateur a le rôle admin
-    if (decoded.role !== "ADMIN") {
+    if (decoded.role !== "SUPER_ADMIN") {
       ResponseApi.notFound(res, "Accès refusé : utilisateur non autorisé");
       return;
     }

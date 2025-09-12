@@ -147,7 +147,6 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             PREMIUM: 1,
             TOP_ANNONCE: 2,
             URGENT: 3,
-            MISE_EN_AVANT: 4,
         };
         const getPriority = (p) => {
             if (!p.productForfaits || p.productForfaits.length === 0)

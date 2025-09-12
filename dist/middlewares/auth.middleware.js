@@ -60,7 +60,7 @@ const isAdmin = (req, res, next) => {
     try {
         const decoded = jsonwebtoken_1.default.verify(token, config_js_1.default.jwtSecret);
         // Vérifie si l'utilisateur a le rôle admin
-        if (decoded.role !== "ADMIN") {
+        if (decoded.role !== "SUPER_ADMIN") {
             response_js_1.default.notFound(res, "Accès refusé : utilisateur non autorisé");
             return;
         }

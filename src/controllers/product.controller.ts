@@ -164,7 +164,6 @@ export const getValidatedProducts = async (
       PREMIUM: 1,
       TOP_ANNONCE: 2,
       URGENT: 3,
-      MISE_EN_AVANT: 4,
     };
 
     const getPriority = (p: any) => {

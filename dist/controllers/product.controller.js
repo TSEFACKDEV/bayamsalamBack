@@ -112,15 +112,13 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
-    const categoryId = req.query.categoryId; // ✅ Ajout du filtre catégorie
-    const cityId = req.query.cityId; // ✅ Ajout du filtre ville
+    const categoryId = req.query.categoryId;
+    const cityId = req.query.cityId;
     try {
         const where = { status: "VALIDATED" };
         if (search) {
-            // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
             where.name = { contains: search };
         }
-        // ✅ Ajout des filtres par catégorie et ville
         if (categoryId) {
             where.categoryId = categoryId;
         }
@@ -130,21 +128,45 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
             take: limit,
+            // On ordonne par createdAt ici comme fallback, puis on reajustera l'ordre en mémoire selon forfaits
             orderBy: { createdAt: "desc" },
             where,
             include: {
                 category: true,
                 city: true,
                 user: true,
+                // On inclut les forfaits actifs pour pouvoir trier côté serveur
                 productForfaits: {
                     where: { isActive: true, expiresAt: { gt: new Date() } },
                     include: { forfait: true },
                 },
             },
         });
+        // --- NOUVEAU: tri sécurisé côté serveur par priorité des forfaits ---
+        const forfaitPriority = {
+            PREMIUM: 1,
+            TOP_ANNONCE: 2,
+            URGENT: 3,
+            MISE_EN_AVANT: 4,
+        };
+        const getPriority = (p) => {
+            if (!p.productForfaits || p.productForfaits.length === 0)
+                return Number.MAX_SAFE_INTEGER;
+            // On prend la meilleure (la plus haute priorité = plus petit nombre)
+            const priorities = p.productForfaits.map((pf) => { var _a, _b; return (_b = forfaitPriority[(_a = pf.forfait) === null || _a === void 0 ? void 0 : _a.type]) !== null && _b !== void 0 ? _b : Number.MAX_SAFE_INTEGER; });
+            return Math.min(...priorities);
+        };
+        const sortedByForfait = products.slice().sort((a, b) => {
+            const pa = getPriority(a);
+            const pb = getPriority(b);
+            if (pa !== pb)
+                return pa - pb; // priorité ascendante (1 = premium first)
+            // enfin, trier par date décroissante
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+        // --- FIN tri serveur ---
         const total = yield prisma_client_js_1.default.product.count({ where });
-        // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour les produits validés
-        const productsWithImageUrls = products.map((product) => (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
+        const productsWithImageUrls = sortedByForfait.map((product) => (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
                 ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
                 : [] })));
         response_js_1.default.success(res, "Validated products retrieved successfully!", {
@@ -160,9 +182,6 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
         });
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
         response_js_1.default.error(res, "Failed to get validated products", error.message);
     }
 });

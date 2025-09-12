@@ -126,17 +126,14 @@ export const getValidatedProducts = async (
   const limit = parseInt(req.query.limit as string) || 10;
   const offset = (page - 1) * limit;
   const search = (req.query.search as string) || "";
-  const categoryId = req.query.categoryId as string; // ✅ Ajout du filtre catégorie
-  const cityId = req.query.cityId as string; // ✅ Ajout du filtre ville
+  const categoryId = req.query.categoryId;
+  const cityId = req.query.cityId;
 
   try {
     const where: any = { status: "VALIDATED" };
     if (search) {
-      // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
       where.name = { contains: search };
     }
-
-    // ✅ Ajout des filtres par catégorie et ville
     if (categoryId) {
       where.categoryId = categoryId;
     }
@@ -147,12 +144,14 @@ export const getValidatedProducts = async (
     const products = await prisma.product.findMany({
       skip: offset,
       take: limit,
+      // On ordonne par createdAt ici comme fallback, puis on reajustera l'ordre en mémoire selon forfaits
       orderBy: { createdAt: "desc" },
       where,
       include: {
         category: true,
         city: true,
         user: true,
+        // On inclut les forfaits actifs pour pouvoir trier côté serveur
         productForfaits: {
           where: { isActive: true, expiresAt: { gt: new Date() } },
           include: { forfait: true },
@@ -160,16 +159,39 @@ export const getValidatedProducts = async (
       },
     });
 
+    // --- NOUVEAU: tri sécurisé côté serveur par priorité des forfaits ---
+    const forfaitPriority: Record<string, number> = {
+      PREMIUM: 1,
+      TOP_ANNONCE: 2,
+      URGENT: 3,
+      MISE_EN_AVANT: 4,
+    };
+
+    const getPriority = (p: any) => {
+      if (!p.productForfaits || p.productForfaits.length === 0) return Number.MAX_SAFE_INTEGER;
+      // On prend la meilleure (la plus haute priorité = plus petit nombre)
+      const priorities = p.productForfaits.map((pf: any) => forfaitPriority[pf.forfait?.type] ?? Number.MAX_SAFE_INTEGER);
+      return Math.min(...priorities);
+    };
+
+    const sortedByForfait = products.slice().sort((a: any, b: any) => {
+      const pa = getPriority(a);
+      const pb = getPriority(b);
+      if (pa !== pb) return pa - pb; // priorité ascendante (1 = premium first)
+      // enfin, trier par date décroissante
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    // --- FIN tri serveur ---
+
     const total = await prisma.product.count({ where });
 
-    // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour les produits validés
-    const productsWithImageUrls = products.map((product) => ({
+    const productsWithImageUrls = sortedByForfait.map((product) => ({
       ...product,
       images: Array.isArray(product.images)
         ? (product.images as string[]).map((imagePath: string) =>
             Utils.resolveFileUrl(req, imagePath)
           )
-        : [], // Tableau vide si pas d'images
+        : [], // tableau vide si pas d'images
     }));
 
     ResponseApi.success(res, "Validated products retrieved successfully!", {
@@ -184,9 +206,6 @@ export const getValidatedProducts = async (
       },
     });
   } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     ResponseApi.error(res, "Failed to get validated products", error.message);
   }
 };

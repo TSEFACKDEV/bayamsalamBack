@@ -26,6 +26,9 @@ router.get("/all", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.d
 router.get("/dev", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_READ"), product_controller_js_1.getAllProductsWithoutPagination);
 //pour recuperer tous les produits avec un status = VALIDATED [utilisateurs]
 router.get("/", product_controller_js_1.getValidatedProducts);
+// Routes pour les vues d'annonces (utilisateurs connectés uniquement)
+router.post("/:productId/view", auth_middleware_js_1.authenticate, product_controller_js_1.recordProductView);
+router.get("/:productId/stats", product_controller_js_1.getProductViewStats);
 router.get("/:id", product_controller_js_1.getProductById);
 // Route pour supprimer tous les produits d'un utilisateur suspendu
 router.post("/delete-of-suspended-user", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_DELETE"), product_controller_js_1.deleteProductOfSuspendedUser);

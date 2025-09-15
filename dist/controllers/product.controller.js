@@ -12,14 +12,123 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteProductOfSuspendedUser = exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getUserPendingProducts = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = void 0;
+exports.deleteProductOfSuspendedUser = exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getUserPendingProducts = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = exports.getProductViewStats = exports.recordProductView = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
 const mailer_js_1 = require("../utilities/mailer.js");
 const reviewProductTemplate_js_1 = require("../templates/reviewProductTemplate.js");
 const notification_service_js_1 = require("../services/notification.service.js");
-const futurapay_service_js_1 = require("../services/futurapay.service.js"); // <-- ajouté
+const futurapay_service_js_1 = require("../services/futurapay.service.js");
+// Fonction pour enregistrer une vue d'annonce (utilisateurs connectés uniquement)
+const recordProductView = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const { productId } = req.params;
+        const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
+        if (!userId) {
+            return response_js_1.default.error(res, "Utilisateur non authentifié", null, 401);
+        }
+        if (!productId) {
+            return response_js_1.default.error(res, "ID du produit requis", null, 400);
+        }
+        // Vérifier que le produit existe et est validé
+        const product = yield prisma_client_js_1.default.product.findFirst({
+            where: {
+                id: productId,
+                status: "VALIDATED",
+            },
+        });
+        if (!product) {
+            return response_js_1.default.notFound(res, "Produit non trouvé ou non validé", 404);
+        }
+        // Vérifier si l'utilisateur a déjà vu ce produit
+        const existingView = yield prisma_client_js_1.default.productView.findUnique({
+            where: {
+                userId_productId: {
+                    userId: userId,
+                    productId: productId,
+                },
+            },
+        });
+        if (existingView) {
+            // L'utilisateur a déjà vu ce produit, ne pas compter à nouveau
+            return response_js_1.default.success(res, "Vue déjà enregistrée", {
+                isNewView: false,
+                viewCount: product.viewCount,
+            });
+        }
+        // Enregistrer la nouvelle vue et incrémenter le compteur en une seule transaction
+        const result = yield prisma_client_js_1.default.$transaction((tx) => __awaiter(void 0, void 0, void 0, function* () {
+            // Créer l'enregistrement de vue
+            yield tx.productView.create({
+                data: {
+                    userId: userId,
+                    productId: productId,
+                },
+            });
+            // Incrémenter le compteur de vues du produit
+            const updatedProduct = yield tx.product.update({
+                where: { id: productId },
+                data: {
+                    viewCount: {
+                        increment: 1,
+                    },
+                },
+            });
+            return updatedProduct;
+        }));
+        response_js_1.default.success(res, "Vue enregistrée avec succès", {
+            isNewView: true,
+            viewCount: result.viewCount,
+        });
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log("Error recording product view:", error);
+        console.log("====================================");
+        response_js_1.default.error(res, "Erreur lors de l'enregistrement de la vue", error.message);
+    }
+});
+exports.recordProductView = recordProductView;
+// Fonction pour obtenir les statistiques de vues d'un produit
+const getProductViewStats = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { productId } = req.params;
+        if (!productId) {
+            return response_js_1.default.error(res, "ID du produit requis", null, 400);
+        }
+        const product = yield prisma_client_js_1.default.product.findUnique({
+            where: { id: productId },
+            select: {
+                id: true,
+                name: true,
+                viewCount: true,
+                _count: {
+                    select: {
+                        views: true, // Compte exact des vues uniques
+                    },
+                },
+            },
+        });
+        if (!product) {
+            return response_js_1.default.notFound(res, "Produit non trouvé", 404);
+        }
+        response_js_1.default.success(res, "Statistiques de vues récupérées", {
+            productId: product.id,
+            productName: product.name,
+            viewCount: product.viewCount,
+            uniqueViews: product._count.views,
+        });
+    }
+    catch (error) {
+        console.log("====================================");
+        console.log("Error getting product view stats:", error);
+        console.log("====================================");
+        response_js_1.default.error(res, "Erreur lors de la récupération des statistiques", error.message);
+    }
+});
+exports.getProductViewStats = getProductViewStats;
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 // ✅ UPDATED: Ajout du support du filtrage par status
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -115,21 +224,39 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     const search = req.query.search || "";
     const categoryId = req.query.categoryId;
     const cityId = req.query.cityId;
+    // ✅ NOUVEAUX FILTRES - Prix et État
+    const priceMin = req.query.priceMin ? parseFloat(req.query.priceMin) : undefined;
+    const priceMax = req.query.priceMax ? parseFloat(req.query.priceMax) : undefined;
+    const etat = req.query.etat; // NEUF, OCCASION, CORRECT
     try {
         const where = { status: "VALIDATED" };
+        // Filtre de recherche par nom
         if (search) {
             where.name = { contains: search };
         }
+        // Filtre par catégorie
         if (categoryId) {
             where.categoryId = categoryId;
         }
+        // Filtre par ville
         if (cityId) {
             where.cityId = cityId;
+        }
+        // ✅ NOUVEAU - Filtre par prix minimum
+        if (priceMin !== undefined && !isNaN(priceMin)) {
+            where.price = Object.assign(Object.assign({}, where.price), { gte: priceMin });
+        }
+        // ✅ NOUVEAU - Filtre par prix maximum
+        if (priceMax !== undefined && !isNaN(priceMax)) {
+            where.price = Object.assign(Object.assign({}, where.price), { lte: priceMax });
+        }
+        // ✅ NOUVEAU - Filtre par état
+        if (etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat)) {
+            where.etat = etat;
         }
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
             take: limit,
-            // On ordonne par createdAt ici comme fallback, puis on reajustera l'ordre en mémoire selon forfaits
             orderBy: { createdAt: "desc" },
             where,
             include: {
@@ -143,11 +270,13 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 },
             },
         });
-        // --- NOUVEAU: tri sécurisé côté serveur par priorité des forfaits ---
+        // ✅ MISE À JOUR - Tri optimisé côté serveur par priorité des forfaits avec nouvelles priorités
         const forfaitPriority = {
-            PREMIUM: 1,
-            TOP_ANNONCE: 2,
-            URGENT: 3,
+            PREMIUM: 1, // Priorité la plus haute
+            A_LA_UNE: 2, // ✅ NOUVEAU - Deuxième priorité
+            TOP_ANNONCE: 3, // Troisième priorité
+            URGENT: 4, // Quatrième priorité
+            MISE_EN_AVANT: 5 // Priorité la plus basse
         };
         const getPriority = (p) => {
             if (!p.productForfaits || p.productForfaits.length === 0)
@@ -161,14 +290,22 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             const pb = getPriority(b);
             if (pa !== pb)
                 return pa - pb; // priorité ascendante (1 = premium first)
-            // enfin, trier par date décroissante
+            // Si même priorité, trier par date décroissante
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
-        // --- FIN tri serveur ---
         const total = yield prisma_client_js_1.default.product.count({ where });
-        const productsWithImageUrls = sortedByForfait.map((product) => (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
-                ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                : [] })));
+        const productsWithImageUrls = sortedByForfait.map((product) => {
+            var _a;
+            return (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
+                    ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                    : [], viewCount: product.viewCount || 0, 
+                // ✅ AJOUT - Inclure les informations de forfait pour le frontend
+                activeForfaits: ((_a = product.productForfaits) === null || _a === void 0 ? void 0 : _a.filter((pf) => pf.isActive && new Date(pf.expiresAt) > new Date()).map((pf) => ({
+                    type: pf.forfait.type,
+                    priority: forfaitPriority[pf.forfait.type],
+                    expiresAt: pf.expiresAt
+                }))) || [] }));
+        });
         response_js_1.default.success(res, "Validated products retrieved successfully!", {
             products: productsWithImageUrls,
             links: {
@@ -282,7 +419,7 @@ const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function*
         // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript
         const productWithImageUrls = Object.assign(Object.assign({}, result), { images: Array.isArray(result.images)
                 ? result.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                : [] });
+                : [], viewCount: result.viewCount || 0 });
         response_js_1.default.success(res, "Product retrieved successfully", productWithImageUrls);
     }
     catch (error) {
@@ -616,7 +753,7 @@ const deleteProductOfSuspendedUser = (req, res) => __awaiter(void 0, void 0, voi
         // Vérifier que l'utilisateur est bien suspendu
         const user = yield prisma_client_js_1.default.user.findUnique({
             where: { id: userId },
-            select: { status: true, firstName: true, lastName: true }
+            select: { status: true, firstName: true, lastName: true },
         });
         if (!user) {
             return response_js_1.default.notFound(res, "Utilisateur non trouvé", 404);
@@ -627,23 +764,25 @@ const deleteProductOfSuspendedUser = (req, res) => __awaiter(void 0, void 0, voi
         // Récupérer d'abord tous les produits pour supprimer les images
         const products = yield prisma_client_js_1.default.product.findMany({
             where: { userId },
-            select: { id: true, images: true }
+            select: { id: true, images: true },
         });
         if (products.length === 0) {
             return response_js_1.default.success(res, "Aucun produit trouvé pour cet utilisateur suspendu", { count: 0 });
         }
         // Supprimer les images associées
-        const imagePromises = products.flatMap(product => {
+        const imagePromises = products.flatMap((product) => {
             const images = product.images;
-            return images.map(img => utils_js_1.default.deleteFile(img));
+            return images.map((img) => utils_js_1.default.deleteFile(img));
         });
         // Attendre que toutes les suppressions d'images soient terminées
         yield Promise.allSettled(imagePromises);
         // Supprimer tous les produits
         const result = yield prisma_client_js_1.default.product.deleteMany({
-            where: { userId }
+            where: { userId },
         });
-        const userName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : "l'utilisateur suspendu";
+        const userName = user.firstName && user.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : "l'utilisateur suspendu";
         return response_js_1.default.success(res, `${result.count} produits de ${userName} ont été supprimés avec succès`, { count: result.count });
     }
     catch (error) {

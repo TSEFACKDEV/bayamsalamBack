@@ -1,11 +1,12 @@
 -- CreateTable
 CREATE TABLE `User` (
     `id` VARCHAR(36) NOT NULL,
+    `googleId` VARCHAR(191) NULL,
     `firstName` VARCHAR(191) NOT NULL,
     `lastName` VARCHAR(191) NOT NULL,
     `email` VARCHAR(191) NOT NULL,
     `password` VARCHAR(191) NOT NULL,
-    `status` ENUM('PENDING', 'ACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'PENDING',
+    `status` ENUM('PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED') NOT NULL DEFAULT 'PENDING',
     `avatar` VARCHAR(191) NULL,
     `phone` VARCHAR(191) NULL,
     `cinPdf` VARCHAR(191) NULL,
@@ -87,6 +88,7 @@ CREATE TABLE `Product` (
     `etat` ENUM('NEUF', 'OCCASION', 'CORRECT') NOT NULL,
     `quartier` VARCHAR(191) NULL,
     `telephone` VARCHAR(191) NOT NULL,
+    `viewCount` INTEGER NOT NULL DEFAULT 0,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -165,7 +167,7 @@ CREATE TABLE `ConnectionLog` (
 -- CreateTable
 CREATE TABLE `Forfait` (
     `id` VARCHAR(36) NOT NULL,
-    `type` ENUM('URGENT', 'TOP_ANNONCE', 'MISE_EN_AVANT', 'PREMIUM') NOT NULL,
+    `type` ENUM('URGENT', 'TOP_ANNONCE', 'MISE_EN_AVANT', 'PREMIUM', 'A_LA_UNE') NOT NULL,
     `price` INTEGER NOT NULL,
     `duration` INTEGER NOT NULL,
     `description` VARCHAR(191) NULL,
@@ -197,6 +199,7 @@ CREATE TABLE `Notification` (
     `type` VARCHAR(191) NULL,
     `read` BOOLEAN NOT NULL DEFAULT false,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `Notification_userId_idx`(`userId`),
     PRIMARY KEY (`id`)
@@ -209,8 +212,28 @@ CREATE TABLE `UserReport` (
     `reportingUserId` VARCHAR(36) NOT NULL,
     `reason` VARCHAR(191) NOT NULL,
     `details` VARCHAR(191) NULL,
+    `status` ENUM('PENDING', 'DISMISSED', 'PROCESSED') NOT NULL DEFAULT 'PENDING',
+    `adminNotes` TEXT NULL,
+    `processedAt` DATETIME(3) NULL,
+    `processedBy` VARCHAR(36) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
+    INDEX `UserReport_reportedUserId_idx`(`reportedUserId`),
+    INDEX `UserReport_reportingUserId_idx`(`reportingUserId`),
+    INDEX `UserReport_status_idx`(`status`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `ProductView` (
+    `id` VARCHAR(36) NOT NULL,
+    `userId` VARCHAR(36) NOT NULL,
+    `productId` VARCHAR(36) NOT NULL,
+    `viewedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `ProductView_productId_idx`(`productId`),
+    INDEX `ProductView_userId_idx`(`userId`),
+    UNIQUE INDEX `ProductView_userId_productId_key`(`userId`, `productId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -267,3 +290,9 @@ ALTER TABLE `UserReport` ADD CONSTRAINT `UserReport_reportedUserId_fkey` FOREIGN
 
 -- AddForeignKey
 ALTER TABLE `UserReport` ADD CONSTRAINT `UserReport_reportingUserId_fkey` FOREIGN KEY (`reportingUserId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `ProductView` ADD CONSTRAINT `ProductView_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `ProductView` ADD CONSTRAINT `ProductView_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

@@ -187,12 +187,6 @@ async function main() {
         description: "Annonce en tête de page",
       },
       {
-        type: "MISE_EN_AVANT",
-        price: 50,
-        duration: 1,
-        description: "Apparaît en premier dans les recherches",
-      },
-      {
         type: "PREMIUM",
         price: 500,
         duration: 1,
@@ -202,7 +196,7 @@ async function main() {
         type: "A_LA_UNE",
         price: 500,
         duration: 1,
-        description: "Tous les produit recement poster",
+        description: "s'affiche toujours en page d'acceuille",
       },
     ],
     skipDuplicates: true,

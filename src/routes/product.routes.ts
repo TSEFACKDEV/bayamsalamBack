@@ -9,6 +9,8 @@ import {
   getUserPendingProducts,
   getProductById,
   getValidatedProducts,
+  recordProductView,
+  getProductViewStats,
   reviewProduct,
   updateProduct,
 } from "../controllers/product.controller.js";
@@ -78,6 +80,11 @@ router.get(
 
 //pour recuperer tous les produits avec un status = VALIDATED [utilisateurs]
 router.get("/", getValidatedProducts);
+
+// Routes pour les vues d'annonces (utilisateurs connectés uniquement)
+router.post("/:productId/view", authenticate, recordProductView);
+router.get("/:productId/stats", getProductViewStats);
+
 router.get("/:id", getProductById);
 
 // Route pour supprimer tous les produits d'un utilisateur suspendu

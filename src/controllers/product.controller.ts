@@ -5,6 +5,140 @@ import Utils from "../helper/utils.js";
 import { sendEmail } from "../utilities/mailer.js";
 import { reviewProductTemplate } from "../templates/reviewProductTemplate.js";
 import { createNotification } from "../services/notification.service.js";
+
+// Fonction pour enregistrer une vue d'annonce (utilisateurs connectés uniquement)
+export const recordProductView = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { productId } = req.params;
+    const userId = req.authUser?.id;
+
+    if (!userId) {
+      return ResponseApi.error(res, "Utilisateur non authentifié", null, 401);
+    }
+
+    if (!productId) {
+      return ResponseApi.error(res, "ID du produit requis", null, 400);
+    }
+
+    // Vérifier que le produit existe et est validé
+    const product = await prisma.product.findFirst({
+      where: {
+        id: productId,
+        status: "VALIDATED",
+      },
+    });
+
+    if (!product) {
+      return ResponseApi.notFound(res, "Produit non trouvé ou non validé", 404);
+    }
+
+    // Vérifier si l'utilisateur a déjà vu ce produit
+    const existingView = await prisma.productView.findUnique({
+      where: {
+        userId_productId: {
+          userId: userId,
+          productId: productId,
+        },
+      },
+    });
+
+    if (existingView) {
+      // L'utilisateur a déjà vu ce produit, ne pas compter à nouveau
+      return ResponseApi.success(res, "Vue déjà enregistrée", {
+        isNewView: false,
+        viewCount: product.viewCount,
+      });
+    }
+
+    // Enregistrer la nouvelle vue et incrémenter le compteur en une seule transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Créer l'enregistrement de vue
+      await tx.productView.create({
+        data: {
+          userId: userId,
+          productId: productId,
+        },
+      });
+
+      // Incrémenter le compteur de vues du produit
+      const updatedProduct = await tx.product.update({
+        where: { id: productId },
+        data: {
+          viewCount: {
+            increment: 1,
+          },
+        },
+      });
+
+      return updatedProduct;
+    });
+
+    ResponseApi.success(res, "Vue enregistrée avec succès", {
+      isNewView: true,
+      viewCount: result.viewCount,
+    });
+  } catch (error: any) {
+    console.log("====================================");
+    console.log("Error recording product view:", error);
+    console.log("====================================");
+    ResponseApi.error(
+      res,
+      "Erreur lors de l'enregistrement de la vue",
+      error.message
+    );
+  }
+};
+
+// Fonction pour obtenir les statistiques de vues d'un produit
+export const getProductViewStats = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { productId } = req.params;
+
+    if (!productId) {
+      return ResponseApi.error(res, "ID du produit requis", null, 400);
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        name: true,
+        viewCount: true,
+        _count: {
+          select: {
+            views: true, // Compte exact des vues uniques
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      return ResponseApi.notFound(res, "Produit non trouvé", 404);
+    }
+
+    ResponseApi.success(res, "Statistiques de vues récupérées", {
+      productId: product.id,
+      productName: product.name,
+      viewCount: product.viewCount,
+      uniqueViews: product._count.views,
+    });
+  } catch (error: any) {
+    console.log("====================================");
+    console.log("Error getting product view stats:", error);
+    console.log("====================================");
+    ResponseApi.error(
+      res,
+      "Erreur lors de la récupération des statistiques",
+      error.message
+    );
+  }
+};
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 // ✅ UPDATED: Ajout du support du filtrage par status
 export const getAllProducts = async (
@@ -167,9 +301,13 @@ export const getValidatedProducts = async (
     };
 
     const getPriority = (p: any) => {
-      if (!p.productForfaits || p.productForfaits.length === 0) return Number.MAX_SAFE_INTEGER;
+      if (!p.productForfaits || p.productForfaits.length === 0)
+        return Number.MAX_SAFE_INTEGER;
       // On prend la meilleure (la plus haute priorité = plus petit nombre)
-      const priorities = p.productForfaits.map((pf: any) => forfaitPriority[pf.forfait?.type] ?? Number.MAX_SAFE_INTEGER);
+      const priorities = p.productForfaits.map(
+        (pf: any) =>
+          forfaitPriority[pf.forfait?.type] ?? Number.MAX_SAFE_INTEGER
+      );
       return Math.min(...priorities);
     };
 
@@ -191,6 +329,7 @@ export const getValidatedProducts = async (
             Utils.resolveFileUrl(req, imagePath)
           )
         : [], // tableau vide si pas d'images
+      viewCount: product.viewCount || 0, // Inclure le nombre de vues
     }));
 
     ResponseApi.success(res, "Validated products retrieved successfully!", {
@@ -340,6 +479,7 @@ export const getProductById = async (
             Utils.resolveFileUrl(req, imagePath)
           )
         : [], // Tableau vide si pas d'images
+      viewCount: result.viewCount || 0, // Inclure le nombre de vues
     };
 
     ResponseApi.success(
@@ -711,7 +851,7 @@ export const deleteProductOfSuspendedUser = async (
     // Vérifier que l'utilisateur est bien suspendu
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { status: true, firstName: true, lastName: true }
+      select: { status: true, firstName: true, lastName: true },
     });
 
     if (!user) {
@@ -719,39 +859,59 @@ export const deleteProductOfSuspendedUser = async (
     }
 
     if (user.status !== "SUSPENDED") {
-      return ResponseApi.error(res, "Cette action n'est possible que pour les utilisateurs suspendus", null, 400);
+      return ResponseApi.error(
+        res,
+        "Cette action n'est possible que pour les utilisateurs suspendus",
+        null,
+        400
+      );
     }
 
     // Récupérer d'abord tous les produits pour supprimer les images
     const products = await prisma.product.findMany({
       where: { userId },
-      select: { id: true, images: true }
+      select: { id: true, images: true },
     });
 
     if (products.length === 0) {
-      return ResponseApi.success(res, "Aucun produit trouvé pour cet utilisateur suspendu", { count: 0 });
+      return ResponseApi.success(
+        res,
+        "Aucun produit trouvé pour cet utilisateur suspendu",
+        { count: 0 }
+      );
     }
 
     // Supprimer les images associées
-    const imagePromises = products.flatMap(product => {
+    const imagePromises = products.flatMap((product) => {
       const images = product.images as string[];
-      return images.map(img => Utils.deleteFile(img));
+      return images.map((img) => Utils.deleteFile(img));
     });
-    
+
     // Attendre que toutes les suppressions d'images soient terminées
     await Promise.allSettled(imagePromises);
 
     // Supprimer tous les produits
     const result = await prisma.product.deleteMany({
-      where: { userId }
+      where: { userId },
     });
 
-    const userName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : "l'utilisateur suspendu";
-    return ResponseApi.success(res, `${result.count} produits de ${userName} ont été supprimés avec succès`, { count: result.count });
+    const userName =
+      user.firstName && user.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : "l'utilisateur suspendu";
+    return ResponseApi.success(
+      res,
+      `${result.count} produits de ${userName} ont été supprimés avec succès`,
+      { count: result.count }
+    );
   } catch (error: any) {
     console.log("====================================");
     console.log("Error in delete product of suspended user:", error);
     console.log("====================================");
-    return ResponseApi.error(res, "Échec de la suppression des produits de l'utilisateur suspendu", error.message);
+    return ResponseApi.error(
+      res,
+      "Échec de la suppression des produits de l'utilisateur suspendu",
+      error.message
+    );
   }
 };

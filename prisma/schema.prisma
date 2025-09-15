@@ -89,6 +89,7 @@ model User {
   connectionLog   ConnectionLog[]
   reportsMade     UserReport[]    @relation("ReportingUser")
   reportsReceived UserReport[]    @relation("ReportedUser")
+  productViews    ProductView[] // Relation avec les vues de produits
 }
 
 model Role {
@@ -152,6 +153,8 @@ model Product {
   quartier        String? // Quartier de la ville
   telephone       String // Numéro de téléphone du vendeur
   favorites       Favorite[]
+  views           ProductView[] // Relation avec les vues
+  viewCount       Int              @default(0) // Compteur de vues optimisé
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   productForfaits ProductForfait[]
@@ -283,4 +286,18 @@ model UserReport {
   @@index([reportedUserId])
   @@index([reportingUserId])
   @@index([status])
+}
+
+// Modèle pour tracker les vues uniques des produits par utilisateur connecté
+model ProductView {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.VarChar(36)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String   @db.VarChar(36)
+  viewedAt  DateTime @default(now())
+
+  @@unique([userId, productId]) // Un utilisateur ne peut voir un produit qu'une seule fois dans le comptage
+  @@index([productId])
+  @@index([userId])
 }

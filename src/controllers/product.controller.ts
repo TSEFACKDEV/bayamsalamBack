@@ -5,6 +5,7 @@ import Utils from "../helper/utils.js";
 import { sendEmail } from "../utilities/mailer.js";
 import { reviewProductTemplate } from "../templates/reviewProductTemplate.js";
 import { createNotification } from "../services/notification.service.js";
+import { initiateFuturaPayment } from "../services/futurapay.service.js"; // <-- ajouté
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 // ✅ UPDATED: Ajout du support du filtrage par status
 export const getAllProducts = async (
@@ -430,12 +431,51 @@ export const createProduct = async (
         categoryId,
         userId,
         cityId,
-        status: "PENDING", // Statut par défaut
+        status: "PENDING",
         etat,
         quartier,
         telephone,
       },
     });
+
+    // Si le frontend a demandé un forfait lors de la création
+    if (forfaitType) {
+      const forfait = await prisma.forfait.findFirst({ where: { type: forfaitType } });
+      if (forfait) {
+        // Créer réservation (isActive=false)
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
+        const productForfait = await prisma.productForfait.create({
+          data: {
+            productId: product.id,
+            forfaitId: forfait.id,
+            activatedAt: now,
+            expiresAt,
+            isActive: false,
+          },
+        });
+
+        const transactionData = {
+          currency: "XAF",
+          amount: forfait.price,
+          customer_transaction_id: productForfait.id,
+          country_code: "CM",
+          customer_first_name: req.authUser?.firstName || "Client",
+          customer_last_name: req.authUser?.lastName || "",
+          customer_phone: req.body.telephone || product.telephone || "",
+          customer_email: req.authUser?.email || "",
+        };
+
+        const securedUrl = initiateFuturaPayment(transactionData);
+        const productResponse = {
+          ...product,
+          images: Array.isArray(product.images)
+            ? (product.images as string[]).map((imagePath: string) => Utils.resolveFileUrl(req, imagePath))
+            : [],
+        };
+        return ResponseApi.success(res, "Produit créé - paiement forfait requis", { product: productResponse, paymentUrl: securedUrl, productForfaitId: productForfait.id }, 201);
+      }
+    }
 
     if (userId) {
       await createNotification(
@@ -521,6 +561,45 @@ export const updateProduct = async (
         cityId: cityId ?? existingProduct.cityId,
       },
     });
+
+    // Si un forfait est demandé à la mise à jour
+    const { forfaitType } = req.body;
+    if (forfaitType) {
+      const forfait = await prisma.forfait.findFirst({ where: { type: forfaitType } });
+      if (forfait) {
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
+        const productForfait = await prisma.productForfait.create({
+          data: {
+            productId: updatedProduct.id,
+            forfaitId: forfait.id,
+            activatedAt: now,
+            expiresAt,
+            isActive: false,
+          },
+        });
+
+        const transactionData = {
+          currency: "XAF",
+          amount: forfait.price,
+          customer_transaction_id: productForfait.id,
+          country_code: "CM",
+          customer_first_name: req.authUser?.firstName || "Client",
+          customer_last_name: req.authUser?.lastName || "",
+          customer_phone: req.body.telephone || updatedProduct.telephone || "",
+          customer_email: req.authUser?.email || "",
+        };
+
+        const securedUrl = initiateFuturaPayment(transactionData);
+        const productWithImageUrls = {
+          ...updatedProduct,
+          images: Array.isArray(updatedProduct.images)
+            ? (updatedProduct.images as string[]).map((imagePath: string) => Utils.resolveFileUrl(req, imagePath))
+            : [],
+        };
+        return ResponseApi.success(res, "Produit mis à jour - paiement forfait requis", { product: productWithImageUrls, paymentUrl: securedUrl, productForfaitId: productForfait.id });
+      }
+    }
 
     // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour la réponse
     const productWithImageUrls = {

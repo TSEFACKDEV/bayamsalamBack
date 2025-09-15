@@ -1,13 +1,17 @@
 import express from "express";
-import { activateForfait } from "../controllers/forfait.controller.js";
+import { activateForfait, initiateForfaitPayment, confirmForfaitPayment } from "../controllers/forfait.controller.js";
 import { authenticate, isAdmin } from "../middlewares/auth.middleware.js";
 import checkPermission from "../middlewares/checkPermission.js";
 
 const router = express.Router();
 
 // Activation par admin (sans paiement)
-router.post("/activate", authenticate, checkPermission("ASSIGN_FORFAIT"),  activateForfait);
+router.post("/activate", authenticate, checkPermission("ASSIGN_FORFAIT"), activateForfait);
 
+// Initier paiement (utilisateur choisit forfait -> obtenir URL iframe)
+router.post("/initiate", authenticate, initiateForfaitPayment);
 
+// Endpoint de confirmation (webhook ou frontend redirect)
+router.post("/confirm", /* pas besoin d'auth si webhook de FuturaPay */ confirmForfaitPayment);
 
 export default router;

@@ -19,6 +19,7 @@ const utils_js_1 = __importDefault(require("../helper/utils.js"));
 const mailer_js_1 = require("../utilities/mailer.js");
 const reviewProductTemplate_js_1 = require("../templates/reviewProductTemplate.js");
 const notification_service_js_1 = require("../services/notification.service.js");
+const futurapay_service_js_1 = require("../services/futurapay.service.js"); // <-- ajouté
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 // ✅ UPDATED: Ajout du support du filtrage par status
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -293,7 +294,7 @@ const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function*
 });
 exports.getProductById = getProductById;
 const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
+    var _a, _b, _c, _d, _e;
     try {
         const { name, price, quantity, description, categoryId, cityId, etat, quartier, telephone, forfaitType, } = req.body;
         if (!((_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id)) {
@@ -337,12 +338,45 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 categoryId,
                 userId,
                 cityId,
-                status: "PENDING", // Statut par défaut
+                status: "PENDING",
                 etat,
                 quartier,
                 telephone,
             },
         });
+        // Si le frontend a demandé un forfait lors de la création
+        if (forfaitType) {
+            const forfait = yield prisma_client_js_1.default.forfait.findFirst({ where: { type: forfaitType } });
+            if (forfait) {
+                // Créer réservation (isActive=false)
+                const now = new Date();
+                const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
+                const productForfait = yield prisma_client_js_1.default.productForfait.create({
+                    data: {
+                        productId: product.id,
+                        forfaitId: forfait.id,
+                        activatedAt: now,
+                        expiresAt,
+                        isActive: false,
+                    },
+                });
+                const transactionData = {
+                    currency: "XAF",
+                    amount: forfait.price,
+                    customer_transaction_id: productForfait.id,
+                    country_code: "CM",
+                    customer_first_name: ((_c = req.authUser) === null || _c === void 0 ? void 0 : _c.firstName) || "Client",
+                    customer_last_name: ((_d = req.authUser) === null || _d === void 0 ? void 0 : _d.lastName) || "",
+                    customer_phone: req.body.telephone || product.telephone || "",
+                    customer_email: ((_e = req.authUser) === null || _e === void 0 ? void 0 : _e.email) || "",
+                };
+                const securedUrl = (0, futurapay_service_js_1.initiateFuturaPayment)(transactionData);
+                const productResponse = Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
+                        ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                        : [] });
+                return response_js_1.default.success(res, "Produit créé - paiement forfait requis", { product: productResponse, paymentUrl: securedUrl, productForfaitId: productForfait.id }, 201);
+            }
+        }
         if (userId) {
             yield (0, notification_service_js_1.createNotification)(userId, "Annonce créée avec succès", `Votre produit "${name}" a été créé avec succès et est en attente de validation par nos équipes...`, {
                 type: "PRODUCT",
@@ -364,6 +398,7 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
 });
 exports.createProduct = createProduct;
 const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c;
     const id = req.params.id;
     try {
         if (!id) {
@@ -404,6 +439,39 @@ const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 cityId: cityId !== null && cityId !== void 0 ? cityId : existingProduct.cityId,
             },
         });
+        // Si un forfait est demandé à la mise à jour
+        const { forfaitType } = req.body;
+        if (forfaitType) {
+            const forfait = yield prisma_client_js_1.default.forfait.findFirst({ where: { type: forfaitType } });
+            if (forfait) {
+                const now = new Date();
+                const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
+                const productForfait = yield prisma_client_js_1.default.productForfait.create({
+                    data: {
+                        productId: updatedProduct.id,
+                        forfaitId: forfait.id,
+                        activatedAt: now,
+                        expiresAt,
+                        isActive: false,
+                    },
+                });
+                const transactionData = {
+                    currency: "XAF",
+                    amount: forfait.price,
+                    customer_transaction_id: productForfait.id,
+                    country_code: "CM",
+                    customer_first_name: ((_a = req.authUser) === null || _a === void 0 ? void 0 : _a.firstName) || "Client",
+                    customer_last_name: ((_b = req.authUser) === null || _b === void 0 ? void 0 : _b.lastName) || "",
+                    customer_phone: req.body.telephone || updatedProduct.telephone || "",
+                    customer_email: ((_c = req.authUser) === null || _c === void 0 ? void 0 : _c.email) || "",
+                };
+                const securedUrl = (0, futurapay_service_js_1.initiateFuturaPayment)(transactionData);
+                const productWithImageUrls = Object.assign(Object.assign({}, updatedProduct), { images: Array.isArray(updatedProduct.images)
+                        ? updatedProduct.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                        : [] });
+                return response_js_1.default.success(res, "Produit mis à jour - paiement forfait requis", { product: productWithImageUrls, paymentUrl: securedUrl, productForfaitId: productForfait.id });
+            }
+        }
         // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour la réponse
         const productWithImageUrls = Object.assign(Object.assign({}, updatedProduct), { images: Array.isArray(updatedProduct.images)
                 ? updatedProduct.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))

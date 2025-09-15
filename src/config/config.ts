@@ -26,6 +26,11 @@ interface Env {
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_CALLBACK_URL: string;
+
+  // Champs pour Futura Pay
+  FUTURA_PAY_API_KEY: string;
+  FUTURA_PAY_MERCHANT_KEY: string;
+  FUTURA_PAY_SITE_ID: string;
 }
 
 const env: Env = {
@@ -52,6 +57,11 @@ const env: Env = {
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
   GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || `http://127.0.0.1:3001/api/bayamsalam/auth/google/callback`,
+
+  // Champs pour Futura Pay
+  FUTURA_PAY_API_KEY: process.env.FUTURA_PAY_API_KEY || "",
+  FUTURA_PAY_MERCHANT_KEY: process.env.FUTURA_PAY_MERCHANT_KEY || "",
+  FUTURA_PAY_SITE_ID: process.env.FUTURA_PAY_SITE_ID || "",
 };
 
 export default env;

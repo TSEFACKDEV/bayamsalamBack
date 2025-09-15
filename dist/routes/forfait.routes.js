@@ -10,4 +10,8 @@ const checkPermission_js_1 = __importDefault(require("../middlewares/checkPermis
 const router = express_1.default.Router();
 // Activation par admin (sans paiement)
 router.post("/activate", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("ASSIGN_FORFAIT"), forfait_controller_js_1.activateForfait);
+// Initier paiement (utilisateur choisit forfait -> obtenir URL iframe)
+router.post("/initiate", auth_middleware_js_1.authenticate, forfait_controller_js_1.initiateForfaitPayment);
+// Endpoint de confirmation (webhook ou frontend redirect)
+router.post("/confirm", /* pas besoin d'auth si webhook de FuturaPay */ forfait_controller_js_1.confirmForfaitPayment);
 exports.default = router;

@@ -256,7 +256,7 @@ model Notification {
   type      String? // ex: 'PRODUCT', 'WELCOME', 'SYSTEM'
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
-
+  updatedAt DateTime @updatedAt
   @@index([userId])
 }
 

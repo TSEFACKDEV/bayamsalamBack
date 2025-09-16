@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteProductOfSuspendedUser = exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getUserPendingProducts = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = exports.getProductViewStats = exports.recordProductView = void 0;
+exports.getHomePageProduct = exports.deleteProductOfSuspendedUser = exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getUserPendingProducts = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = exports.getProductViewStats = exports.recordProductView = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
@@ -20,6 +20,7 @@ const mailer_js_1 = require("../utilities/mailer.js");
 const reviewProductTemplate_js_1 = require("../templates/reviewProductTemplate.js");
 const notification_service_js_1 = require("../services/notification.service.js");
 const futurapay_service_js_1 = require("../services/futurapay.service.js");
+const client_1 = require("@prisma/client");
 // Fonction pour enregistrer une vue d'annonce (utilisateurs connectés uniquement)
 const recordProductView = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -793,3 +794,84 @@ const deleteProductOfSuspendedUser = (req, res) => __awaiter(void 0, void 0, voi
     }
 });
 exports.deleteProductOfSuspendedUser = deleteProductOfSuspendedUser;
+const getHomePageProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    // Priorité des forfaits (1 = plus prioritaire)
+    // Ordre: A_LA_UNE > PREMIUM > TOP_ANNONCE > URGENT > Produits classiques
+    const priorities = [
+        client_1.ForfaitType.A_LA_UNE,
+        client_1.ForfaitType.PREMIUM,
+        client_1.ForfaitType.TOP_ANNONCE,
+        client_1.ForfaitType.URGENT,
+    ];
+    const limit = parseInt(req.query.limit) || 10;
+    try {
+        let products = [];
+        let usedPriority = null;
+        // On parcourt les priorités dans l'ordre
+        for (const type of priorities) {
+            products = yield prisma_client_js_1.default.product.findMany({
+                where: {
+                    status: "VALIDATED",
+                    productForfaits: {
+                        some: {
+                            isActive: true,
+                            expiresAt: { gt: new Date() },
+                            forfait: { type },
+                        },
+                    },
+                },
+                orderBy: { createdAt: "desc" },
+                take: limit,
+                include: {
+                    category: true,
+                    city: true,
+                    user: true,
+                    productForfaits: {
+                        where: { isActive: true, expiresAt: { gt: new Date() } },
+                        include: { forfait: true },
+                    },
+                },
+            });
+            if (products.length > 0) {
+                usedPriority = type;
+                break;
+            }
+        }
+        // Si aucun produit avec forfait, prendre les produits validés les plus récents
+        if (products.length === 0) {
+            products = yield prisma_client_js_1.default.product.findMany({
+                where: { status: "VALIDATED" },
+                orderBy: { createdAt: "desc" },
+                take: limit,
+                include: {
+                    category: true,
+                    city: true,
+                    user: true,
+                    productForfaits: {
+                        where: { isActive: true, expiresAt: { gt: new Date() } },
+                        include: { forfait: true },
+                    },
+                },
+            });
+            usedPriority = null;
+        }
+        // Conversion des images en URLs complètes
+        const productsWithImageUrls = products.map((product) => {
+            var _a;
+            return (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
+                    ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
+                    : [], activeForfaits: ((_a = product.productForfaits) === null || _a === void 0 ? void 0 : _a.filter((pf) => pf.isActive && new Date(pf.expiresAt) > new Date()).map((pf) => ({
+                    type: pf.forfait.type,
+                    expiresAt: pf.expiresAt,
+                }))) || [] }));
+        });
+        response_js_1.default.success(res, "Produits homepage récupérés avec succès", {
+            products: productsWithImageUrls,
+            usedPriority,
+        });
+    }
+    catch (error) {
+        response_js_1.default.error(res, "Erreur lors de la récupération des produits homepage", error.message);
+    }
+});
+exports.getHomePageProduct = getHomePageProduct;

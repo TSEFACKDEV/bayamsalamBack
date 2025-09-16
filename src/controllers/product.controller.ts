@@ -6,6 +6,7 @@ import { sendEmail } from "../utilities/mailer.js";
 import { reviewProductTemplate } from "../templates/reviewProductTemplate.js";
 import { createNotification } from "../services/notification.service.js";
 import { initiateFuturaPayment } from "../services/futurapay.service.js";
+import { Prisma, ForfaitType } from "@prisma/client";
 
 // Fonction pour enregistrer une vue d'annonce (utilisateurs connectés uniquement)
 export const recordProductView = async (
@@ -1030,5 +1031,98 @@ export const deleteProductOfSuspendedUser = async (
       "Échec de la suppression des produits de l'utilisateur suspendu",
       error.message
     );
+  }
+};
+
+export const getHomePageProduct = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  // Priorité des forfaits (1 = plus prioritaire)
+  // Ordre: A_LA_UNE > PREMIUM > TOP_ANNONCE > URGENT > Produits classiques
+  const priorities: ForfaitType[] = [
+    ForfaitType.A_LA_UNE,
+    ForfaitType.PREMIUM,
+    ForfaitType.TOP_ANNONCE,
+    ForfaitType.URGENT,
+  ];
+  const limit = parseInt(req.query.limit as string) || 10;
+
+  try {
+    let products: any[] = [];
+    let usedPriority: string | null = null;
+
+    // On parcourt les priorités dans l'ordre
+    for (const type of priorities) {
+      products = await prisma.product.findMany({
+        where: {
+          status: "VALIDATED",
+          productForfaits: {
+            some: {
+              isActive: true,
+              expiresAt: { gt: new Date() },
+              forfait: { type },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        include: {
+          category: true,
+          city: true,
+          user: true,
+          productForfaits: {
+            where: { isActive: true, expiresAt: { gt: new Date() } },
+            include: { forfait: true },
+          },
+        },
+      });
+      if (products.length > 0) {
+        usedPriority = type;
+        break;
+      }
+    }
+
+    // Si aucun produit avec forfait, prendre les produits validés les plus récents
+    if (products.length === 0) {
+      products = await prisma.product.findMany({
+        where: { status: "VALIDATED" },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        include: {
+          category: true,
+          city: true,
+          user: true,
+          productForfaits: {
+            where: { isActive: true, expiresAt: { gt: new Date() } },
+            include: { forfait: true },
+          },
+        },
+      });
+      usedPriority = null;
+    }
+
+    // Conversion des images en URLs complètes
+    const productsWithImageUrls = products.map((product) => ({
+      ...product,
+      images: Array.isArray(product.images)
+        ? (product.images as string[]).map((imagePath: string) =>
+            Utils.resolveFileUrl(req, imagePath)
+          )
+        : [],
+      activeForfaits: product.productForfaits?.filter((pf: any) =>
+        pf.isActive && new Date(pf.expiresAt) > new Date()
+      ).map((pf: any) => ({
+        type: pf.forfait.type,
+        expiresAt: pf.expiresAt,
+      })) || [],
+    }));
+
+    ResponseApi.success(res, "Produits homepage récupérés avec succès", {
+      products: productsWithImageUrls,
+      usedPriority,
+    });
+  } catch (error: any) {
+    ResponseApi.error(res, "Erreur lors de la récupération des produits homepage", error.message);
   }
 };

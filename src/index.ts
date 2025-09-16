@@ -4,6 +4,8 @@ import morgan from "morgan";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import fileUpload from "express-fileupload";
+import session from "express-session";
+import MongoStore from "connect-mongo";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import Router from "./routes/index.js";
 import url from "node:url";
@@ -29,6 +31,27 @@ app.use(
     optionsSuccessStatus: 200, // Support legacy browsers
   })
 );
+
+// Configuration de session sécurisée
+app.use(
+  session({
+    secret: env.sessionSecret || "bayamsalam-session-secret-2024",
+    resave: false,
+    saveUninitialized: false,
+    name: "bayamsalam.sid", // Nom de session unique
+    cookie: {
+      secure: env.nodeEnv === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 heures
+      sameSite: env.nodeEnv === "production" ? "none" : "lax",
+    },
+    // Génération d'ID de session unique pour éviter les conflits
+    genid: () => {
+      return require("crypto").randomBytes(16).toString("hex");
+    },
+  })
+);
+
 app.use(cookieParser()); // ✅ Middleware pour parser les cookies
 app.use(morgan("dev"));
 app.use(express.json());
@@ -45,6 +68,7 @@ app.use("/public", express.static(path.join(__dirname, "../public")));
 
 //Routes
 app.use(passport.initialize());
+app.use(passport.session()); // Ajouter le support des sessions pour Passport
 app.use("/api/bayamsalam", Router);
 
 // Health check

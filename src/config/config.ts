@@ -20,7 +20,7 @@ interface Env {
   nexahSenderId: string;
   frontendUrl: string;
   refreshTokenSecretKey: string;
-
+  sessionSecret: string; // Nouveau champ pour la session
 
   // Nouveaux champs pour Google OAuth
   GOOGLE_CLIENT_ID: string;
@@ -51,12 +51,15 @@ const env: Env = {
   nexahSenderId: process.env.NEXAH_SENDER_ID || "",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
   refreshTokenSecretKey: process.env.REFRESH_TOKEN_SECRET_KEY || "",
- 
+  sessionSecret:
+    process.env.SESSION_SECRET || "bayamsalam-super-secret-session-key-2024",
 
-    // Nouveaux champs pour Google OAuth
+  // Nouveaux champs pour Google OAuth
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
-  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || `http://127.0.0.1:3001/api/bayamsalam/auth/google/callback`,
+  GOOGLE_CALLBACK_URL:
+    process.env.GOOGLE_CALLBACK_URL ||
+    `http://127.0.0.1:3001/api/bayamsalam/auth/google/callback`,
 
   // Champs pour Futura Pay
   FUTURA_PAY_API_KEY: process.env.FUTURA_PAY_API_KEY || "",

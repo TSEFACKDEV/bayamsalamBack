@@ -11,7 +11,15 @@ import {
   googleCallback, // Nouvelle fonction
 } from "../controllers/auth.controller.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
-import { forgotPasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, registerSchema, resetPasswordSchema, verifyOTPSchema } from "../validations/auth.validation.js";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  logoutSchema,
+  refreshTokenSchema,
+  registerSchema,
+  resetPasswordSchema,
+  verifyOTPSchema,
+} from "../validations/auth.validation.js";
 import validate from "../middlewares/validation.js";
 import passport from "../config/passport.config.js"; // Importer passport
 
@@ -29,15 +37,40 @@ router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
 // Routes pour l'authentification Google
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  // Nettoyer la session avant l'authentification pour éviter les conflits
+  (req, res, next) => {
+    // Détruire la session existante pour éviter les conflits
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err)
+          console.error("Erreur lors de la destruction de session:", err);
+      });
+    }
+    next();
+  },
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    // Forcer une nouvelle authentification pour éviter les conflits
+    prompt: "select_account",
+  })
 );
 
 router.get(
   "/google/callback",
-  passport.authenticate("google", { 
-    session: false,
-    failureRedirect: `${process.env.FRONTEND_URL}/auth/login?error=google_auth_failed` 
-  }),
+  (req, res, next) => {
+    passport.authenticate("google", {
+      session: true, // Utiliser les sessions maintenant
+      failureRedirect: `${process.env.FRONTEND_URL}/auth/login?error=google_auth_failed`,
+    })(req, res, (err: any) => {
+      if (err) {
+        console.error("Erreur callback Google:", err);
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/auth/login?error=auth_failed`
+        );
+      }
+      next();
+    });
+  },
   googleCallback
 );
 

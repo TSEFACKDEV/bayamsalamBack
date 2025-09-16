@@ -19,11 +19,34 @@ router.post("/refresh-token", (0, validation_js_1.default)(auth_validation_js_1.
 router.post("/forgot-password", (0, validation_js_1.default)(auth_validation_js_1.forgotPasswordSchema), auth_controller_js_1.forgotPassword);
 router.post("/reset-password", (0, validation_js_1.default)(auth_validation_js_1.resetPasswordSchema), auth_controller_js_1.resetPassword);
 // Routes pour l'authentification Google
-router.get("/google", passport_config_js_1.default.authenticate("google", { scope: ["profile", "email"] }));
-router.get("/google/callback", passport_config_js_1.default.authenticate("google", {
-    session: false,
-    failureRedirect: `${process.env.FRONTEND_URL}/auth/login?error=google_auth_failed`
-}), auth_controller_js_1.googleCallback);
+router.get("/google", 
+// Nettoyer la session avant l'authentification pour éviter les conflits
+(req, res, next) => {
+    // Détruire la session existante pour éviter les conflits
+    if (req.session) {
+        req.session.destroy((err) => {
+            if (err)
+                console.error("Erreur lors de la destruction de session:", err);
+        });
+    }
+    next();
+}, passport_config_js_1.default.authenticate("google", {
+    scope: ["profile", "email"],
+    // Forcer une nouvelle authentification pour éviter les conflits
+    prompt: "select_account",
+}));
+router.get("/google/callback", (req, res, next) => {
+    passport_config_js_1.default.authenticate("google", {
+        session: true, // Utiliser les sessions maintenant
+        failureRedirect: `${process.env.FRONTEND_URL}/auth/login?error=google_auth_failed`,
+    })(req, res, (err) => {
+        if (err) {
+            console.error("Erreur callback Google:", err);
+            return res.redirect(`${process.env.FRONTEND_URL}/auth/login?error=auth_failed`);
+        }
+        next();
+    });
+}, auth_controller_js_1.googleCallback);
 router.use(auth_middleware_js_1.authenticate);
 router.get("/me", auth_controller_js_1.getUserProfile);
 exports.default = router;

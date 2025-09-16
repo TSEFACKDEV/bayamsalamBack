@@ -93,8 +93,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 
       await sendEmail(
         email,
-        "🔐 Code de vérification BuyamSale - Bienvenue !",
-        `Bonjour ${firstName} ${lastName},\n\nVotre code OTP est: ${otp}\n\nBienvenue sur BuyamSale !`,
+        "🔐 Code de vérification BuyAndSale - Bienvenue !",
+        `Bonjour ${firstName} ${lastName},\n\nVotre code OTP est: ${otp}\n\nBienvenue sur BuyAndSale !`,
         htmlTemplate
       );
     }
@@ -158,7 +158,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
     // Créer notification de bienvenue
     await createNotification(
       user.id,
-      "Bienvenue sur BuyamSale",
+      "Bienvenue sur BuyAndSale",
       "Votre compte a été vérifié avec succès. Bienvenue !",
       {
         type: "WELCOME",
@@ -176,8 +176,8 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
 
       await sendEmail(
         user.email,
-        "🎉 Bienvenue sur BuyamSale !",
-        `Bonjour ${user.firstName} ${user.lastName},\n\nVotre compte a été vérifié avec succès. Bienvenue sur BuyamSale !`,
+        "🎉 Bienvenue sur BuyAndSale !",
+        `Bonjour ${user.firstName} ${user.lastName},\n\nVotre compte a été vérifié avec succès. Bienvenue sur BuyAndSale !`,
         htmlTemplate
       );
     } catch (mailError) {
@@ -764,6 +764,7 @@ export const googleCallback = async (
     const user = req.user as any;
 
     if (!user) {
+      console.error("Aucun utilisateur trouvé dans req.user");
       res.redirect(`${env.frontendUrl}/auth/login?error=auth_failed`);
       return;
     }
@@ -782,9 +783,9 @@ export const googleCallback = async (
     // Mettre à jour le refresh token dans la base de données
     await prisma.user.update({
       where: { id: user.id },
-      data: { 
-        refreshToken, 
-        lastConnexion: new Date() 
+      data: {
+        refreshToken,
+        lastConnexion: new Date(),
       },
     });
 
@@ -796,18 +797,30 @@ export const googleCallback = async (
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
     });
 
-    // console.log("[DEBUG] GoogleCallback - Utilisateur authentifié:", {
-    //   id: user.id,
-    //   email: user.email,
-    //   tokenGenere: true
-    // });
+    console.log("[DEBUG] GoogleCallback - Utilisateur authentifié:", {
+      id: user.id,
+      email: user.email,
+      tokenGenere: true,
+      sessionId: req.sessionID,
+    });
 
     // Rediriger vers le frontend avec le token en paramètre
     res.redirect(
-      `${env.frontendUrl}/auth/social-callback?token=${encodeURIComponent(AccessToken)}`
+      `${env.frontendUrl}/auth/social-callback?token=${encodeURIComponent(
+        AccessToken
+      )}`
     );
   } catch (error) {
     console.error("Erreur lors de la connexion Google:", error);
+
+    // Détruire la session en cas d'erreur pour éviter les états incohérents
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err)
+          console.error("Erreur lors de la destruction de session:", err);
+      });
+    }
+
     res.redirect(`${env.frontendUrl}/auth/login?error=server_error`);
   }
 };

@@ -13,6 +13,7 @@ import {
   getProductViewStats,
   reviewProduct,
   updateProduct,
+  getHomePageProduct,
 } from "../controllers/product.controller.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
 import checkPermission from "../middlewares/checkPermission.js";
@@ -80,6 +81,10 @@ router.get(
 
 //pour recuperer tous les produits avec un status = VALIDATED [utilisateurs]
 router.get("/", getValidatedProducts);
+
+// pour recuperer tous les produit de la page home [utilisateurs]
+
+router.get("/home", getHomePageProduct);
 
 // Routes pour les vues d'annonces (utilisateurs connectés uniquement)
 router.post("/:productId/view", authenticate, recordProductView);

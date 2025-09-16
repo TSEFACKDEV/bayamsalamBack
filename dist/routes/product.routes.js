@@ -26,6 +26,8 @@ router.get("/all", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.d
 router.get("/dev", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_READ"), product_controller_js_1.getAllProductsWithoutPagination);
 //pour recuperer tous les produits avec un status = VALIDATED [utilisateurs]
 router.get("/", product_controller_js_1.getValidatedProducts);
+// pour recuperer tous les produit de la page home [utilisateurs]
+router.get("/home", product_controller_js_1.getHomePageProduct);
 // Routes pour les vues d'annonces (utilisateurs connectés uniquement)
 router.post("/:productId/view", auth_middleware_js_1.authenticate, product_controller_js_1.recordProductView);
 router.get("/:productId/stats", product_controller_js_1.getProductViewStats);

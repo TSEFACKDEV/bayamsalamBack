@@ -39,7 +39,11 @@ const yup = __importStar(require("yup"));
 const passwordRules = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
 exports.registerSchema = yup.object({
     email: yup.string().email().required(),
-    password: yup.string().matches(passwordRules, { message: 'Please create a stronger password' }).required().min(6),
+    password: yup
+        .string()
+        .matches(passwordRules, { message: 'Please create a stronger password' })
+        .required()
+        .min(6),
     firstName: yup.string().required(),
     lastName: yup.string().required(),
     phone: yup.string().required(),
@@ -63,5 +67,9 @@ exports.forgotPasswordSchema = yup.object({
 });
 exports.resetPasswordSchema = yup.object({
     token: yup.string().required(),
-    newPassword: yup.string().matches(passwordRules, { message: 'Please create a stronger password' }).required().min(6),
+    newPassword: yup
+        .string()
+        .matches(passwordRules, { message: 'Please create a stronger password' })
+        .required()
+        .min(6),
 });

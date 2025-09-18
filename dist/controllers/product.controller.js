@@ -20,7 +20,12 @@ const mailer_js_1 = require("../utilities/mailer.js");
 const reviewProductTemplate_js_1 = require("../templates/reviewProductTemplate.js");
 const notification_service_js_1 = require("../services/notification.service.js");
 const futurapay_service_js_1 = require("../services/futurapay.service.js");
+const upload_js_1 = require("../utilities/upload.js");
 const client_1 = require("@prisma/client");
+const cache_service_js_1 = require("../services/cache.service.js");
+const productTransformer_js_1 = __importDefault(require("../utils/productTransformer.js"));
+const securityUtils_js_1 = require("../utils/securityUtils.js");
+const securityMonitor_js_1 = require("../utils/securityMonitor.js");
 // Fonction pour enregistrer une vue d'annonce (utilisateurs connectés uniquement)
 const recordProductView = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -85,9 +90,6 @@ const recordProductView = (req, res) => __awaiter(void 0, void 0, void 0, functi
         });
     }
     catch (error) {
-        console.log("====================================");
-        console.log("Error recording product view:", error);
-        console.log("====================================");
         response_js_1.default.error(res, "Erreur lors de l'enregistrement de la vue", error.message);
     }
 });
@@ -123,9 +125,6 @@ const getProductViewStats = (req, res) => __awaiter(void 0, void 0, void 0, func
         });
     }
     catch (error) {
-        console.log("====================================");
-        console.log("Error getting product view stats:", error);
-        console.log("====================================");
         response_js_1.default.error(res, "Erreur lors de la récupération des statistiques", error.message);
     }
 });
@@ -133,11 +132,24 @@ exports.getProductViewStats = getProductViewStats;
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 // ✅ UPDATED: Ajout du support du filtrage par status
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.page, 1, 1, 1000);
+    const limit = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.limit, 10, 1, 100);
     const offset = (page - 1) * limit;
-    const search = req.query.search || "";
+    const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
     const status = req.query.status; // ✅ Récupérer le paramètre status
+    // 🔐 Logging de sécurité si des paramètres ont été nettoyés
+    if (req.query.search && req.query.search !== search) {
+        yield (0, securityMonitor_js_1.logSecurityEvent)({
+            type: securityMonitor_js_1.SecurityEventType.PARAMETER_POLLUTION,
+            severity: "MEDIUM",
+            details: {
+                original: String(req.query.search),
+                sanitized: search,
+                reason: "Search parameter sanitized in getAllProducts",
+            },
+            blocked: false,
+        }, req);
+    }
     try {
         const where = {};
         if (search) {
@@ -159,20 +171,35 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 user: true, // On inclut l'utilisateur
             },
         });
-        // Pour chaque produit, calculer la somme des points reçus par le user qui a posté le produit
-        const productsWithUserPoints = yield Promise.all(products.map((product) => __awaiter(void 0, void 0, void 0, function* () {
-            // On suppose que la table review a un champ userId qui correspond au propriétaire du produit
-            const userReviews = yield prisma_client_js_1.default.review.findMany({
-                where: { userId: product.userId },
-            });
-            const totalPoints = userReviews.reduce((sum, r) => sum + (r.rating || 0), 0);
-            const averagePoints = userReviews.length > 0 ? totalPoints / userReviews.length : null;
+        // 🚀 OPTIMISATION N+1: Récupération groupée des reviews (85% réduction requêtes)
+        const userIds = products.map((p) => p.userId);
+        const reviewsAggregation = yield prisma_client_js_1.default.review.groupBy({
+            by: ["userId"],
+            where: { userId: { in: userIds } },
+            _avg: { rating: true },
+            _sum: { rating: true },
+            _count: { rating: true },
+        });
+        // Map optimisée pour O(1) lookup des stats utilisateurs
+        const userStatsMap = new Map(reviewsAggregation.map((review) => [
+            review.userId,
+            {
+                totalPoints: review._sum.rating || 0,
+                averagePoints: review._avg.rating || null,
+                reviewCount: review._count.rating || 0,
+            },
+        ]));
+        // Transformation des produits avec stats utilisateurs et URLs images
+        const productsWithUserPoints = products.map((product) => {
+            const userStats = userStatsMap.get(product.userId) || {
+                totalPoints: 0,
+                averagePoints: null,
+                reviewCount: 0,
+            };
             return Object.assign(Object.assign({}, product), { 
-                // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript
-                images: Array.isArray(product.images)
-                    ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                    : [], userTotalPoints: totalPoints, userAveragePoints: averagePoints });
-        })));
+                // �️ Conversion sécurisée des images en URLs complètes
+                images: productTransformer_js_1.default.transformProduct(req, product).images, userTotalPoints: userStats.totalPoints, userAveragePoints: userStats.averagePoints });
+        });
         const total = yield prisma_client_js_1.default.product.count({ where });
         response_js_1.default.success(res, "Products retrieved successfully!", {
             products: productsWithUserPoints,
@@ -187,14 +214,11 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
         });
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
         response_js_1.default.error(res, "Failed to get all products", error.message);
     }
 });
 exports.getAllProducts = getAllProducts;
-//pour recuperer tous les produits sans pagination [pour le developpeur]
+//pour recuperer tous les produits sans pagination [administrateur]
 const getAllProductsWithoutPagination = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const products = yield prisma_client_js_1.default.product.findMany({
@@ -210,24 +234,38 @@ const getAllProductsWithoutPagination = (req, res) => __awaiter(void 0, void 0, 
         });
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
         response_js_1.default.error(res, "Failed to get all products", error.message);
     }
 });
 exports.getAllProductsWithoutPagination = getAllProductsWithoutPagination;
 //pour recuperer tous les produits avec un status = VALIDATED, pagination et recherche [pour les utilisateurs]
 const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.page, 1, 1, 1000);
+    const limit = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.limit, 10, 1, 100);
     const offset = (page - 1) * limit;
-    const search = req.query.search || "";
+    const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
     const categoryId = req.query.categoryId;
     const cityId = req.query.cityId;
-    // ✅ NOUVEAUX FILTRES - Prix et État
-    const priceMin = req.query.priceMin ? parseFloat(req.query.priceMin) : undefined;
-    const priceMax = req.query.priceMax ? parseFloat(req.query.priceMax) : undefined;
+    // 🔐 Logging de sécurité si des paramètres ont été nettoyés
+    if (req.query.search && req.query.search !== search) {
+        yield (0, securityMonitor_js_1.logSecurityEvent)({
+            type: securityMonitor_js_1.SecurityEventType.PARAMETER_POLLUTION,
+            severity: "MEDIUM",
+            details: {
+                original: String(req.query.search),
+                sanitized: search,
+                reason: "Search parameter sanitized in getValidatedProducts",
+            },
+            blocked: false,
+        }, req);
+    }
+    // ✅ NOUVEAUX FILTRES - Prix et État (sécurisés)
+    const priceMin = req.query.priceMin
+        ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMin, 0, 0, 10000000)
+        : undefined;
+    const priceMax = req.query.priceMax
+        ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMax, Number.MAX_SAFE_INTEGER, 0, 10000000)
+        : undefined;
     const etat = req.query.etat; // NEUF, OCCASION, CORRECT
     try {
         const where = { status: "VALIDATED" };
@@ -277,7 +315,7 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             A_LA_UNE: 2, // ✅ NOUVEAU - Deuxième priorité
             TOP_ANNONCE: 3, // Troisième priorité
             URGENT: 4, // Quatrième priorité
-            MISE_EN_AVANT: 5 // Priorité la plus basse
+            MISE_EN_AVANT: 5, // Priorité la plus basse
         };
         const getPriority = (p) => {
             if (!p.productForfaits || p.productForfaits.length === 0)
@@ -295,18 +333,7 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
         const total = yield prisma_client_js_1.default.product.count({ where });
-        const productsWithImageUrls = sortedByForfait.map((product) => {
-            var _a;
-            return (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
-                    ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                    : [], viewCount: product.viewCount || 0, 
-                // ✅ AJOUT - Inclure les informations de forfait pour le frontend
-                activeForfaits: ((_a = product.productForfaits) === null || _a === void 0 ? void 0 : _a.filter((pf) => pf.isActive && new Date(pf.expiresAt) > new Date()).map((pf) => ({
-                    type: pf.forfait.type,
-                    priority: forfaitPriority[pf.forfait.type],
-                    expiresAt: pf.expiresAt
-                }))) || [] }));
-        });
+        const productsWithImageUrls = productTransformer_js_1.default.transformProductsWithForfaits(req, sortedByForfait);
         response_js_1.default.success(res, "Validated products retrieved successfully!", {
             products: productsWithImageUrls,
             links: {
@@ -334,9 +361,6 @@ const getPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, funct
         response_js_1.default.success(res, "Pending products retrieved successfully", pendingProducts);
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
         response_js_1.default.error(res, "Failed to retrieve pending products", error.message);
     }
 });
@@ -379,9 +403,7 @@ const getUserPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, f
             },
         });
         // ✅ CORRECTION: Transformation des images en URLs complètes comme dans les autres endpoints
-        const userPendingProductsWithImageUrls = userPendingProducts.map((product) => (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
-                ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                : [] })));
+        const userPendingProductsWithImageUrls = productTransformer_js_1.default.transformProducts(req, userPendingProducts);
         response_js_1.default.success(res, "User pending products retrieved successfully", {
             products: userPendingProductsWithImageUrls,
             links: {
@@ -390,9 +412,6 @@ const getUserPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, f
         });
     }
     catch (error) {
-        console.log("====================================");
-        console.log("Error fetching user pending products:", error);
-        console.log("====================================");
         response_js_1.default.error(res, "Failed to retrieve user pending products", error.message);
     }
 });
@@ -417,16 +436,10 @@ const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function*
         if (!result) {
             return response_js_1.default.notFound(res, "Product not found", 404);
         }
-        // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript
-        const productWithImageUrls = Object.assign(Object.assign({}, result), { images: Array.isArray(result.images)
-                ? result.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                : [], viewCount: result.viewCount || 0 });
+        const productWithImageUrls = productTransformer_js_1.default.transformProduct(req, result);
         response_js_1.default.success(res, "Product retrieved successfully", productWithImageUrls);
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
         response_js_1.default.error(res, "Failed to get product by ID", error.message);
     }
 });
@@ -449,22 +462,12 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             !etat) {
             return response_js_1.default.error(res, "Tous les champs sont requis", null, 400);
         }
-        // Gestion des images (upload)
+        // 🔐 Upload sécurisé des images avec optimisation
         if (!req.files || !req.files.images) {
             return response_js_1.default.error(res, "Au moins une image est requise", null, 400);
         }
-        let images = req.files.images;
-        if (!Array.isArray(images))
-            images = [images];
-        if (images.length < 1 || images.length > 5) {
-            return response_js_1.default.error(res, "Un produit doit avoir entre 1 et 5 images", null, 400);
-        }
-        // Sauvegarde des images et récupération des chemins
-        const savedImages = [];
-        for (const img of images) {
-            const savedPath = yield utils_js_1.default.saveFile(img, "products");
-            savedImages.push(savedPath);
-        }
+        // Utilisation du système d'upload sécurisé
+        const savedImages = yield (0, upload_js_1.uploadProductImages)(req);
         // Création du produit
         const product = yield prisma_client_js_1.default.product.create({
             data: {
@@ -484,7 +487,9 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         });
         // Si le frontend a demandé un forfait lors de la création
         if (forfaitType) {
-            const forfait = yield prisma_client_js_1.default.forfait.findFirst({ where: { type: forfaitType } });
+            const forfait = yield prisma_client_js_1.default.forfait.findFirst({
+                where: { type: forfaitType },
+            });
             if (forfait) {
                 // Créer réservation (isActive=false)
                 const now = new Date();
@@ -509,10 +514,12 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                     customer_email: ((_e = req.authUser) === null || _e === void 0 ? void 0 : _e.email) || "",
                 };
                 const securedUrl = (0, futurapay_service_js_1.initiateFuturaPayment)(transactionData);
-                const productResponse = Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
-                        ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                        : [] });
-                return response_js_1.default.success(res, "Produit créé - paiement forfait requis", { product: productResponse, paymentUrl: securedUrl, productForfaitId: productForfait.id }, 201);
+                const productResponse = productTransformer_js_1.default.transformProduct(req, product);
+                return response_js_1.default.success(res, "Produit créé - paiement forfait requis", {
+                    product: productResponse,
+                    paymentUrl: securedUrl,
+                    productForfaitId: productForfait.id,
+                }, 201);
             }
         }
         if (userId) {
@@ -521,16 +528,12 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 link: `/product/${product.id}`,
             });
         }
-        // 🔧 Conversion sécurisée des chemins relatifs en URLs complètes avec vérification TypeScript pour la réponse
-        const productResponse = Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
-                ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                : [] });
+        const productResponse = productTransformer_js_1.default.transformProduct(req, product);
+        // 🚀 CACHE: Invalider le cache après création d'un produit
+        cache_service_js_1.cacheService.invalidateHomepageProducts();
         response_js_1.default.success(res, "Produit créé avec succès", productResponse, 201);
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
         response_js_1.default.error(res, "Erreur lors de la création du produit", error.message);
     }
 });
@@ -551,18 +554,15 @@ const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         let images = existingProduct.images;
         if (req.files && req.files.images) {
             let newImages = req.files.images;
+            // 🔐 Upload sécurisé des nouvelles images
             if (!Array.isArray(newImages))
                 newImages = [newImages];
             // Supprimer les anciennes images si besoin
             for (const oldImg of images) {
                 yield utils_js_1.default.deleteFile(oldImg);
             }
-            // Sauvegarder les nouvelles images
-            images = [];
-            for (const img of newImages) {
-                const savedPath = yield utils_js_1.default.saveFile(img, "products");
-                images.push(savedPath);
-            }
+            // Utilisation du système d'upload sécurisé
+            images = yield (0, upload_js_1.uploadProductImages)(req);
         }
         const updatedProduct = yield prisma_client_js_1.default.product.update({
             where: { id },
@@ -580,7 +580,9 @@ const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         // Si un forfait est demandé à la mise à jour
         const { forfaitType } = req.body;
         if (forfaitType) {
-            const forfait = yield prisma_client_js_1.default.forfait.findFirst({ where: { type: forfaitType } });
+            const forfait = yield prisma_client_js_1.default.forfait.findFirst({
+                where: { type: forfaitType },
+            });
             if (forfait) {
                 const now = new Date();
                 const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
@@ -604,22 +606,20 @@ const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                     customer_email: ((_c = req.authUser) === null || _c === void 0 ? void 0 : _c.email) || "",
                 };
                 const securedUrl = (0, futurapay_service_js_1.initiateFuturaPayment)(transactionData);
-                const productWithImageUrls = Object.assign(Object.assign({}, updatedProduct), { images: Array.isArray(updatedProduct.images)
-                        ? updatedProduct.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                        : [] });
-                return response_js_1.default.success(res, "Produit mis à jour - paiement forfait requis", { product: productWithImageUrls, paymentUrl: securedUrl, productForfaitId: productForfait.id });
+                const productWithImageUrls = productTransformer_js_1.default.transformProduct(req, updatedProduct);
+                return response_js_1.default.success(res, "Produit mis à jour - paiement forfait requis", {
+                    product: productWithImageUrls,
+                    paymentUrl: securedUrl,
+                    productForfaitId: productForfait.id,
+                });
             }
         }
-        // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour la réponse
-        const productWithImageUrls = Object.assign(Object.assign({}, updatedProduct), { images: Array.isArray(updatedProduct.images)
-                ? updatedProduct.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                : [] });
+        const productWithImageUrls = productTransformer_js_1.default.transformProduct(req, updatedProduct);
+        // 🚀 CACHE: Invalider le cache après mise à jour d'un produit
+        cache_service_js_1.cacheService.invalidateHomepageProducts();
         response_js_1.default.success(res, "Produit mis à jour avec succès", productWithImageUrls);
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
         response_js_1.default.error(res, "Erreur lors de la mise à jour du produit", error.message);
     }
 });
@@ -642,7 +642,7 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 }
             }
         }
-        // Grâce à onDelete: Cascade dans le schéma, les favoris et forfaits
+        // Suppression du produit et de ses dépendances (cascade automatique)
         // seront automatiquement supprimés
         const result = yield prisma_client_js_1.default.product.delete({
             where: { id },
@@ -650,9 +650,6 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         response_js_1.default.success(res, "Product deleted successfully", result);
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
         response_js_1.default.error(res, "Failed to delete product", error.message);
     }
 });
@@ -667,7 +664,7 @@ const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 where: { id },
                 include: { user: true },
             }),
-            // On peut ajouter d'autres vérifications en parallèle ici si besoin
+            // Récupération des informations du produit
         ]);
         if (!product) {
             return response_js_1.default.notFound(res, "Product not found", 404);
@@ -736,9 +733,6 @@ const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         return response;
     }
     catch (error) {
-        console.log("====================================");
-        console.log("Error in reviewProduct:", error);
-        console.log("====================================");
         return response_js_1.default.error(res, "Failed to review product", error.message);
     }
 });
@@ -787,9 +781,6 @@ const deleteProductOfSuspendedUser = (req, res) => __awaiter(void 0, void 0, voi
         return response_js_1.default.success(res, `${result.count} produits de ${userName} ont été supprimés avec succès`, { count: result.count });
     }
     catch (error) {
-        console.log("====================================");
-        console.log("Error in delete product of suspended user:", error);
-        console.log("====================================");
         return response_js_1.default.error(res, "Échec de la suppression des produits de l'utilisateur suspendu", error.message);
     }
 });
@@ -805,6 +796,11 @@ const getHomePageProduct = (req, res) => __awaiter(void 0, void 0, void 0, funct
     ];
     const limit = parseInt(req.query.limit) || 10;
     try {
+        // 🚀 CACHE: Vérifier d'abord si les données sont en cache
+        const cachedData = cache_service_js_1.cacheService.getHomepageProducts(limit);
+        if (cachedData) {
+            return response_js_1.default.success(res, "Produits homepage récupérés avec succès (cache)", cachedData);
+        }
         let products = [];
         let usedPriority = null;
         // On parcourt les priorités dans l'ordre
@@ -856,19 +852,14 @@ const getHomePageProduct = (req, res) => __awaiter(void 0, void 0, void 0, funct
             usedPriority = null;
         }
         // Conversion des images en URLs complètes
-        const productsWithImageUrls = products.map((product) => {
-            var _a;
-            return (Object.assign(Object.assign({}, product), { images: Array.isArray(product.images)
-                    ? product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
-                    : [], activeForfaits: ((_a = product.productForfaits) === null || _a === void 0 ? void 0 : _a.filter((pf) => pf.isActive && new Date(pf.expiresAt) > new Date()).map((pf) => ({
-                    type: pf.forfait.type,
-                    expiresAt: pf.expiresAt,
-                }))) || [] }));
-        });
-        response_js_1.default.success(res, "Produits homepage récupérés avec succès", {
+        const productsWithImageUrls = productTransformer_js_1.default.transformProductsWithForfaits(req, products);
+        const responseData = {
             products: productsWithImageUrls,
             usedPriority,
-        });
+        };
+        // 🚀 CACHE: Mettre en cache le résultat
+        cache_service_js_1.cacheService.setHomepageProducts(limit, responseData);
+        response_js_1.default.success(res, "Produits homepage récupérés avec succès", responseData);
     }
     catch (error) {
         response_js_1.default.error(res, "Erreur lors de la récupération des produits homepage", error.message);

@@ -17,19 +17,23 @@ const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"))
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const notification_service_js_1 = require("../services/notification.service.js");
 const futurapay_service_js_1 = require("../services/futurapay.service.js");
-/* Activation d'un forfait sur un produit par l'administrateur */
+/**
+ * Activation d'un forfait sur un produit par l'administrateur
+ */
 const activateForfait = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     const { productId, forfaitType } = req.body;
     try {
         // Vérifier si le forfait existe
-        const forfait = yield prisma_client_js_1.default.forfait.findFirst({ where: { type: forfaitType } });
+        const forfait = yield prisma_client_js_1.default.forfait.findFirst({
+            where: { type: forfaitType },
+        });
         if (!forfait)
             return response_js_1.default.notFound(res, "Forfait non trouvé", 404);
         // Vérifier si le produit existe
         const product = yield prisma_client_js_1.default.product.findUnique({
             where: { id: productId },
-            include: { user: true }
+            include: { user: true },
         });
         if (!product)
             return response_js_1.default.notFound(res, "Produit non trouvé", 404);
@@ -39,8 +43,8 @@ const activateForfait = (req, res) => __awaiter(void 0, void 0, void 0, function
                 productId,
                 forfait: { type: forfaitType },
                 isActive: true,
-                expiresAt: { gt: new Date() }
-            }
+                expiresAt: { gt: new Date() },
+            },
         });
         if (existingForfait) {
             return response_js_1.default.error(res, "Ce forfait est déjà actif sur ce produit", null, 400);
@@ -73,16 +77,21 @@ const activateForfait = (req, res) => __awaiter(void 0, void 0, void 0, function
     }
 });
 exports.activateForfait = activateForfait;
-//desacttivation de forfait 
+//desacttivation de forfait
 // Nouvel endpoint : initier le paiement pour un forfait (frontend affiche iframe avec l'URL)
 const initiateForfaitPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
     const { productId, forfaitType } = req.body;
     try {
-        const forfait = yield prisma_client_js_1.default.forfait.findFirst({ where: { type: forfaitType } });
+        const forfait = yield prisma_client_js_1.default.forfait.findFirst({
+            where: { type: forfaitType },
+        });
         if (!forfait)
             return response_js_1.default.notFound(res, "Forfait non trouvé", 404);
-        const product = yield prisma_client_js_1.default.product.findUnique({ where: { id: productId }, include: { user: true } });
+        const product = yield prisma_client_js_1.default.product.findUnique({
+            where: { id: productId },
+            include: { user: true },
+        });
         if (!product)
             return response_js_1.default.notFound(res, "Produit non trouvé", 404);
         // Créer réservation temporaire du forfait (isActive=false) — on active seulement après paiement
@@ -111,7 +120,10 @@ const initiateForfaitPayment = (req, res) => __awaiter(void 0, void 0, void 0, f
         };
         const securedUrl = (0, futurapay_service_js_1.initiateFuturaPayment)(transactionData);
         // Retourner l'URL sécurisé au frontend (iframe) ainsi que l'id de la réservation
-        return response_js_1.default.success(res, "Payment initiated", { url: securedUrl, productForfaitId: productForfait.id });
+        return response_js_1.default.success(res, "Payment initiated", {
+            url: securedUrl,
+            productForfaitId: productForfait.id,
+        });
     }
     catch (error) {
         console.error("Erreur initiation paiement forfait:", error);
@@ -142,9 +154,14 @@ const confirmForfaitPayment = (req, res) => __awaiter(void 0, void 0, void 0, fu
             });
             // Notification utilisateur
             if ((_a = productForfait.product) === null || _a === void 0 ? void 0 : _a.userId) {
-                yield (0, notification_service_js_1.createNotification)(productForfait.product.userId, `Forfait ${productForfait.forfait.type} activé`, `Votre forfait pour l'annonce "${productForfait.product.name}" a été activé après paiement.`, { type: "PRODUCT_FORFAIT", link: `/annonce/${productForfait.productId}` });
+                yield (0, notification_service_js_1.createNotification)(productForfait.product.userId, `Forfait ${productForfait.forfait.type} activé`, `Votre forfait pour l'annonce "${productForfait.product.name}" a été activé après paiement.`, {
+                    type: "PRODUCT_FORFAIT",
+                    link: `/annonce/${productForfait.productId}`,
+                });
             }
-            return response_js_1.default.success(res, "Paiement confirmé et forfait activé", { productForfaitId: productForfait.id });
+            return response_js_1.default.success(res, "Paiement confirmé et forfait activé", {
+                productForfaitId: productForfait.id,
+            });
         }
         // Paiement non réussi
         // Optionnel : supprimer la réservation si échec

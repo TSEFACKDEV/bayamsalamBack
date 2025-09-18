@@ -23,7 +23,7 @@ const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function*
         const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         const { productId } = req.body;
         if (!userId || !productId) {
-            return response_js_1.default.error(res, "userId et productId sont requis", null, 400);
+            return response_js_1.default.error(res, 'userId et productId sont requis', null, 400);
         }
         // Vérifie si le produit existe
         const product = yield prisma_client_js_1.default.product.findUnique({
@@ -31,14 +31,14 @@ const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function*
             include: { user: true }, // Inclure le propriétaire du produit
         });
         if (!product) {
-            return response_js_1.default.notFound(res, "Produit introuvable", 404);
+            return response_js_1.default.notFound(res, 'Produit introuvable', 404);
         }
         // Vérifie si déjà en favoris
         const existing = yield prisma_client_js_1.default.favorite.findUnique({
             where: { userId_productId: { userId, productId } },
         });
         if (existing) {
-            return response_js_1.default.error(res, "Produit déjà dans les favoris", null, 400);
+            return response_js_1.default.error(res, 'Produit déjà dans les favoris', null, 400);
         }
         const favorite = yield prisma_client_js_1.default.favorite.create({
             data: { userId, productId },
@@ -51,19 +51,19 @@ const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function*
                         : [] }) : null });
         // Envoyer une notification au propriétaire du produit (si différent de l'utilisateur)
         if (product.userId && product.userId !== userId) {
-            const userName = ((_b = favorite.user) === null || _b === void 0 ? void 0 : _b.firstName) || "Un utilisateur";
-            const productName = product.name || "votre produit";
-            yield (0, notification_service_js_1.createNotification)(product.userId, "Nouveau favori", `${userName} a ajouté ${productName} à ses favoris`, {
-                type: "favorite",
+            const userName = ((_b = favorite.user) === null || _b === void 0 ? void 0 : _b.firstName) || 'Un utilisateur';
+            const productName = product.name || 'votre produit';
+            yield (0, notification_service_js_1.createNotification)(product.userId, 'Nouveau favori', `${userName} a ajouté ${productName} à ses favoris`, {
+                type: 'favorite',
                 link: `/products/${productId}`,
                 data: {
                     productId,
                     userId,
-                    productName: product.name
-                }
+                    productName: product.name,
+                },
             });
         }
-        response_js_1.default.success(res, "Produit ajouté aux favoris", favoriteWithImageUrls, 201);
+        response_js_1.default.success(res, 'Produit ajouté aux favoris', favoriteWithImageUrls, 201);
     }
     catch (error) {
         response_js_1.default.error(res, "Erreur lors de l'ajout aux favoris", error.message);
@@ -76,22 +76,22 @@ const removeFromFavorites = (req, res) => __awaiter(void 0, void 0, void 0, func
         const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         const { productId } = req.body;
         if (!userId || !productId) {
-            return response_js_1.default.error(res, "userId et productId sont requis", null, 400);
+            return response_js_1.default.error(res, 'userId et productId sont requis', null, 400);
         }
         // Vérifie si le produit est en favoris
         const favorite = yield prisma_client_js_1.default.favorite.findUnique({
             where: { userId_productId: { userId, productId } },
         });
         if (!favorite) {
-            return response_js_1.default.notFound(res, "Produit non trouvé dans les favoris", 404);
+            return response_js_1.default.notFound(res, 'Produit non trouvé dans les favoris', 404);
         }
         yield prisma_client_js_1.default.favorite.delete({
             where: { userId_productId: { userId, productId } },
         });
-        response_js_1.default.success(res, "Produit retiré des favoris", null, 200);
+        response_js_1.default.success(res, 'Produit retiré des favoris', null, 200);
     }
     catch (error) {
-        response_js_1.default.error(res, "Erreur lors du retrait des favoris", error.message);
+        response_js_1.default.error(res, 'Erreur lors du retrait des favoris', error.message);
     }
 });
 exports.removeFromFavorites = removeFromFavorites;
@@ -100,7 +100,7 @@ const getUserFavorites = (req, res) => __awaiter(void 0, void 0, void 0, functio
     try {
         const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
-            return response_js_1.default.error(res, "userId requis", null, 400);
+            return response_js_1.default.error(res, 'userId requis', null, 400);
         }
         const favorites = yield prisma_client_js_1.default.favorite.findMany({
             where: { userId },
@@ -111,10 +111,10 @@ const getUserFavorites = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 ? Object.assign(Object.assign({}, fav.product), { images: Array.isArray(fav.product.images)
                         ? fav.product.images.map((imagePath) => utils_js_1.default.resolveFileUrl(req, imagePath))
                         : [] }) : null })));
-        response_js_1.default.success(res, "Favoris récupérés avec succès", favoritesWithImageUrls, 200);
+        response_js_1.default.success(res, 'Favoris récupérés avec succès', favoritesWithImageUrls, 200);
     }
     catch (error) {
-        response_js_1.default.error(res, "Erreur lors de la récupération des favoris", error.message);
+        response_js_1.default.error(res, 'Erreur lors de la récupération des favoris', error.message);
     }
 });
 exports.getUserFavorites = getUserFavorites;

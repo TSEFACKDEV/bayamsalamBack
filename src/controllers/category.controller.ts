@@ -1,7 +1,7 @@
-import { promises } from "dns";
-import { Request, Response } from "express";
-import ResponseApi from "../helper/response.js";
-import prisma from "../model/prisma.client.js";
+import { promises } from 'dns';
+import { Request, Response } from 'express';
+import ResponseApi from '../helper/response.js';
+import prisma from '../model/prisma.client.js';
 
 //creation de category
 export const createCategory = async (
@@ -16,7 +16,7 @@ export const createCategory = async (
     });
 
     if (existingCategory) {
-      return ResponseApi.notFound(res, "Category Already exist");
+      return ResponseApi.notFound(res, 'Category Already exist');
     }
 
     //creer la category
@@ -27,12 +27,10 @@ export const createCategory = async (
       },
     });
 
-    ResponseApi.success(res, "Category create succesfully", category);
+    ResponseApi.success(res, 'Category create succesfully', category);
   } catch (error) {
-    console.log("====================================");
     console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failled to create Category", error);
+    ResponseApi.error(res, 'Failled to create Category', error);
   }
 };
 
@@ -49,7 +47,7 @@ export const getAllCategories = async (
     const skip = (page - 1) * limit;
 
     // Recherche
-    const search = (req.query.search as string) || "";
+    const search = (req.query.search as string) || '';
 
     // Construction du filtre de recherche - Compatible MySQL
     const where: any = {};
@@ -64,7 +62,7 @@ export const getAllCategories = async (
     const [categories, total] = await Promise.all([
       prisma.category.findMany({
         where,
-        orderBy: { name: "asc" },
+        orderBy: { name: 'asc' },
         skip,
         take: limit,
         include: {
@@ -84,7 +82,7 @@ export const getAllCategories = async (
       name: category.name,
       description: category.description,
       icon: null, // Pas encore défini dans le schéma
-      color: "#f97316", // Couleur par défaut orange
+      color: '#f97316', // Couleur par défaut orange
       isActive: true, // Valeur par défaut (toutes actives)
       productCount: category._count.products,
       parentId: null, // Pas de hiérarchie pour l'instant
@@ -94,7 +92,7 @@ export const getAllCategories = async (
 
     const totalPages = Math.ceil(total / limit);
 
-    ResponseApi.success(res, "Categories retrieved succesfully", {
+    ResponseApi.success(res, 'Categories retrieved succesfully', {
       categories: enrichedCategories,
       pagination: {
         total,
@@ -104,10 +102,8 @@ export const getAllCategories = async (
       },
     });
   } catch (error) {
-    console.log("====================================");
     console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failled to fetch all categories", error);
+    ResponseApi.error(res, 'Failled to fetch all categories', error);
   }
 };
 
@@ -120,7 +116,7 @@ export const getCategoryById = async (
     const { id } = req.params;
     //verification de l'id
     if (!id) {
-      return ResponseApi.notFound(res, "Id is not Found");
+      return ResponseApi.notFound(res, 'Id is not Found');
     }
 
     //recuperation de la category
@@ -129,7 +125,7 @@ export const getCategoryById = async (
       include: {
         products: {
           take: 5,
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
             name: true,
@@ -142,15 +138,13 @@ export const getCategoryById = async (
       },
     });
     if (!category) {
-      return ResponseApi.notFound(res, "category not Found");
+      return ResponseApi.notFound(res, 'category not Found');
     }
 
-    ResponseApi.success(res, "Category retrieved succesfully", category);
+    ResponseApi.success(res, 'Category retrieved succesfully', category);
   } catch (error) {
-    console.log("====================================");
     console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failled to get category", error);
+    ResponseApi.error(res, 'Failled to get category', error);
   }
 };
 
@@ -165,7 +159,7 @@ export const updateCategory = async (
 
     //verification de l'id
     if (!id) {
-      return ResponseApi.notFound(res, "Id is not Found");
+      return ResponseApi.notFound(res, 'Id is not Found');
     }
 
     //verifions si la categorie existe (par ID, pas par nom!)
@@ -174,7 +168,7 @@ export const updateCategory = async (
     });
 
     if (!existingCategory) {
-      return ResponseApi.notFound(res, "Category not Found");
+      return ResponseApi.notFound(res, 'Category not Found');
     }
 
     // Vérifier si le nouveau nom est déjà utilisé (seulement si le nom change)
@@ -183,7 +177,7 @@ export const updateCategory = async (
         where: { name: { equals: name }, NOT: { id } },
       });
       if (nameExists) {
-        return ResponseApi.notFound(res, "category name already in use");
+        return ResponseApi.notFound(res, 'category name already in use');
       }
     }
     const category = await prisma.category.update({
@@ -193,11 +187,9 @@ export const updateCategory = async (
         description,
       },
     });
-    ResponseApi.success(res, "category update succesfully", category);
+    ResponseApi.success(res, 'category update succesfully', category);
   } catch (error) {
-    console.log("====================================");
-    console.log("Failled to update category");
-    console.log("====================================");
+    console.log('Failled to update category');
   }
 };
 
@@ -215,7 +207,7 @@ export const deleteCategory = async (
     });
 
     if (!existingCategory) {
-      return ResponseApi.notFound(res, "Category not Found");
+      return ResponseApi.notFound(res, 'Category not Found');
     }
     // Vérifier si la catégorie contient des produits
     const productsCount = await prisma.product.count({
@@ -225,16 +217,14 @@ export const deleteCategory = async (
     if (productsCount > 0) {
       return ResponseApi.notFound(
         res,
-        "impossible to Delete Category who have a product"
+        'impossible to Delete Category who have a product'
       );
     }
     // Supprimer la catégorie
     const category = await prisma.category.delete({ where: { id } });
-    ResponseApi.success(res, "category Delete succesfully", category);
+    ResponseApi.success(res, 'category Delete succesfully', category);
   } catch (error) {
-    console.log("====================================");
     console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failled to delete category", error);
+    ResponseApi.error(res, 'Failled to delete category', error);
   }
 };

@@ -36,7 +36,7 @@ const sendEmail = (to, subject, text, html) => __awaiter(void 0, void 0, void 0,
         return true;
     }
     catch (error) {
-        console.error("Error sending email:", error);
+        console.error('Error sending email:', error);
         return false;
     }
 });

@@ -2,13 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createContactEmailTemplate = void 0;
 const createContactEmailTemplate = (name, email, subject, message) => {
-    const currentDate = new Date().toLocaleDateString("fr-FR", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+    const currentDate = new Date().toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
     });
     return `
 <!DOCTYPE html>
@@ -16,7 +16,7 @@ const createContactEmailTemplate = (name, email, subject, message) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nouveau message de contact - BuyamSale</title>
+    <title>Nouveau message de contact - BuyAndSale</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -149,8 +149,10 @@ const createContactEmailTemplate = (name, email, subject, message) => {
         <!-- Header simple et pro -->
         <div class="header">
             <div class="header-icon">📧</div>
-            <h1>Nouveau message de contact</h1>
-            <p>BuyamSale Administration</p>
+                  <h1 style="color: #333; text-align: center; margin-bottom: 30px;">
+        Nouveau Contact - BuyAndSale
+      </h1>
+            <p>BuyAndSale Administration</p>
         </div>
         
         <!-- Contenu principal -->
@@ -191,9 +193,9 @@ const createContactEmailTemplate = (name, email, subject, message) => {
         
         <!-- Footer -->
         <div class="footer">
-            <p><strong>BuyamSale</strong> - Système de notification automatique</p>
+            <p><strong>BuyAndSale</strong> - Système de notification automatique</p>
             <p>Cet email a été généré automatiquement depuis le formulaire de contact</p>
-            <p>Cameroun | Administration BuyamSale</p>
+            <p>Cameroun | Administration BuyAndSale</p>
         </div>
     </div>
 </body>

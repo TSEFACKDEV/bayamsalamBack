@@ -22,7 +22,7 @@ const createContact = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     try {
         const { name, email, subject, message } = req.body;
         if (!name || !email || !subject || !message) {
-            return res.status(400).json({ error: "Tous les champs sont requis." });
+            return res.status(400).json({ error: 'Tous les champs sont requis.' });
         }
         const contact = yield prisma_client_js_1.default.contact.create({
             data: {
@@ -35,17 +35,14 @@ const createContact = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         // Créer le template HTML stylisé pour l'admin
         const htmlTemplate = (0, createContactEmailTemplate_js_1.createContactEmailTemplate)(name, email, subject, message);
         // Envoi d'un email de notification stylisé à l'admin
-        yield (0, mailer_js_1.sendEmail)(config_js_1.default.smtpUser || "tsefackcalvinklein@gmail.com", // ← Correction: gmailUser au lieu de smtpUser
-        `🔔 Nouveau message BuyamSale : ${subject}`, `Nouveau message de ${name} (${email})\n\nSujet: ${subject}\n\nMessage: ${message}`, // Version texte de fallback
+        yield (0, mailer_js_1.sendEmail)(config_js_1.default.smtpUser || 'tsefackcalvinklein@gmail.com', // ← Correction: gmailUser au lieu de smtpUser
+        `🔔 Nouveau message BuyAndSale : ${subject}`, `Nouveau message de ${name} (${email})\n\nSujet: ${subject}\n\nMessage: ${message}`, // Version texte de fallback
         htmlTemplate // Version HTML stylisée
         );
-        response_js_1.default.success(res, "Message envoyé avec succès.", contact, 201);
+        response_js_1.default.success(res, 'Message envoyé avec succès.', contact, 201);
     }
     catch (error) {
         response_js_1.default.error(res, "Erreur lors de l'envoi du message.", error);
-        console.log("====================================");
-        console.log("Error in createContact:", error);
-        console.log("====================================");
     }
 });
 exports.createContact = createContact;

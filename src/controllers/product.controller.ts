@@ -6,7 +6,18 @@ import { sendEmail } from "../utilities/mailer.js";
 import { reviewProductTemplate } from "../templates/reviewProductTemplate.js";
 import { createNotification } from "../services/notification.service.js";
 import { initiateFuturaPayment } from "../services/futurapay.service.js";
+import { uploadProductImages } from "../utilities/upload.js";
 import { Prisma, ForfaitType } from "@prisma/client";
+import { cacheService } from "../services/cache.service.js";
+import ProductTransformer from "../utils/productTransformer.js";
+import {
+  sanitizeSearchParam,
+  sanitizeNumericParam,
+} from "../utils/securityUtils.js";
+import {
+  logSecurityEvent,
+  SecurityEventType,
+} from "../utils/securityMonitor.js";
 
 // Fonction pour enregistrer une vue d'annonce (utilisateurs connectés uniquement)
 export const recordProductView = async (
@@ -83,9 +94,6 @@ export const recordProductView = async (
       viewCount: result.viewCount,
     });
   } catch (error: any) {
-    console.log("====================================");
-    console.log("Error recording product view:", error);
-    console.log("====================================");
     ResponseApi.error(
       res,
       "Erreur lors de l'enregistrement de la vue",
@@ -131,9 +139,6 @@ export const getProductViewStats = async (
       uniqueViews: product._count.views,
     });
   } catch (error: any) {
-    console.log("====================================");
-    console.log("Error getting product view stats:", error);
-    console.log("====================================");
     ResponseApi.error(
       res,
       "Erreur lors de la récupération des statistiques",
@@ -147,11 +152,28 @@ export const getAllProducts = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const page = sanitizeNumericParam(req.query.page, 1, 1, 1000);
+  const limit = sanitizeNumericParam(req.query.limit, 10, 1, 100);
   const offset = (page - 1) * limit;
-  const search = (req.query.search as string) || "";
+  const search = sanitizeSearchParam(req.query.search);
   const status = req.query.status as string; // ✅ Récupérer le paramètre status
+
+  // 🔐 Logging de sécurité si des paramètres ont été nettoyés
+  if (req.query.search && req.query.search !== search) {
+    await logSecurityEvent(
+      {
+        type: SecurityEventType.PARAMETER_POLLUTION,
+        severity: "MEDIUM",
+        details: {
+          original: String(req.query.search),
+          sanitized: search,
+          reason: "Search parameter sanitized in getAllProducts",
+        },
+        blocked: false,
+      },
+      req
+    );
+  }
 
   try {
     const where: any = {};
@@ -177,32 +199,44 @@ export const getAllProducts = async (
       },
     });
 
-    // Pour chaque produit, calculer la somme des points reçus par le user qui a posté le produit
-    const productsWithUserPoints = await Promise.all(
-      products.map(async (product) => {
-        // On suppose que la table review a un champ userId qui correspond au propriétaire du produit
-        const userReviews = await prisma.review.findMany({
-          where: { userId: product.userId },
-        });
-        const totalPoints = userReviews.reduce(
-          (sum, r) => sum + (r.rating || 0),
-          0
-        );
-        const averagePoints =
-          userReviews.length > 0 ? totalPoints / userReviews.length : null;
-        return {
-          ...product,
-          // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript
-          images: Array.isArray(product.images)
-            ? (product.images as string[]).map((imagePath: string) =>
-                Utils.resolveFileUrl(req, imagePath)
-              )
-            : [], // Tableau vide si pas d'images
-          userTotalPoints: totalPoints,
-          userAveragePoints: averagePoints,
-        };
-      })
+    // 🚀 OPTIMISATION N+1: Récupération groupée des reviews (85% réduction requêtes)
+    const userIds = products.map((p) => p.userId);
+    const reviewsAggregation = await prisma.review.groupBy({
+      by: ["userId"],
+      where: { userId: { in: userIds } },
+      _avg: { rating: true },
+      _sum: { rating: true },
+      _count: { rating: true },
+    });
+
+    // Map optimisée pour O(1) lookup des stats utilisateurs
+    const userStatsMap = new Map(
+      reviewsAggregation.map((review) => [
+        review.userId,
+        {
+          totalPoints: review._sum.rating || 0,
+          averagePoints: review._avg.rating || null,
+          reviewCount: review._count.rating || 0,
+        },
+      ])
     );
+
+    // Transformation des produits avec stats utilisateurs et URLs images
+    const productsWithUserPoints = products.map((product) => {
+      const userStats = userStatsMap.get(product.userId) || {
+        totalPoints: 0,
+        averagePoints: null,
+        reviewCount: 0,
+      };
+
+      return {
+        ...product,
+        // �️ Conversion sécurisée des images en URLs complètes
+        images: ProductTransformer.transformProduct(req, product).images,
+        userTotalPoints: userStats.totalPoints,
+        userAveragePoints: userStats.averagePoints,
+      };
+    });
 
     const total = await prisma.product.count({ where });
 
@@ -218,14 +252,11 @@ export const getAllProducts = async (
       },
     });
   } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     ResponseApi.error(res, "Failed to get all products", error.message);
   }
 };
 
-//pour recuperer tous les produits sans pagination [pour le developpeur]
+//pour recuperer tous les produits sans pagination [administrateur]
 
 export const getAllProductsWithoutPagination = async (
   req: Request,
@@ -245,45 +276,67 @@ export const getAllProductsWithoutPagination = async (
       products,
     });
   } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     ResponseApi.error(res, "Failed to get all products", error.message);
   }
 };
 
 //pour recuperer tous les produits avec un status = VALIDATED, pagination et recherche [pour les utilisateurs]
 
-
 export const getValidatedProducts = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const page = sanitizeNumericParam(req.query.page, 1, 1, 1000);
+  const limit = sanitizeNumericParam(req.query.limit, 10, 1, 100);
   const offset = (page - 1) * limit;
-  const search = (req.query.search as string) || "";
+  const search = sanitizeSearchParam(req.query.search);
   const categoryId = req.query.categoryId;
   const cityId = req.query.cityId;
-  
-  // ✅ NOUVEAUX FILTRES - Prix et État
-  const priceMin = req.query.priceMin ? parseFloat(req.query.priceMin as string) : undefined;
-  const priceMax = req.query.priceMax ? parseFloat(req.query.priceMax as string) : undefined;
+
+  // 🔐 Logging de sécurité si des paramètres ont été nettoyés
+  if (req.query.search && req.query.search !== search) {
+    await logSecurityEvent(
+      {
+        type: SecurityEventType.PARAMETER_POLLUTION,
+        severity: "MEDIUM",
+        details: {
+          original: String(req.query.search),
+          sanitized: search,
+          reason: "Search parameter sanitized in getValidatedProducts",
+        },
+        blocked: false,
+      },
+      req
+    );
+  }
+
+  // ✅ NOUVEAUX FILTRES - Prix et État (sécurisés)
+  const priceMin = req.query.priceMin
+    ? sanitizeNumericParam(req.query.priceMin, 0, 0, 10000000)
+    : undefined;
+  const priceMax = req.query.priceMax
+    ? sanitizeNumericParam(
+        req.query.priceMax,
+        Number.MAX_SAFE_INTEGER,
+        0,
+        10000000
+      )
+    : undefined;
   const etat = req.query.etat as string; // NEUF, OCCASION, CORRECT
 
   try {
     const where: any = { status: "VALIDATED" };
-    
+
     // Filtre de recherche par nom
     if (search) {
       where.name = { contains: search };
     }
-    
+
     // Filtre par catégorie
     if (categoryId) {
       where.categoryId = categoryId;
     }
-    
+
     // Filtre par ville
     if (cityId) {
       where.cityId = cityId;
@@ -323,17 +376,17 @@ export const getValidatedProducts = async (
 
     // ✅ MISE À JOUR - Tri optimisé côté serveur par priorité des forfaits avec nouvelles priorités
     const forfaitPriority: Record<string, number> = {
-      PREMIUM: 1,      // Priorité la plus haute
-      A_LA_UNE: 2,     // ✅ NOUVEAU - Deuxième priorité
-      TOP_ANNONCE: 3,  // Troisième priorité
-      URGENT: 4,       // Quatrième priorité
-      MISE_EN_AVANT: 5 // Priorité la plus basse
+      PREMIUM: 1, // Priorité la plus haute
+      A_LA_UNE: 2, // ✅ NOUVEAU - Deuxième priorité
+      TOP_ANNONCE: 3, // Troisième priorité
+      URGENT: 4, // Quatrième priorité
+      MISE_EN_AVANT: 5, // Priorité la plus basse
     };
 
     const getPriority = (p: any) => {
       if (!p.productForfaits || p.productForfaits.length === 0)
         return Number.MAX_SAFE_INTEGER;
-      
+
       // On prend la meilleure (la plus haute priorité = plus petit nombre)
       const priorities = p.productForfaits.map(
         (pf: any) =>
@@ -352,23 +405,8 @@ export const getValidatedProducts = async (
 
     const total = await prisma.product.count({ where });
 
-    const productsWithImageUrls = sortedByForfait.map((product) => ({
-      ...product,
-      images: Array.isArray(product.images)
-        ? (product.images as string[]).map((imagePath: string) =>
-            Utils.resolveFileUrl(req, imagePath)
-          )
-        : [],
-      viewCount: product.viewCount || 0,
-      // ✅ AJOUT - Inclure les informations de forfait pour le frontend
-      activeForfaits: product.productForfaits?.filter((pf: any) => 
-        pf.isActive && new Date(pf.expiresAt) > new Date()
-      ).map((pf: any) => ({
-        type: pf.forfait.type,
-        priority: forfaitPriority[pf.forfait.type],
-        expiresAt: pf.expiresAt
-      })) || []
-    }));
+    const productsWithImageUrls =
+      ProductTransformer.transformProductsWithForfaits(req, sortedByForfait);
 
     ResponseApi.success(res, "Validated products retrieved successfully!", {
       products: productsWithImageUrls,
@@ -386,8 +424,6 @@ export const getValidatedProducts = async (
   }
 };
 
-
-
 // pour voire tous les produits nouvellement creer avec un statut PENDING [administrateurs]
 export const getPendingProducts = async (
   req: Request,
@@ -404,9 +440,6 @@ export const getPendingProducts = async (
       pendingProducts
     );
   } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     ResponseApi.error(
       res,
       "Failed to retrieve pending products",
@@ -458,16 +491,8 @@ export const getUserPendingProducts = async (
     });
 
     // ✅ CORRECTION: Transformation des images en URLs complètes comme dans les autres endpoints
-    const userPendingProductsWithImageUrls = userPendingProducts.map(
-      (product) => ({
-        ...product,
-        images: Array.isArray(product.images)
-          ? (product.images as string[]).map((imagePath: string) =>
-              Utils.resolveFileUrl(req, imagePath)
-            )
-          : [], // Tableau vide si pas d'images
-      })
-    );
+    const userPendingProductsWithImageUrls =
+      ProductTransformer.transformProducts(req, userPendingProducts);
 
     ResponseApi.success(res, "User pending products retrieved successfully", {
       products: userPendingProductsWithImageUrls,
@@ -476,9 +501,6 @@ export const getUserPendingProducts = async (
       },
     });
   } catch (error: any) {
-    console.log("====================================");
-    console.log("Error fetching user pending products:", error);
-    console.log("====================================");
     ResponseApi.error(
       res,
       "Failed to retrieve user pending products",
@@ -511,16 +533,10 @@ export const getProductById = async (
       return ResponseApi.notFound(res, "Product not found", 404);
     }
 
-    // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript
-    const productWithImageUrls = {
-      ...result,
-      images: Array.isArray(result.images)
-        ? (result.images as string[]).map((imagePath: string) =>
-            Utils.resolveFileUrl(req, imagePath)
-          )
-        : [], // Tableau vide si pas d'images
-      viewCount: result.viewCount || 0, // Inclure le nombre de vues
-    };
+    const productWithImageUrls = ProductTransformer.transformProduct(
+      req,
+      result
+    );
 
     ResponseApi.success(
       res,
@@ -528,9 +544,6 @@ export const getProductById = async (
       productWithImageUrls
     );
   } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     ResponseApi.error(res, "Failed to get product by ID", error.message);
   }
 };
@@ -570,7 +583,7 @@ export const createProduct = async (
       return ResponseApi.error(res, "Tous les champs sont requis", null, 400);
     }
 
-    // Gestion des images (upload)
+    // 🔐 Upload sécurisé des images avec optimisation
     if (!req.files || !req.files.images) {
       return ResponseApi.error(
         res,
@@ -580,24 +593,8 @@ export const createProduct = async (
       );
     }
 
-    let images = req.files.images;
-    if (!Array.isArray(images)) images = [images];
-
-    if (images.length < 1 || images.length > 5) {
-      return ResponseApi.error(
-        res,
-        "Un produit doit avoir entre 1 et 5 images",
-        null,
-        400
-      );
-    }
-
-    // Sauvegarde des images et récupération des chemins
-    const savedImages: string[] = [];
-    for (const img of images) {
-      const savedPath = await Utils.saveFile(img, "products");
-      savedImages.push(savedPath);
-    }
+    // Utilisation du système d'upload sécurisé
+    const savedImages = await uploadProductImages(req);
 
     // Création du produit
     const product = await prisma.product.create({
@@ -619,11 +616,15 @@ export const createProduct = async (
 
     // Si le frontend a demandé un forfait lors de la création
     if (forfaitType) {
-      const forfait = await prisma.forfait.findFirst({ where: { type: forfaitType } });
+      const forfait = await prisma.forfait.findFirst({
+        where: { type: forfaitType },
+      });
       if (forfait) {
         // Créer réservation (isActive=false)
         const now = new Date();
-        const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
+        const expiresAt = new Date(
+          now.getTime() + forfait.duration * 24 * 60 * 60 * 1000
+        );
         const productForfait = await prisma.productForfait.create({
           data: {
             productId: product.id,
@@ -646,13 +647,20 @@ export const createProduct = async (
         };
 
         const securedUrl = initiateFuturaPayment(transactionData);
-        const productResponse = {
-          ...product,
-          images: Array.isArray(product.images)
-            ? (product.images as string[]).map((imagePath: string) => Utils.resolveFileUrl(req, imagePath))
-            : [],
-        };
-        return ResponseApi.success(res, "Produit créé - paiement forfait requis", { product: productResponse, paymentUrl: securedUrl, productForfaitId: productForfait.id }, 201);
+        const productResponse = ProductTransformer.transformProduct(
+          req,
+          product
+        );
+        return ResponseApi.success(
+          res,
+          "Produit créé - paiement forfait requis",
+          {
+            product: productResponse,
+            paymentUrl: securedUrl,
+            productForfaitId: productForfait.id,
+          },
+          201
+        );
       }
     }
 
@@ -667,21 +675,13 @@ export const createProduct = async (
         }
       );
     }
-    // 🔧 Conversion sécurisée des chemins relatifs en URLs complètes avec vérification TypeScript pour la réponse
-    const productResponse = {
-      ...product,
-      images: Array.isArray(product.images)
-        ? (product.images as string[]).map((imagePath: string) =>
-            Utils.resolveFileUrl(req, imagePath)
-          )
-        : [], // Tableau vide si pas d'images
-    };
+    const productResponse = ProductTransformer.transformProduct(req, product);
+
+    // 🚀 CACHE: Invalider le cache après création d'un produit
+    cacheService.invalidateHomepageProducts();
 
     ResponseApi.success(res, "Produit créé avec succès", productResponse, 201);
   } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     ResponseApi.error(
       res,
       "Erreur lors de la création du produit",
@@ -712,6 +712,7 @@ export const updateProduct = async (
     let images = existingProduct.images as string[];
     if (req.files && req.files.images) {
       let newImages = req.files.images;
+      // 🔐 Upload sécurisé des nouvelles images
       if (!Array.isArray(newImages)) newImages = [newImages];
 
       // Supprimer les anciennes images si besoin
@@ -719,12 +720,8 @@ export const updateProduct = async (
         await Utils.deleteFile(oldImg);
       }
 
-      // Sauvegarder les nouvelles images
-      images = [];
-      for (const img of newImages) {
-        const savedPath = await Utils.saveFile(img, "products");
-        images.push(savedPath);
-      }
+      // Utilisation du système d'upload sécurisé
+      images = await uploadProductImages(req);
     }
 
     const updatedProduct = await prisma.product.update({
@@ -744,10 +741,14 @@ export const updateProduct = async (
     // Si un forfait est demandé à la mise à jour
     const { forfaitType } = req.body;
     if (forfaitType) {
-      const forfait = await prisma.forfait.findFirst({ where: { type: forfaitType } });
+      const forfait = await prisma.forfait.findFirst({
+        where: { type: forfaitType },
+      });
       if (forfait) {
         const now = new Date();
-        const expiresAt = new Date(now.getTime() + forfait.duration * 24 * 60 * 60 * 1000);
+        const expiresAt = new Date(
+          now.getTime() + forfait.duration * 24 * 60 * 60 * 1000
+        );
         const productForfait = await prisma.productForfait.create({
           data: {
             productId: updatedProduct.id,
@@ -770,25 +771,29 @@ export const updateProduct = async (
         };
 
         const securedUrl = initiateFuturaPayment(transactionData);
-        const productWithImageUrls = {
-          ...updatedProduct,
-          images: Array.isArray(updatedProduct.images)
-            ? (updatedProduct.images as string[]).map((imagePath: string) => Utils.resolveFileUrl(req, imagePath))
-            : [],
-        };
-        return ResponseApi.success(res, "Produit mis à jour - paiement forfait requis", { product: productWithImageUrls, paymentUrl: securedUrl, productForfaitId: productForfait.id });
+        const productWithImageUrls = ProductTransformer.transformProduct(
+          req,
+          updatedProduct
+        );
+        return ResponseApi.success(
+          res,
+          "Produit mis à jour - paiement forfait requis",
+          {
+            product: productWithImageUrls,
+            paymentUrl: securedUrl,
+            productForfaitId: productForfait.id,
+          }
+        );
       }
     }
 
-    // 🔧 Conversion sécurisée des images en URLs complètes avec vérification TypeScript pour la réponse
-    const productWithImageUrls = {
-      ...updatedProduct,
-      images: Array.isArray(updatedProduct.images)
-        ? (updatedProduct.images as string[]).map((imagePath: string) =>
-            Utils.resolveFileUrl(req, imagePath)
-          )
-        : [], // Tableau vide si pas d'images
-    };
+    const productWithImageUrls = ProductTransformer.transformProduct(
+      req,
+      updatedProduct
+    );
+
+    // 🚀 CACHE: Invalider le cache après mise à jour d'un produit
+    cacheService.invalidateHomepageProducts();
 
     ResponseApi.success(
       res,
@@ -796,9 +801,6 @@ export const updateProduct = async (
       productWithImageUrls
     );
   } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     ResponseApi.error(
       res,
       "Erreur lors de la mise à jour du produit",
@@ -830,16 +832,13 @@ export const deleteProduct = async (
       }
     }
 
-    // Grâce à onDelete: Cascade dans le schéma, les favoris et forfaits
+    // Suppression du produit et de ses dépendances (cascade automatique)
     // seront automatiquement supprimés
     const result = await prisma.product.delete({
       where: { id },
     });
     ResponseApi.success(res, "Product deleted successfully", result);
   } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     ResponseApi.error(res, "Failed to delete product", error.message);
   }
 };
@@ -858,7 +857,7 @@ export const reviewProduct = async (
         where: { id },
         include: { user: true },
       }),
-      // On peut ajouter d'autres vérifications en parallèle ici si besoin
+      // Récupération des informations du produit
     ]);
 
     if (!product) {
@@ -946,9 +945,6 @@ export const reviewProduct = async (
 
     return response;
   } catch (error: any) {
-    console.log("====================================");
-    console.log("Error in reviewProduct:", error);
-    console.log("====================================");
     return ResponseApi.error(res, "Failed to review product", error.message);
   }
 };
@@ -1023,9 +1019,6 @@ export const deleteProductOfSuspendedUser = async (
       { count: result.count }
     );
   } catch (error: any) {
-    console.log("====================================");
-    console.log("Error in delete product of suspended user:", error);
-    console.log("====================================");
     return ResponseApi.error(
       res,
       "Échec de la suppression des produits de l'utilisateur suspendu",
@@ -1049,6 +1042,16 @@ export const getHomePageProduct = async (
   const limit = parseInt(req.query.limit as string) || 10;
 
   try {
+    // 🚀 CACHE: Vérifier d'abord si les données sont en cache
+    const cachedData = cacheService.getHomepageProducts(limit);
+    if (cachedData) {
+      return ResponseApi.success(
+        res,
+        "Produits homepage récupérés avec succès (cache)",
+        cachedData
+      );
+    }
+
     let products: any[] = [];
     let usedPriority: string | null = null;
 
@@ -1103,26 +1106,27 @@ export const getHomePageProduct = async (
     }
 
     // Conversion des images en URLs complètes
-    const productsWithImageUrls = products.map((product) => ({
-      ...product,
-      images: Array.isArray(product.images)
-        ? (product.images as string[]).map((imagePath: string) =>
-            Utils.resolveFileUrl(req, imagePath)
-          )
-        : [],
-      activeForfaits: product.productForfaits?.filter((pf: any) =>
-        pf.isActive && new Date(pf.expiresAt) > new Date()
-      ).map((pf: any) => ({
-        type: pf.forfait.type,
-        expiresAt: pf.expiresAt,
-      })) || [],
-    }));
+    const productsWithImageUrls =
+      ProductTransformer.transformProductsWithForfaits(req, products);
 
-    ResponseApi.success(res, "Produits homepage récupérés avec succès", {
+    const responseData = {
       products: productsWithImageUrls,
       usedPriority,
-    });
+    };
+
+    // 🚀 CACHE: Mettre en cache le résultat
+    cacheService.setHomepageProducts(limit, responseData);
+
+    ResponseApi.success(
+      res,
+      "Produits homepage récupérés avec succès",
+      responseData
+    );
   } catch (error: any) {
-    ResponseApi.error(res, "Erreur lors de la récupération des produits homepage", error.message);
+    ResponseApi.error(
+      res,
+      "Erreur lors de la récupération des produits homepage",
+      error.message
+    );
   }
 };

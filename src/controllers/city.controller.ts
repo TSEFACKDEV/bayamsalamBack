@@ -1,6 +1,6 @@
-import { Request, Response } from "express";
-import ResponseApi from "../helper/response.js";
-import prisma from "../model/prisma.client.js";
+import { Request, Response } from 'express';
+import ResponseApi from '../helper/response.js';
+import prisma from '../model/prisma.client.js';
 
 //creation de la ville
 export const createCity = async (req: Request, res: Response): Promise<any> => {
@@ -12,7 +12,7 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (existingCity) {
-      return ResponseApi.notFound(res, "City Already exist");
+      return ResponseApi.notFound(res, 'City Already exist');
     }
 
     //creer la ville
@@ -27,7 +27,7 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
       id: city.id,
       name: city.name,
       region: null,
-      country: "Cameroun",
+      country: 'Cameroun',
       latitude: null,
       longitude: null,
       userCount: 0, // Nouvelle ville = 0 utilisateurs
@@ -37,12 +37,10 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
       updatedAt: city.updatedAt.toISOString(),
     };
 
-    ResponseApi.success(res, "City create succesfully", enrichedCity);
+    ResponseApi.success(res, 'City create succesfully', enrichedCity);
   } catch (error) {
-    console.log("====================================");
     console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failled to create City", error);
+    ResponseApi.error(res, 'Failled to create City', error);
   }
 };
 
@@ -54,7 +52,7 @@ export const getAllCities = async (
 ): Promise<any> => {
   try {
     const cities = await prisma.city.findMany({
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
       include: {
         _count: {
           select: {
@@ -82,7 +80,7 @@ export const getAllCities = async (
           id: city.id,
           name: city.name,
           region: null, // Pas encore défini dans le schéma
-          country: "Cameroun", // Valeur par défaut
+          country: 'Cameroun', // Valeur par défaut
           latitude: null,
           longitude: null,
           userCount,
@@ -94,12 +92,10 @@ export const getAllCities = async (
       })
     );
 
-    ResponseApi.success(res, "Cities retrieved successfully", enrichedCities);
+    ResponseApi.success(res, 'Cities retrieved successfully', enrichedCities);
   } catch (error) {
-    console.log("====================================");
     console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failled to fect all cities", error);
+    ResponseApi.error(res, 'Failled to fect all cities', error);
   }
 };
 
@@ -112,7 +108,7 @@ export const getCityById = async (
     const { id } = req.params;
     //verification de l'id
     if (!id) {
-      return ResponseApi.notFound(res, "Id is not Found");
+      return ResponseApi.notFound(res, 'Id is not Found');
     }
 
     //recuperation de la ville
@@ -121,7 +117,7 @@ export const getCityById = async (
       include: {
         products: {
           take: 5,
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
             name: true,
@@ -134,15 +130,13 @@ export const getCityById = async (
       },
     });
     if (!city) {
-      return ResponseApi.notFound(res, "city not Found");
+      return ResponseApi.notFound(res, 'city not Found');
     }
 
-    ResponseApi.success(res, "City retrieved succesfully", city);
+    ResponseApi.success(res, 'City retrieved succesfully', city);
   } catch (error) {
-    console.log("====================================");
     console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failled to get city", error);
+    ResponseApi.error(res, 'Failled to get city', error);
   }
 };
 
@@ -154,7 +148,7 @@ export const updateCity = async (req: Request, res: Response): Promise<any> => {
 
     //verification de l'id
     if (!id) {
-      return ResponseApi.notFound(res, "Id is not Found");
+      return ResponseApi.notFound(res, 'Id is not Found');
     }
 
     //verifions si la ville existe par ID
@@ -163,7 +157,7 @@ export const updateCity = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (!existingCity) {
-      return ResponseApi.notFound(res, "City not Found");
+      return ResponseApi.notFound(res, 'City not Found');
     }
 
     // Vérifier si le nouveau nom est déjà utilisé par une autre ville
@@ -172,7 +166,7 @@ export const updateCity = async (req: Request, res: Response): Promise<any> => {
         where: { name: { equals: name }, NOT: { id } },
       });
       if (nameExists) {
-        return ResponseApi.error(res, "city name already in use", null);
+        return ResponseApi.error(res, 'city name already in use', null);
       }
     }
 
@@ -204,7 +198,7 @@ export const updateCity = async (req: Request, res: Response): Promise<any> => {
       id: updatedCity.id,
       name: updatedCity.name,
       region: null,
-      country: "Cameroun",
+      country: 'Cameroun',
       latitude: null,
       longitude: null,
       userCount,
@@ -214,12 +208,10 @@ export const updateCity = async (req: Request, res: Response): Promise<any> => {
       updatedAt: updatedCity.updatedAt.toISOString(),
     };
 
-    ResponseApi.success(res, "city update succesfully", enrichedCity);
+    ResponseApi.success(res, 'city update succesfully', enrichedCity);
   } catch (error) {
-    console.log("====================================");
-    console.log("Failled to update city", error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failled to update city", error);
+    console.log('Failled to update city', error);
+    ResponseApi.error(res, 'Failled to update city', error);
   }
 };
 
@@ -234,7 +226,7 @@ export const deleteCity = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (!existingCity) {
-      return ResponseApi.notFound(res, "City not Found");
+      return ResponseApi.notFound(res, 'City not Found');
     }
     // Vérifier si la ville contient des produits
     const productsCount = await prisma.product.count({
@@ -244,16 +236,14 @@ export const deleteCity = async (req: Request, res: Response): Promise<any> => {
     if (productsCount > 0) {
       return ResponseApi.notFound(
         res,
-        "impossible to Delete ville  who have a product"
+        'impossible to Delete ville  who have a product'
       );
     }
     // Supprimer la ville
     const city = await prisma.city.delete({ where: { id } });
-    ResponseApi.success(res, "city Delete succesfully", city);
+    ResponseApi.success(res, 'city Delete succesfully', city);
   } catch (error) {
-    console.log("====================================");
     console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failled to delete city", error);
+    ResponseApi.error(res, 'Failled to delete city', error);
   }
 };

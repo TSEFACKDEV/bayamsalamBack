@@ -6,5 +6,5 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const contact_controller_js_1 = require("../controllers/contact.controller.js");
 const router = express_1.default.Router();
-router.post("/", contact_controller_js_1.createContact);
+router.post('/', contact_controller_js_1.createContact);
 exports.default = router;

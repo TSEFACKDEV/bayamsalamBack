@@ -15,21 +15,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.assignRolesToUser = exports.destroy = exports.create = exports.update = exports.getById = exports.getAll = void 0;
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const response_js_1 = __importDefault(require("../helper/response.js"));
-/**
- * 🎭 RÉCUPÉRATION DE TOUS LES RÔLES AVEC PERMISSIONS
- *
- * MODIFICATIONS APPORTÉES :
- * ✅ Ajout du tri par nom (orderBy: name asc)
- * ✅ Inclusion des permissions associées à chaque rôle
- * ✅ Structure de données enrichie pour l'interface admin
- * ✅ Support complet des relations Prisma (role -> permissions -> permission)
- */
 const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const roles = yield prisma_client_js_1.default.role.findMany({
             // 📊 NOUVEAU : Tri alphabétique des rôles
             orderBy: {
-                name: "asc",
+                name: 'asc',
             },
             // 🔗 NOUVEAU : Inclusion des permissions pour chaque rôle
             include: {
@@ -40,13 +31,10 @@ const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 },
             },
         });
-        response_js_1.default.success(res, "Roles retrieved successfully", roles);
+        response_js_1.default.success(res, 'Roles retrieved successfully', roles);
     }
     catch (error) {
-        response_js_1.default.error(res, "Error retrieving roles", error);
-        console.log("====================================");
-        console.log("Error in getAll:", error);
-        console.log("====================================");
+        response_js_1.default.error(res, 'Error retrieving roles', error);
     }
 });
 exports.getAll = getAll;
@@ -54,21 +42,18 @@ const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
         if (!id)
-            response_js_1.default.error(res, "Id is missing !!!", null, 404);
+            response_js_1.default.error(res, 'Id is missing !!!', null, 404);
         const result = yield prisma_client_js_1.default.role.findFirst({
             where: {
                 id,
             },
         });
         if (!result)
-            response_js_1.default.error(res, "role not found!!!", null, 404);
-        response_js_1.default.error(res, "role retrieved successfully !!!", result);
+            response_js_1.default.error(res, 'role not found!!!', null, 404);
+        response_js_1.default.error(res, 'role retrieved successfully !!!', result);
     }
     catch (error) {
-        response_js_1.default.error(res, "Error retrieving role", error);
-        console.log("====================================");
-        console.log("Error in getById:", error);
-        console.log("====================================");
+        response_js_1.default.error(res, 'Error retrieving role', error);
     }
 });
 exports.getById = getById;
@@ -77,11 +62,11 @@ const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = req.body;
     try {
         if (!id) {
-            response_js_1.default.error(res, "Id is missing !!!", null, 422);
+            response_js_1.default.error(res, 'Id is missing !!!', null, 422);
             return;
         }
         res.status(422).json({
-            message: "Id is missing !!!",
+            message: 'Id is missing !!!',
             data: null,
         });
         const result = yield prisma_client_js_1.default.role.update({
@@ -91,14 +76,11 @@ const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             data,
         });
         if (!result)
-            response_js_1.default.error(res, "role not found !!!", {}, 404);
-        response_js_1.default.error(res, "role updated successfully !!!", result ? result : null);
+            response_js_1.default.error(res, 'role not found !!!', {}, 404);
+        response_js_1.default.error(res, 'role updated successfully !!!', result ? result : null);
     }
     catch (error) {
-        response_js_1.default.error(res, "Error updating role", error);
-        console.log("====================================");
-        console.log("Error in update:", error);
-        console.log("====================================");
+        response_js_1.default.error(res, 'Error updating role', error);
     }
 });
 exports.update = update;
@@ -106,13 +88,10 @@ const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { name, description } = req.body;
         const role = yield prisma_client_js_1.default.role.create({ data: { name, description } });
-        response_js_1.default.success(res, "Role created successfully", role, 201);
+        response_js_1.default.success(res, 'Role created successfully', role, 201);
     }
     catch (error) {
-        response_js_1.default.error(res, "Error creating role", error);
-        console.log("====================================");
-        console.log("Error in create:", error);
-        console.log("====================================");
+        response_js_1.default.error(res, 'Error creating role', error);
     }
 });
 exports.create = create;
@@ -120,19 +99,16 @@ const destroy = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
         if (!id)
-            response_js_1.default.error(res, "Id is missing !!!", {}, 422);
+            response_js_1.default.error(res, 'Id is missing !!!', {}, 422);
         const result = yield prisma_client_js_1.default.role.delete({
             where: {
                 id,
             },
         });
-        response_js_1.default.success(res, "Role deleted successfully !!!", result);
+        response_js_1.default.success(res, 'Role deleted successfully !!!', result);
     }
     catch (error) {
-        response_js_1.default.error(res, "Error deleting role", error);
-        console.log("====================================");
-        console.log("Error in destroy:", error);
-        console.log("====================================");
+        response_js_1.default.error(res, 'Error deleting role', error);
     }
 });
 exports.destroy = destroy;
@@ -149,13 +125,10 @@ const assignRolesToUser = (req, res) => __awaiter(void 0, void 0, void 0, functi
             data: assignments,
             skipDuplicates: true,
         });
-        response_js_1.default.success(res, "Roles assigned to user successfully", {}, 201);
+        response_js_1.default.success(res, 'Roles assigned to user successfully', {}, 201);
     }
     catch (error) {
-        response_js_1.default.error(res, "Error assigning roles to user", error.message);
-        console.log("====================================");
-        console.log("Error in assignRolesToUser:", error);
-        console.log("====================================");
+        response_js_1.default.error(res, 'Error assigning roles to user', error.message);
     }
 });
 exports.assignRolesToUser = assignRolesToUser;

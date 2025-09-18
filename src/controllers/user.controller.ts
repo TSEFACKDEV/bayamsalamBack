@@ -5,16 +5,6 @@ import { hashPassword } from "../utilities/bcrypt.js";
 import { UploadedFile } from "express-fileupload";
 import Utils from "../helper/utils.js";
 
-/**
- * 📋 RÉCUPÉRATION DE TOUS LES UTILISATEURS AVEC SUPPORT ADMIN
- *
- * MODIFICATIONS APPORTÉES :
- * ✅ Ajout des relations avec les rôles (include: roles)
- * ✅ Amélioration de la recherche multi-champs (firstName, lastName, email)
- * ✅ Calcul automatique des statistiques utilisateur par statut
- * ✅ Format de réponse standardisé avec pagination et stats
- * ✅ Gestion robuste des erreurs
- */
 export const getAllUsers = async (
   req: Request,
   res: Response
@@ -43,11 +33,16 @@ export const getAllUsers = async (
         createdAt: "desc" as const,
       },
       where: whereClause,
-      // 🔗 NOUVEAU : Inclusion des rôles pour l'interface admin
+      // 🔗 NOUVEAU : Inclusion des rôles ET comptage des produits
       include: {
         roles: {
           include: {
             role: true,
+          },
+        },
+        _count: {
+          select: {
+            products: true, // Compter tous les produits de l'utilisateur
           },
         },
       },
@@ -115,16 +110,6 @@ export const getUserById = async (
   }
 };
 
-/**
- * ➕ CRÉATION D'UTILISATEUR AVEC SUPPORT DES RÔLES
- *
- * MODIFICATIONS APPORTÉES :
- * ✅ Support de l'assignation de rôle lors de la création (roleId)
- * ✅ Statut par défaut "ACTIVE" pour les créations admin
- * ✅ Retour des données avec les rôles inclus
- * ✅ Gestion optionnelle du mot de passe (pour les admins)
- * ✅ Validation améliorée des champs requis
- */
 export const createUser = async (req: Request, res: Response): Promise<any> => {
   try {
     // 🔧 NOUVEAU : Support du roleId pour l'assignation de rôle
@@ -204,17 +189,6 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-/**
- * ✏️ MISE À JOUR D'UTILISATEUR AVEC GESTION DES RÔLES ET STATUTS
- *
- * MODIFICATIONS APPORTÉES :
- * ✅ Support de la modification des rôles (roleId)
- * ✅ Support de la modification du statut utilisateur (status)
- * ✅ Gestion complète des champs utilisateur (firstName, lastName, etc.)
- * ✅ Remplacement automatique des rôles (suppression puis ajout)
- * ✅ Retour des données avec les rôles inclus
- * ✅ Récupération des rôles existants pour validation
- */
 export const updateUser = async (req: Request, res: Response): Promise<any> => {
   const id = req.params.id;
   if (!id) {
@@ -388,5 +362,3 @@ export const reportUser = async (req: Request, res: Response): Promise<any> => {
     ResponseApi.error(res, "Failed to report user", error.message);
   }
 };
-
-

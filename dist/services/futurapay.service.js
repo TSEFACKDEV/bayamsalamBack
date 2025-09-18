@@ -14,9 +14,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initiateFuturaPayment = initiateFuturaPayment;
 exports.verifyFuturaTransaction = verifyFuturaTransaction;
-/* Service d'initiation de paiement FuturaPay */
+/**
+ * Service d'intégration de paiement FuturaPay
+ * Gère l'initiation et la vérification des transactions
+ */
 const config_js_1 = __importDefault(require("../config/config.js"));
-const Futurapay = require('futurapay/futurapay');
+const Futurapay = require("futurapay/futurapay");
 const merchantKey = config_js_1.default.FUTURA_PAY_MERCHANT_KEY;
 const siteId = config_js_1.default.FUTURA_PAY_SITE_ID;
 const apiKey = config_js_1.default.FUTURA_PAY_API_KEY;

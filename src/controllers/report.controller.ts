@@ -1,11 +1,7 @@
-import { Request, Response } from "express";
-import ResponseApi from "../helper/response.js";
-import prisma from "../model/prisma.client.js";
+import { Request, Response } from 'express';
+import ResponseApi from '../helper/response.js';
+import prisma from '../model/prisma.client.js';
 
-/**
- * 📋 RÉCUPÉRATION DE TOUS LES SIGNALEMENTS (ADMIN)
- * Permet aux administrateurs de voir tous les signalements d'utilisateurs
- */
 export const getAllReports = async (
   req: Request,
   res: Response
@@ -52,7 +48,7 @@ export const getAllReports = async (
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
@@ -63,7 +59,7 @@ export const getAllReports = async (
 
     // Statistiques
     const stats = await prisma.userReport.groupBy({
-      by: ["reason"],
+      by: ['reason'],
       _count: {
         _all: true,
       },
@@ -87,10 +83,10 @@ export const getAllReports = async (
       },
     };
 
-    ResponseApi.success(res, "Reports retrieved successfully", result);
+    ResponseApi.success(res, 'Reports retrieved successfully', result);
   } catch (error: any) {
-    console.error("Error fetching reports:", error);
-    ResponseApi.error(res, "Failed to fetch reports", error.message);
+    console.error('Error fetching reports:', error);
+    ResponseApi.error(res, 'Failed to fetch reports', error.message);
   }
 };
 
@@ -145,20 +141,16 @@ export const getReportById = async (
     });
 
     if (!report) {
-      return ResponseApi.notFound(res, "Report not found", 404);
+      return ResponseApi.notFound(res, 'Report not found', 404);
     }
 
-    ResponseApi.success(res, "Report retrieved successfully", report);
+    ResponseApi.success(res, 'Report retrieved successfully', report);
   } catch (error: any) {
-    console.error("Error fetching report:", error);
-    ResponseApi.error(res, "Failed to fetch report", error.message);
+    console.error('Error fetching report:', error);
+    ResponseApi.error(res, 'Failed to fetch report', error.message);
   }
 };
 
-/**
- * 🔧 TRAITEMENT D'UN SIGNALEMENT (ADMIN)
- * Permet aux administrateurs de traiter un signalement
- */
 export const processReport = async (
   req: Request,
   res: Response
@@ -168,7 +160,7 @@ export const processReport = async (
   const adminUserId = req.authUser?.id;
 
   if (!action) {
-    return ResponseApi.error(res, "Action is required", 400);
+    return ResponseApi.error(res, 'Action is required', 400);
   }
 
   try {
@@ -180,7 +172,7 @@ export const processReport = async (
     });
 
     if (!report) {
-      return ResponseApi.notFound(res, "Report not found", 404);
+      return ResponseApi.notFound(res, 'Report not found', 404);
     }
 
     // Commencer une transaction
@@ -189,7 +181,7 @@ export const processReport = async (
       const updatedReport = await tx.userReport.update({
         where: { id: reportId },
         data: {
-          status: action === "dismiss" ? "DISMISSED" : "PROCESSED",
+          status: action === 'dismiss' ? 'DISMISSED' : 'PROCESSED',
           processedAt: new Date(),
           processedBy: adminUserId,
           adminNotes,
@@ -198,32 +190,32 @@ export const processReport = async (
 
       // Appliquer l'action sur l'utilisateur signalé selon le type d'action
       let userAction = null;
-      if (action === "suspend") {
+      if (action === 'suspend') {
         userAction = await tx.user.update({
           where: { id: report.reportedUserId },
-          data: { status: "SUSPENDED" },
+          data: { status: 'SUSPENDED' },
         });
-      } else if (action === "ban") {
+      } else if (action === 'ban') {
         userAction = await tx.user.update({
           where: { id: report.reportedUserId },
-          data: { status: "BANNED" },
+          data: { status: 'BANNED' },
         });
       }
 
       // Créer une notification pour l'utilisateur signalé
-      if (action !== "dismiss") {
+      if (action !== 'dismiss') {
         await tx.notification.create({
           data: {
             userId: report.reportedUserId,
             title: `Votre compte a fait l'objet d'une action administrative`,
             message: `Suite à un signalement, votre compte a été ${
-              action === "warn"
-                ? "averti"
-                : action === "suspend"
-                ? "suspendu"
-                : "banni"
+              action === 'warn'
+                ? 'averti'
+                : action === 'suspend'
+                  ? 'suspendu'
+                  : 'banni'
             }.`,
-            type: "ADMIN_ACTION",
+            type: 'ADMIN_ACTION',
             data: {
               reportId,
               action,
@@ -236,10 +228,10 @@ export const processReport = async (
       return { updatedReport, userAction };
     });
 
-    ResponseApi.success(res, "Report processed successfully", result);
+    ResponseApi.success(res, 'Report processed successfully', result);
   } catch (error: any) {
-    console.error("Error processing report:", error);
-    ResponseApi.error(res, "Failed to process report", error.message);
+    console.error('Error processing report:', error);
+    ResponseApi.error(res, 'Failed to process report', error.message);
   }
 };
 
@@ -263,12 +255,12 @@ export const getReportsStatistics = async (
 
       // Signalements en attente
       prisma.userReport.count({
-        where: { status: "PENDING" },
+        where: { status: 'PENDING' },
       }),
 
       // Signalements par raison
       prisma.userReport.groupBy({
-        by: ["reason"],
+        by: ['reason'],
         _count: { _all: true },
       }),
 
@@ -285,13 +277,13 @@ export const getReportsStatistics = async (
 
       // Utilisateurs les plus signalés
       prisma.userReport.groupBy({
-        by: ["reportedUserId"],
+        by: ['reportedUserId'],
         _count: {
           reportedUserId: true,
         },
         orderBy: {
           _count: {
-            reportedUserId: "desc",
+            reportedUserId: 'desc',
           },
         },
         take: 10,
@@ -318,9 +310,9 @@ export const getReportsStatistics = async (
       })),
     };
 
-    ResponseApi.success(res, "Statistics retrieved successfully", statistics);
+    ResponseApi.success(res, 'Statistics retrieved successfully', statistics);
   } catch (error: any) {
-    console.error("Error fetching statistics:", error);
-    ResponseApi.error(res, "Failed to fetch statistics", error.message);
+    console.error('Error fetching statistics:', error);
+    ResponseApi.error(res, 'Failed to fetch statistics', error.message);
   }
 };

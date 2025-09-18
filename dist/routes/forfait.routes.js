@@ -13,5 +13,5 @@ router.post("/activate", auth_middleware_js_1.authenticate, (0, checkPermission_
 // Initier paiement (utilisateur choisit forfait -> obtenir URL iframe)
 router.post("/initiate", auth_middleware_js_1.authenticate, forfait_controller_js_1.initiateForfaitPayment);
 // Endpoint de confirmation (webhook ou frontend redirect)
-router.post("/confirm", /* pas besoin d'auth si webhook de FuturaPay */ forfait_controller_js_1.confirmForfaitPayment);
+router.post("/confirm", forfait_controller_js_1.confirmForfaitPayment); // Webhook FuturaPay - pas d'auth nécessaire
 exports.default = router;

@@ -2,15 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reviewProductTemplate = reviewProductTemplate;
 function reviewProductTemplate({ userName, productName, status, message, }) {
-    const statusColor = status === "VALIDATED" ? "#28a745" : "#dc3545";
-    const statusText = status === "VALIDATED" ? "Validé" : "Rejeté";
+    const statusColor = status === 'VALIDATED' ? '#28a745' : '#dc3545';
+    const statusText = status === 'VALIDATED' ? 'Validé' : 'Rejeté';
     return `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Statut de votre produit - BuyamSale</title>
+  <title>Statut de votre produit - BuyAndSale</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -107,7 +107,7 @@ function reviewProductTemplate({ userName, productName, status, message, }) {
     <div class="header">
       <span class="header-icon">🛒</span>
       <h1>Statut de votre produit</h1>
-      <p>BuyamSale Administration</p>
+      <p>BuyAndSale Administration</p>
     </div>
     <div class="content">
       <div class="message-box">
@@ -116,7 +116,7 @@ function reviewProductTemplate({ userName, productName, status, message, }) {
       </div>
       <div class="info-row">
         <div class="info-label">Produit :</div>
-        <div class="info-value"><strong>${productName !== null && productName !== void 0 ? productName : "Non spécifié"}</strong></div>
+        <div class="info-value"><strong>${productName !== null && productName !== void 0 ? productName : 'Non spécifié'}</strong></div>
       </div>
       <div class="info-row">
         <div class="info-label">Statut :</div>
@@ -125,12 +125,12 @@ function reviewProductTemplate({ userName, productName, status, message, }) {
         </div>
       </div>
       <br>
-      <div style="font-size:15px;color:#4a5568;">Merci d'utiliser <strong>BuyamSale</strong> !</div>
+      <div style="font-size:15px;color:#4a5568;">Merci d'utiliser <strong>BuyAndSale</strong> !</div>
     </div>
     <div class="footer">
-      <p><strong>BuyamSale</strong> - Système de notification automatique</p>
+      <p><strong>BuyAndSale</strong> - Système de notification automatique</p>
       <p>Cet email a été généré automatiquement suite à la validation de produit</p>
-      <p>Cameroun | Administration BuyamSale</p>
+      <p>Cameroun | Administration BuyAndSale</p>
     </div>
   </div>
 </body>

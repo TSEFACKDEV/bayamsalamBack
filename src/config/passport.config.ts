@@ -1,8 +1,8 @@
-import passport from "passport";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import prisma from "../model/prisma.client.js";
-import env from "./config.js";
-import { createNotification } from "../services/notification.service.js";
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import prisma from '../model/prisma.client.js';
+import env from './config.js';
+import { createNotification } from '../services/notification.service.js';
 
 passport.serializeUser((user: any, done) => {
   done(null, user.id);
@@ -23,7 +23,7 @@ passport.use(
       clientID: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       callbackURL: env.GOOGLE_CALLBACK_URL,
-      scope: ["profile", "email"],
+      scope: ['profile', 'email'],
       // Ajouter des options pour gérer les timeouts et conflits
       passReqToCallback: false,
       skipUserProfile: false,
@@ -108,27 +108,27 @@ passport.use(
           }
 
           // Créer un nouvel utilisateur
-          const names = profile.displayName?.split(" ") || ["", ""];
-          const firstName = names[0] || "";
-          const lastName = names.slice(1).join(" ") || "";
+          const names = profile.displayName?.split(' ') || ['', ''];
+          const firstName = names[0] || '';
+          const lastName = names.slice(1).join(' ') || '';
 
           const newUser = await tx.user.create({
             data: {
-              email: profile.emails?.[0]?.value || "",
+              email: profile.emails?.[0]?.value || '',
               firstName,
               lastName,
-              password: "", // Pas de mot de passe pour l'authentification Google
+              password: '', // Pas de mot de passe pour l'authentification Google
               googleId: profile.id,
               avatar: profile.photos?.[0]?.value,
               isVerified: true, // L'email est déjà vérifié par Google
-              status: "ACTIVE",
+              status: 'ACTIVE',
               lastConnexion: new Date(),
             },
           });
 
           // Ajout automatique du rôle USER
           const userRole = await tx.role.findUnique({
-            where: { name: "USER" },
+            where: { name: 'USER' },
           });
 
           if (userRole) {
@@ -154,19 +154,19 @@ passport.use(
           try {
             await createNotification(
               result.id,
-              "Bienvenue sur BuyamSale",
+              'Bienvenue sur BuyAndSale',
               result.lastConnexion
-                ? "Heureux de vous revoir sur BuyamSale !"
-                : "Votre compte a été créé avec succès via Google. Bienvenue !",
+                ? 'Heureux de vous revoir sur BuyAndSale !'
+                : 'Votre compte a été créé avec succès via Google. Bienvenue !',
               {
-                type: "WELCOME",
-                link: "/",
+                type: 'WELCOME',
+                link: '/',
               }
             );
           } catch (notificationError) {
             // Log l'erreur mais ne pas faire échouer l'authentification
             console.error(
-              "Erreur lors de la création de la notification:",
+              'Erreur lors de la création de la notification:',
               notificationError
             );
           }

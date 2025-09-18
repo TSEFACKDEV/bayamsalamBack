@@ -1,10 +1,13 @@
-import { NextFunction, Request, Response } from "express";
-import prisma from "../model/prisma.client.js";
-import ResponseApi from "../helper/response.js";
-
+import { NextFunction, Request, Response } from 'express';
+import prisma from '../model/prisma.client.js';
+import ResponseApi from '../helper/response.js';
 
 const checkPermission = (permissionKey: string) => {
-  return async (req:Request, res: Response, next: NextFunction):Promise<any> => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> => {
     const userId = req.authUser?.id;
 
     try {
@@ -38,7 +41,12 @@ const checkPermission = (permissionKey: string) => {
       });
 
       if (!userPermissions.includes(permissionKey)) {
-        return ResponseApi.error(res, 'Forbidden: You do not have the required permission', {}, 403);
+        return ResponseApi.error(
+          res,
+          'Forbidden: You do not have the required permission',
+          {},
+          403
+        );
       }
 
       next();

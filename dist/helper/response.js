@@ -19,7 +19,7 @@ class ResponseApi {
             error: error,
         });
     }
-    static notFound(res, message = "Not Found", statusCode = 404) {
+    static notFound(res, message = 'Not Found', statusCode = 404) {
         return res.status(statusCode).json({
             meta: {
                 status: statusCode,

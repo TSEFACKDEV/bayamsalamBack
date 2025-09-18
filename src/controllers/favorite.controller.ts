@@ -1,8 +1,8 @@
-import { Request, Response } from "express";
-import ResponseApi from "../helper/response.js";
-import prisma from "../model/prisma.client.js";
-import Utils from "../helper/utils.js";
-import { createNotification } from "../services/notification.service.js";
+import { Request, Response } from 'express';
+import ResponseApi from '../helper/response.js';
+import prisma from '../model/prisma.client.js';
+import Utils from '../helper/utils.js';
+import { createNotification } from '../services/notification.service.js';
 
 export const addToFavorites = async (
   req: Request,
@@ -15,7 +15,7 @@ export const addToFavorites = async (
     if (!userId || !productId) {
       return ResponseApi.error(
         res,
-        "userId et productId sont requis",
+        'userId et productId sont requis',
         null,
         400
       );
@@ -27,7 +27,7 @@ export const addToFavorites = async (
       include: { user: true }, // Inclure le propriétaire du produit
     });
     if (!product) {
-      return ResponseApi.notFound(res, "Produit introuvable", 404);
+      return ResponseApi.notFound(res, 'Produit introuvable', 404);
     }
 
     // Vérifie si déjà en favoris
@@ -35,7 +35,7 @@ export const addToFavorites = async (
       where: { userId_productId: { userId, productId } },
     });
     if (existing) {
-      return ResponseApi.error(res, "Produit déjà dans les favoris", null, 400);
+      return ResponseApi.error(res, 'Produit déjà dans les favoris', null, 400);
     }
 
     const favorite = await prisma.favorite.create({
@@ -60,28 +60,28 @@ export const addToFavorites = async (
 
     // Envoyer une notification au propriétaire du produit (si différent de l'utilisateur)
     if (product.userId && product.userId !== userId) {
-      const userName = favorite.user?.firstName || "Un utilisateur";
-      const productName = product.name || "votre produit";
-      
+      const userName = favorite.user?.firstName || 'Un utilisateur';
+      const productName = product.name || 'votre produit';
+
       await createNotification(
         product.userId,
-        "Nouveau favori",
+        'Nouveau favori',
         `${userName} a ajouté ${productName} à ses favoris`,
         {
-          type: "favorite",
+          type: 'favorite',
           link: `/products/${productId}`,
-          data: { 
+          data: {
             productId,
             userId,
-            productName: product.name
-          }
+            productName: product.name,
+          },
         }
       );
     }
 
     ResponseApi.success(
       res,
-      "Produit ajouté aux favoris",
+      'Produit ajouté aux favoris',
       favoriteWithImageUrls,
       201
     );
@@ -101,7 +101,7 @@ export const removeFromFavorites = async (
     if (!userId || !productId) {
       return ResponseApi.error(
         res,
-        "userId et productId sont requis",
+        'userId et productId sont requis',
         null,
         400
       );
@@ -114,7 +114,7 @@ export const removeFromFavorites = async (
     if (!favorite) {
       return ResponseApi.notFound(
         res,
-        "Produit non trouvé dans les favoris",
+        'Produit non trouvé dans les favoris',
         404
       );
     }
@@ -123,9 +123,9 @@ export const removeFromFavorites = async (
       where: { userId_productId: { userId, productId } },
     });
 
-    ResponseApi.success(res, "Produit retiré des favoris", null, 200);
+    ResponseApi.success(res, 'Produit retiré des favoris', null, 200);
   } catch (error: any) {
-    ResponseApi.error(res, "Erreur lors du retrait des favoris", error.message);
+    ResponseApi.error(res, 'Erreur lors du retrait des favoris', error.message);
   }
 };
 
@@ -137,7 +137,7 @@ export const getUserFavorites = async (
     const userId = req.authUser?.id;
 
     if (!userId) {
-      return ResponseApi.error(res, "userId requis", null, 400);
+      return ResponseApi.error(res, 'userId requis', null, 400);
     }
 
     const favorites = await prisma.favorite.findMany({
@@ -162,14 +162,14 @@ export const getUserFavorites = async (
 
     ResponseApi.success(
       res,
-      "Favoris récupérés avec succès",
+      'Favoris récupérés avec succès',
       favoritesWithImageUrls,
       200
     );
   } catch (error: any) {
     ResponseApi.error(
       res,
-      "Erreur lors de la récupération des favoris",
+      'Erreur lors de la récupération des favoris',
       error.message
     );
   }

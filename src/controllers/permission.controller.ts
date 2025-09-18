@@ -1,7 +1,7 @@
-import { promises } from "dns";
-import { Request, Response, NextFunction } from "express";
-import prisma from "../model/prisma.client.js";
-import ResponseApi from "../helper/response.js";
+import { promises } from 'dns';
+import { Request, Response, NextFunction } from 'express';
+import prisma from '../model/prisma.client.js';
+import ResponseApi from '../helper/response.js';
 
 export const getAll = async (
   req: Request,
@@ -12,7 +12,7 @@ export const getAll = async (
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
   const { search } = req.query;
-  const searchString = typeof search === "string" ? search : undefined;
+  const searchString = typeof search === 'string' ? search : undefined;
   const offset = (page - 1) * limit;
 
   try {
@@ -20,7 +20,7 @@ export const getAll = async (
       skip: offset,
       take: limit,
       orderBy: {
-        createdAt: "desc" as const,
+        createdAt: 'desc' as const,
       },
       where: searchString
         ? {
@@ -33,7 +33,7 @@ export const getAll = async (
       where: params.where,
     });
 
-    ResponseApi.success(res, "Permissions retrieved successfully !!!", {
+    ResponseApi.success(res, 'Permissions retrieved successfully !!!', {
       permission: result,
       links: {
         perpage: limit,
@@ -53,18 +53,15 @@ export const getById = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
 
   try {
-    if (!id) ResponseApi.error(res, "the id doest not exist", 404);
+    if (!id) ResponseApi.error(res, 'the id doest not exist', 404);
     const result = await prisma.permission.findFirst({
       where: {
         id,
       },
     });
-    ResponseApi.success(res, "permission retrieved successfuly", result);
+    ResponseApi.success(res, 'permission retrieved successfuly', result);
   } catch (error) {
-    ResponseApi.error(res, "Error retrieving permission", error);
-    console.log("====================================");
-    console.log("Error in getById:", error);
-    console.log("====================================");
+    ResponseApi.error(res, 'Error retrieving permission', error);
   }
 };
 
@@ -76,15 +73,12 @@ export const create = async (req: Request, res: Response): Promise<any> => {
     });
     ResponseApi.success(
       res,
-      "Permission created successfully",
+      'Permission created successfully',
       permission,
       201
     );
   } catch (error) {
-    ResponseApi.error(res, "Error creating permission", error);
-    console.log("====================================");
-    console.log("Error in create:", error);
-    console.log("====================================");
+    ResponseApi.error(res, 'Error creating permission', error);
   }
 };
 
@@ -92,13 +86,13 @@ export const update = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
   const data = req.body;
   try {
-    if (!id) ResponseApi.error(res, "Id is missing", {}, 404);
+    if (!id) ResponseApi.error(res, 'Id is missing', {}, 404);
     const miss = await prisma.permission.findFirst({
       where: {
         id,
       },
     });
-    if (!miss) ResponseApi.error(res, "Permission is missing", {}, 404);
+    if (!miss) ResponseApi.error(res, 'Permission is missing', {}, 404);
     const result = await prisma.permission.update({
       where: {
         id,
@@ -106,12 +100,9 @@ export const update = async (req: Request, res: Response): Promise<any> => {
       data,
     });
 
-    ResponseApi.success(res, "Permission updated successfuly", result);
+    ResponseApi.success(res, 'Permission updated successfuly', result);
   } catch (error) {
-    ResponseApi.error(res, "Error updating permission", error);
-    console.log("====================================");
-    console.log("Error in update:", error);
-    console.log("====================================");
+    ResponseApi.error(res, 'Error updating permission', error);
   }
 };
 
@@ -119,18 +110,15 @@ export const destroy = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
 
   try {
-    if (!id) ResponseApi.error(res, "Id is missing !!!", {}, 422);
+    if (!id) ResponseApi.error(res, 'Id is missing !!!', {}, 422);
     const result = await prisma.permission.delete({
       where: {
         id,
       },
     });
-    ResponseApi.success(res, "Permission deleted successfully !!!", result);
+    ResponseApi.success(res, 'Permission deleted successfully !!!', result);
   } catch (error) {
-    ResponseApi.error(res, "Error deleting permission", error);
-    console.log("====================================");
-    console.log("Error in destroy:", error);
-    console.log("====================================");
+    ResponseApi.error(res, 'Error deleting permission', error);
   }
 };
 
@@ -156,19 +144,16 @@ export const assignPermissionsToRole = async (
 
     ResponseApi.success(
       res,
-      "Permissions assigned to role successfully",
+      'Permissions assigned to role successfully',
       {},
       201
     );
   } catch (error: any) {
     ResponseApi.error(
       res,
-      "Error assigning permissions to role",
+      'Error assigning permissions to role',
       error.message
     );
-    console.log("====================================");
-    console.log("Error in assignPermissionsToRole:", error.message);
-    console.log("====================================");
   }
 };
 
@@ -182,7 +167,7 @@ export const removePermissionsFromRole = async (
     if (!roleId || !permissionIds || !Array.isArray(permissionIds)) {
       return ResponseApi.error(
         res,
-        "roleId and permissionIds array are required",
+        'roleId and permissionIds array are required',
         {},
         400
       );
@@ -200,18 +185,15 @@ export const removePermissionsFromRole = async (
 
     ResponseApi.success(
       res,
-      "Permissions removed from role successfully",
+      'Permissions removed from role successfully',
       {},
       200
     );
   } catch (error: any) {
     ResponseApi.error(
       res,
-      "Error removing permissions from role",
+      'Error removing permissions from role',
       error.message
     );
-    console.log("====================================");
-    console.log("Error in removePermissionsFromRole:", error.message);
-    console.log("====================================");
   }
 };

@@ -34,7 +34,7 @@ const createNotification = (userId, title, message, options) => __awaiter(void 0
         setImmediate(() => {
             try {
                 const io = (0, socket_js_1.getIO)();
-                io.to(userId).emit("notification", notification);
+                io.to(userId).emit('notification', notification);
             }
             catch (socketError) {
                 // Socket pas initialisé ou utilisateur déconnecté -> ignore silencieusement
@@ -44,7 +44,7 @@ const createNotification = (userId, title, message, options) => __awaiter(void 0
         return notification;
     }
     catch (error) {
-        console.error("Failed to create notification:", error);
+        console.error('Failed to create notification:', error);
         throw error; // Re-throw pour que l'appelant puisse gérer l'erreur
     }
 });
@@ -52,7 +52,7 @@ exports.createNotification = createNotification;
 const getUserNotifications = (userId) => __awaiter(void 0, void 0, void 0, function* () {
     return prisma_client_js_1.default.notification.findMany({
         where: { userId },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
     });
 });
 exports.getUserNotifications = getUserNotifications;

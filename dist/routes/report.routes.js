@@ -10,8 +10,8 @@ const checkPermission_js_1 = __importDefault(require("../middlewares/checkPermis
 const router = express_1.default.Router();
 router.use(auth_middleware_js_1.authenticate);
 // Routes pour la gestion des signalements (Admin seulement)
-router.get("/", (0, checkPermission_js_1.default)("REPORT_VIEW_ALL"), report_controller_js_1.getAllReports);
-router.get("/statistics", (0, checkPermission_js_1.default)("REPORT_VIEW_ALL"), report_controller_js_1.getReportsStatistics);
-router.get("/:id", (0, checkPermission_js_1.default)("REPORT_VIEW"), report_controller_js_1.getReportById);
-router.put("/:id/process", (0, checkPermission_js_1.default)("REPORT_PROCESS"), report_controller_js_1.processReport);
+router.get('/', (0, checkPermission_js_1.default)('REPORT_VIEW_ALL'), report_controller_js_1.getAllReports);
+router.get('/statistics', (0, checkPermission_js_1.default)('REPORT_VIEW_ALL'), report_controller_js_1.getReportsStatistics);
+router.get('/:id', (0, checkPermission_js_1.default)('REPORT_VIEW'), report_controller_js_1.getReportById);
+router.put('/:id/process', (0, checkPermission_js_1.default)('REPORT_PROCESS'), report_controller_js_1.processReport);
 exports.default = router;

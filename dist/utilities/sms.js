@@ -19,42 +19,42 @@ const sendSMS = (phone, message) => __awaiter(void 0, void 0, void 0, function* 
     try {
         // Format phone number (add 237 if not present)
         let formattedPhone = phone;
-        if (!formattedPhone.startsWith("237")) {
+        if (!formattedPhone.startsWith('237')) {
             formattedPhone = `237${formattedPhone}`;
         }
-        const url = "https://smsvas.com/bulk/public/index.php/api/v1/sendsms";
+        const url = 'https://smsvas.com/bulk/public/index.php/api/v1/sendsms';
         const params = new URLSearchParams();
-        params.append("user", config_js_1.default.nexahUser);
-        params.append("password", config_js_1.default.nexahPassword);
-        params.append("senderid", config_js_1.default.nexahSenderId);
-        params.append("sms", message);
-        params.append("mobiles", formattedPhone);
+        params.append('user', config_js_1.default.nexahUser);
+        params.append('password', config_js_1.default.nexahPassword);
+        params.append('senderid', config_js_1.default.nexahSenderId);
+        params.append('sms', message);
+        params.append('mobiles', formattedPhone);
         const response = yield axios_1.default.get(`${url}?${params.toString()}`);
         if (response.data.responsecode === 1) {
             return true;
         }
         else {
-            console.error("SMS sending failed:", response.data.responsemessage);
+            console.error('SMS sending failed:', response.data.responsemessage);
             return false;
         }
     }
     catch (error) {
-        console.error("Error sending SMS:", error);
+        console.error('Error sending SMS:', error);
         return false;
     }
 });
 exports.sendSMS = sendSMS;
 const getSmsBalance = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const url = "https://smsvas.com/bulk/public/index.php/api/v1/smscredit";
+        const url = 'https://smsvas.com/bulk/public/index.php/api/v1/smscredit';
         const params = new URLSearchParams();
-        params.append("user", config_js_1.default.nexahUser);
-        params.append("password", config_js_1.default.nexahPassword);
+        params.append('user', config_js_1.default.nexahUser);
+        params.append('password', config_js_1.default.nexahPassword);
         const response = yield axios_1.default.get(`${url}?${params.toString()}`);
         return response.data.credit;
     }
     catch (error) {
-        console.error("Error getting SMS balance:", error);
+        console.error('Error getting SMS balance:', error);
         return null;
     }
 });

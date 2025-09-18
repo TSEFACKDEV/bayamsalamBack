@@ -1,11 +1,9 @@
-import fs from "node:fs";
-import fsp from "node:fs/promises";
-import path from "node:path";
-import url from "node:url";
-import { Request } from "express";
-import { UploadedFile } from "express-fileupload";
-
-
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import url from 'node:url';
+import { Request } from 'express';
+import { UploadedFile } from 'express-fileupload';
 
 class Utils {
   /**
@@ -14,8 +12,11 @@ class Utils {
    * @param saveRelatifPath Chemin relatif de sauvegarde
    * @returns Promise résolue avec le chemin relatif du fichier sauvegardé
    */
-  static async saveFile(file: UploadedFile, saveRelatifPath: string): Promise<string> {
-    const extension = file.mimetype.split("/")[1];
+  static async saveFile(
+    file: UploadedFile,
+    saveRelatifPath: string
+  ): Promise<string> {
+    const extension = file.mimetype.split('/')[1];
     const name = `${Date.now()}.${extension}`;
     const absolutePath = path.join(
       __dirname,
@@ -47,12 +48,16 @@ class Utils {
     relativeFilePath: string,
     oldRelativeFilePath: string | null = null
   ): Promise<string> {
-    const extension = file.mimetype.split("/")[1];
+    const extension = file.mimetype.split('/')[1];
     const name = `${Date.now()}.${extension}`;
     const oldAbsolutePath = oldRelativeFilePath
       ? path.join(__dirname, `/../../public`, oldRelativeFilePath)
       : null;
-    const absolutePath = path.join(__dirname, `/../../public`, relativeFilePath);
+    const absolutePath = path.join(
+      __dirname,
+      `/../../public`,
+      relativeFilePath
+    );
 
     // Vérifie si le dossier existe
     if (!fs.existsSync(path.dirname(absolutePath))) {
@@ -68,7 +73,10 @@ class Utils {
           try {
             await fsp.unlink(oldAbsolutePath);
           } catch (err) {
-            console.error("Erreur lors de la suppression de l'ancien fichier:", err);
+            console.error(
+              "Erreur lors de la suppression de l'ancien fichier:",
+              err
+            );
           }
         }
 
@@ -84,7 +92,11 @@ class Utils {
    */
   static async deleteFile(relativeFilePath: string): Promise<boolean> {
     try {
-      const absolutePath = path.join(__dirname, `/../../public`, relativeFilePath);
+      const absolutePath = path.join(
+        __dirname,
+        `/../../public`,
+        relativeFilePath
+      );
 
       await fsp.access(absolutePath);
       await fsp.unlink(absolutePath);
@@ -92,7 +104,7 @@ class Utils {
       return true;
     } catch (err) {
       console.error(
-        "Une erreur est survenue lors de la suppression du fichier :",
+        'Une erreur est survenue lors de la suppression du fichier :',
         (err as Error).message
       );
       return false;
@@ -107,18 +119,18 @@ class Utils {
    */
   static resolveFileUrl(req: Request, relativePath: string): string {
     if (
-      relativePath.startsWith("data:") ||
-      relativePath.startsWith("http://") ||
-      relativePath.startsWith("https://")
+      relativePath.startsWith('data:') ||
+      relativePath.startsWith('http://') ||
+      relativePath.startsWith('https://')
     ) {
       return relativePath;
     }
 
-    const cleanPath = relativePath.startsWith("/")
+    const cleanPath = relativePath.startsWith('/')
       ? relativePath
       : `/${relativePath}`;
 
-    return `${req.protocol}://${req.get("host")}/public${cleanPath}`;
+    return `${req.protocol}://${req.get('host')}/public${cleanPath}`;
   }
 }
 

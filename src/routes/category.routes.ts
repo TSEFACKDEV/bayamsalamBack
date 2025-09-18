@@ -1,24 +1,22 @@
-import express from "express";
+import express from 'express';
 import {
   createCategory,
   deleteCategory,
   getAllCategories,
   getCategoryById,
   updateCategory,
-} from "../controllers/category.controller.js";
-import { authenticate } from "../middlewares/auth.middleware.js";
-import checkPermission from "../middlewares/checkPermission.js";
-
+} from '../controllers/category.controller.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
+import checkPermission from '../middlewares/checkPermission.js';
 
 const router = express.Router();
 
-
-router.get("/", getAllCategories);
-router.get("/:id", getCategoryById);
+router.get('/', getAllCategories);
+router.get('/:id', getCategoryById);
 
 router.use(authenticate);
-router.post("/", checkPermission("CATEGORY_CREATE"), createCategory);
-router.put("/:id", checkPermission("CATEGORY_UPDATE"), updateCategory);
-router.delete("/:id", checkPermission("CATEGORY_DELETE"), deleteCategory);
+router.post('/', checkPermission('CATEGORY_CREATE'), createCategory);
+router.put('/:id', checkPermission('CATEGORY_UPDATE'), updateCategory);
+router.delete('/:id', checkPermission('CATEGORY_DELETE'), deleteCategory);
 
 export default router;

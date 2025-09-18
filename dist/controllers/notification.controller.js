@@ -21,12 +21,12 @@ const listNotifications = (req, res) => __awaiter(void 0, void 0, void 0, functi
     try {
         const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId)
-            return response_js_1.default.error(res, "Unauthorized", null, 401);
+            return response_js_1.default.error(res, 'Unauthorized', null, 401);
         const notifs = yield (0, notification_service_js_1.getUserNotifications)(userId);
-        return response_js_1.default.success(res, "Notifications fetched", notifs, 200);
+        return response_js_1.default.success(res, 'Notifications fetched', notifs, 200);
     }
     catch (e) {
-        return response_js_1.default.error(res, "Failed to fetch notifications", e.message, 500);
+        return response_js_1.default.error(res, 'Failed to fetch notifications', e.message, 500);
     }
 });
 exports.listNotifications = listNotifications;
@@ -34,10 +34,10 @@ const markRead = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const id = req.params.id;
         const notif = yield (0, notification_service_js_1.markNotificationRead)(id);
-        return response_js_1.default.success(res, "Notification marked read", notif, 200);
+        return response_js_1.default.success(res, 'Notification marked read', notif, 200);
     }
     catch (e) {
-        return response_js_1.default.error(res, "Failed to mark notification read", e.message, 500);
+        return response_js_1.default.error(res, 'Failed to mark notification read', e.message, 500);
     }
 });
 exports.markRead = markRead;
@@ -46,12 +46,12 @@ const markAllAsRead = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     try {
         const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId)
-            return response_js_1.default.error(res, "Unauthorized", null, 401);
+            return response_js_1.default.error(res, 'Unauthorized', null, 401);
         yield (0, notification_service_js_1.markAllNotificationsRead)(userId);
-        return response_js_1.default.success(res, "All notifications marked as read", null, 200);
+        return response_js_1.default.success(res, 'All notifications marked as read', null, 200);
     }
     catch (e) {
-        return response_js_1.default.error(res, "Failed to mark all notifications as read", e.message, 500);
+        return response_js_1.default.error(res, 'Failed to mark all notifications as read', e.message, 500);
     }
 });
 exports.markAllAsRead = markAllAsRead;

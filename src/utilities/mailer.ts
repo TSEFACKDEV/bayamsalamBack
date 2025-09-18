@@ -1,6 +1,5 @@
-import nodemailer from "nodemailer";
-import env from "../config/config.js";
-
+import nodemailer from 'nodemailer';
+import env from '../config/config.js';
 
 const transporter = nodemailer.createTransport({
   host: env.smtpHost,
@@ -28,7 +27,7 @@ export const sendEmail = async (
     });
     return true;
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error('Error sending email:', error);
     return false;
   }
 };

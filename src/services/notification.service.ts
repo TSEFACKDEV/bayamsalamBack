@@ -1,5 +1,5 @@
-import prisma from "../model/prisma.client.js";
-import { getIO } from "../utilities/socket.js";
+import prisma from '../model/prisma.client.js';
+import { getIO } from '../utilities/socket.js';
 
 export const createNotification = async (
   userId: string,
@@ -25,7 +25,7 @@ export const createNotification = async (
     setImmediate(() => {
       try {
         const io = getIO();
-        io.to(userId).emit("notification", notification);
+        io.to(userId).emit('notification', notification);
       } catch (socketError) {
         // Socket pas initialisé ou utilisateur déconnecté -> ignore silencieusement
         console.warn(
@@ -37,7 +37,7 @@ export const createNotification = async (
 
     return notification;
   } catch (error) {
-    console.error("Failed to create notification:", error);
+    console.error('Failed to create notification:', error);
     throw error; // Re-throw pour que l'appelant puisse gérer l'erreur
   }
 };
@@ -45,7 +45,7 @@ export const createNotification = async (
 export const getUserNotifications = async (userId: string) => {
   return prisma.notification.findMany({
     where: { userId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };
 

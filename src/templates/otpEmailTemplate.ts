@@ -9,7 +9,7 @@ export const createOTPEmailTemplate = (
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code de vérification - BuyamSale</title>
+    <title>Code de vérification - BuyAndSale</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -144,7 +144,7 @@ export const createOTPEmailTemplate = (
                     <circle cx="15" cy="10" r="1" fill="#ff8c42"/>
                 </svg>
             </div>
-            <h1>BuyamSale</h1>
+            <h1>BuyAndSale</h1>
             <p>Votre marketplace de confiance</p>
         </div>
         
@@ -154,7 +154,7 @@ export const createOTPEmailTemplate = (
             <div class="greeting">Bonjour ${firstName} ${lastName} ! 👋</div>
             
             <div class="message">
-                Bienvenue sur <strong>BuyamSale</strong> ! Nous sommes ravis de vous compter parmi nous.
+                Bienvenue sur <strong>BuyAndSale</strong> ! Nous sommes ravis de vous compter parmi nous.
                 <br><br>
                 Pour finaliser la création de votre compte, veuillez utiliser le code de vérification ci-dessous :
             </div>
@@ -185,7 +185,7 @@ export const createOTPEmailTemplate = (
         <div class="divider"></div>
         
         <div class="footer">
-            <p><strong>BuyamSale</strong> - La marketplace qui rapproche</p>
+            <p><strong>BuyAndSale</strong> - La marketplace qui rapproche</p>
             <p>Cameroun | Achetez, Vendez, Échangez en toute confiance</p>
             <p style="margin-top: 20px; font-size: 12px; opacity: 0.7;">
                 Cet email a été envoyé automatiquement, merci de ne pas y répondre.

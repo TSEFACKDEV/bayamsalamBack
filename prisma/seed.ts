@@ -79,6 +79,7 @@ const categories = [
   { name: "Automobile", description: "Véhicules et accessoires automobiles" },
   { name: "Immobilier", description: "Biens immobiliers et terrains" },
   { name: "Services", description: "Services divers" },
+  { name: "Rencontres", description: "Trouvez l'amour" },
   { name: "Autres", description: "Catégories diverses" },
 ];
 

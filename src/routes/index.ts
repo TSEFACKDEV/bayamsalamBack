@@ -10,7 +10,10 @@ import roleRouter from "./role.routes.js";
 import permissionRouter from "./permission.routes.js";
 import forfaitRouter from "./forfait.routes.js";
 import notificationRouter from "./notification.routes.js";
-import reportRouter from "./report.routes.js"; // ✅ AJOUT des routes de signalement
+import reportRouter from "./report.routes.js";
+import cacheRouter from "./cache.routes.js"; // 🚀 Ajout des routes cache
+import securityRouter from "./security.routes.js"; // 🔐 Ajout du monitoring de sécurité
+import csrfRouter from "./csrf.routes.js"; // 🛡️ Ajout des routes CSRF
 import express from "express";
 
 const router = express.Router();
@@ -27,6 +30,9 @@ router.use("/role", roleRouter);
 router.use("/permission", permissionRouter);
 router.use("/forfait", forfaitRouter);
 router.use("/notification", notificationRouter);
-router.use("/reports", reportRouter); // ✅ AJOUT de l'endpoint /reports
+router.use("/reports", reportRouter);
+router.use("/cache", cacheRouter); // 🚀 Endpoint de monitoring cache
+router.use("/security", securityRouter); // 🔐 Endpoint de monitoring sécurité
+router.use("/csrf", csrfRouter); // 🛡️ Endpoints de gestion CSRF
 
 export default router;

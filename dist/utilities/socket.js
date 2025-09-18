@@ -16,23 +16,23 @@ const initSockets = (server) => {
         },
     });
     io.on("connection", (socket) => {
-        console.log("Socket connected:", socket.id);
+        // Socket connecté
         // client doit émettre 'join' avec son userId pour rejoindre sa room
         socket.on("join", (userId) => {
             if (userId) {
                 socket.join(userId);
-                console.log(`Socket ${socket.id} joined room ${userId}`);
+                // Socket a rejoint la room utilisateur
             }
         });
         // client peut émettre 'leave' pour quitter sa room
         socket.on("leave", (userId) => {
             if (userId) {
                 socket.leave(userId);
-                console.log(`Socket ${socket.id} left room ${userId}`);
+                // Socket a quitté la room utilisateur
             }
         });
         socket.on("disconnect", () => {
-            console.log("Socket disconnected:", socket.id);
+            // Socket déconnecté
         });
     });
     return io;

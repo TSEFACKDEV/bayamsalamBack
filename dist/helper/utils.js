@@ -24,7 +24,7 @@ class Utils {
      */
     static saveFile(file, saveRelatifPath) {
         return __awaiter(this, void 0, void 0, function* () {
-            const extension = file.mimetype.split("/")[1];
+            const extension = file.mimetype.split('/')[1];
             const name = `${Date.now()}.${extension}`;
             const absolutePath = node_path_1.default.join(__dirname, `/../../public/uploads`, saveRelatifPath);
             if (!node_fs_1.default.existsSync(absolutePath)) {
@@ -48,7 +48,7 @@ class Utils {
      */
     static updateFile(file_1, relativeFilePath_1) {
         return __awaiter(this, arguments, void 0, function* (file, relativeFilePath, oldRelativeFilePath = null) {
-            const extension = file.mimetype.split("/")[1];
+            const extension = file.mimetype.split('/')[1];
             const name = `${Date.now()}.${extension}`;
             const oldAbsolutePath = oldRelativeFilePath
                 ? node_path_1.default.join(__dirname, `/../../public`, oldRelativeFilePath)
@@ -90,7 +90,7 @@ class Utils {
                 return true;
             }
             catch (err) {
-                console.error("Une erreur est survenue lors de la suppression du fichier :", err.message);
+                console.error('Une erreur est survenue lors de la suppression du fichier :', err.message);
                 return false;
             }
         });
@@ -102,15 +102,15 @@ class Utils {
      * @returns URL absolue du fichier
      */
     static resolveFileUrl(req, relativePath) {
-        if (relativePath.startsWith("data:") ||
-            relativePath.startsWith("http://") ||
-            relativePath.startsWith("https://")) {
+        if (relativePath.startsWith('data:') ||
+            relativePath.startsWith('http://') ||
+            relativePath.startsWith('https://')) {
             return relativePath;
         }
-        const cleanPath = relativePath.startsWith("/")
+        const cleanPath = relativePath.startsWith('/')
             ? relativePath
             : `/${relativePath}`;
-        return `${req.protocol}://${req.get("host")}/public${cleanPath}`;
+        return `${req.protocol}://${req.get('host')}/public${cleanPath}`;
     }
 }
 exports.default = Utils;

@@ -37,14 +37,14 @@ const getAllReviews = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 },
             },
             orderBy: {
-                createdAt: "desc",
+                createdAt: 'desc',
             },
         });
-        response_js_1.default.success(res, "Reviews retrieved successfully", reviews);
+        response_js_1.default.success(res, 'Reviews retrieved successfully', reviews);
     }
     catch (error) {
-        console.error("Error retrieving reviews:", error);
-        response_js_1.default.error(res, "Failed to retrieve reviews", 500);
+        console.error('Error retrieving reviews:', error);
+        response_js_1.default.error(res, 'Failed to retrieve reviews', 500);
     }
 });
 exports.getAllReviews = getAllReviews;
@@ -52,7 +52,7 @@ const getReviewById = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     const id = req.params.id;
     try {
         if (!id) {
-            return response_js_1.default.error(res, "Review ID is required", null, 422);
+            return response_js_1.default.error(res, 'Review ID is required', null, 422);
         }
         const review = yield prisma_client_js_1.default.review.findUnique({
             where: { id },
@@ -76,40 +76,40 @@ const getReviewById = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             },
         });
         if (!review) {
-            return response_js_1.default.notFound(res, "Review not found", 404);
+            return response_js_1.default.notFound(res, 'Review not found', 404);
         }
-        response_js_1.default.success(res, "Review retrieved successfully", review);
+        response_js_1.default.success(res, 'Review retrieved successfully', review);
     }
     catch (error) {
-        console.error("Error retrieving review:", error);
-        response_js_1.default.error(res, "Failed to retrieve review", 500);
+        console.error('Error retrieving review:', error);
+        response_js_1.default.error(res, 'Failed to retrieve review', 500);
     }
 });
 exports.getReviewById = getReviewById;
 const createReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
-    const { sellerId, rating } = req.body; // On utilise sellerId directement au lieu de 
+    const { sellerId, rating } = req.body; // On utilise sellerId directement au lieu de
     if (!((_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id)) {
-        return response_js_1.default.error(res, "User not authenticated", null, 401);
+        return response_js_1.default.error(res, 'User not authenticated', null, 401);
     }
     const userId = (_b = req.authUser) === null || _b === void 0 ? void 0 : _b.id; // Celui qui laisse la note
     try {
         if (!sellerId || !rating) {
-            return response_js_1.default.error(res, "Seller ID and rating are required", null, 400);
+            return response_js_1.default.error(res, 'Seller ID and rating are required', null, 400);
         }
         if (rating < 1 || rating > 5) {
-            return response_js_1.default.error(res, "Rating must be between 1 and 5", null, 400);
+            return response_js_1.default.error(res, 'Rating must be between 1 and 5', null, 400);
         }
         // Vérifier que l'utilisateur ne se note pas lui-même
         if (userId === sellerId) {
-            return response_js_1.default.error(res, "You cannot rate yourself", null, 400);
+            return response_js_1.default.error(res, 'You cannot rate yourself', null, 400);
         }
         // Vérifier que le vendeur existe
         const seller = yield prisma_client_js_1.default.user.findUnique({
             where: { id: sellerId },
         });
         if (!seller) {
-            return response_js_1.default.notFound(res, "Seller not found", 404);
+            return response_js_1.default.notFound(res, 'Seller not found', 404);
         }
         // Vérifier si l'utilisateur a déjà noté ce vendeur
         const existingReview = yield prisma_client_js_1.default.review.findFirst({
@@ -119,7 +119,7 @@ const createReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
             },
         });
         if (existingReview) {
-            return response_js_1.default.error(res, "You have already rated this seller", null, 400);
+            return response_js_1.default.error(res, 'You have already rated this seller', null, 400);
         }
         const review = yield prisma_client_js_1.default.review.create({
             data: {
@@ -146,11 +146,11 @@ const createReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 },
             },
         });
-        response_js_1.default.success(res, "Review created successfully", review, 201);
+        response_js_1.default.success(res, 'Review created successfully', review, 201);
     }
     catch (error) {
-        console.error("Error creating review:", error);
-        response_js_1.default.error(res, "Failed to create review", 500);
+        console.error('Error creating review:', error);
+        response_js_1.default.error(res, 'Failed to create review', 500);
     }
 });
 exports.createReview = createReview;
@@ -161,20 +161,20 @@ const updateReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
     try {
         if (!id) {
-            return response_js_1.default.error(res, "Review ID is required", null, 422);
+            return response_js_1.default.error(res, 'Review ID is required', null, 422);
         }
         if (!rating || rating < 1 || rating > 5) {
-            return response_js_1.default.error(res, "Valid rating (1-5) is required", null, 400);
+            return response_js_1.default.error(res, 'Valid rating (1-5) is required', null, 400);
         }
         const review = yield prisma_client_js_1.default.review.findUnique({
             where: { id },
         });
         if (!review) {
-            return response_js_1.default.notFound(res, "Review not found", 404);
+            return response_js_1.default.notFound(res, 'Review not found', 404);
         }
         // Vérifier que l'utilisateur ne peut modifier que ses propres reviews
         if (review.userId !== userId) {
-            return response_js_1.default.error(res, "You can only update your own reviews", null, 403);
+            return response_js_1.default.error(res, 'You can only update your own reviews', null, 403);
         }
         const updatedReview = yield prisma_client_js_1.default.review.update({
             where: { id },
@@ -200,11 +200,11 @@ const updateReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 },
             },
         });
-        response_js_1.default.success(res, "Review updated successfully", updatedReview);
+        response_js_1.default.success(res, 'Review updated successfully', updatedReview);
     }
     catch (error) {
-        console.error("Error updating review:", error);
-        response_js_1.default.error(res, "Failed to update review", 500);
+        console.error('Error updating review:', error);
+        response_js_1.default.error(res, 'Failed to update review', 500);
     }
 });
 exports.updateReview = updateReview;
@@ -214,26 +214,26 @@ const deleteReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     const userId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
     try {
         if (!id) {
-            return response_js_1.default.error(res, "Review ID is required", null, 422);
+            return response_js_1.default.error(res, 'Review ID is required', null, 422);
         }
         const review = yield prisma_client_js_1.default.review.findUnique({
             where: { id },
         });
         if (!review) {
-            return response_js_1.default.notFound(res, "Review not found", 404);
+            return response_js_1.default.notFound(res, 'Review not found', 404);
         }
         // Vérifier que l'utilisateur ne peut supprimer que ses propres reviews
         if (review.userId !== userId) {
-            return response_js_1.default.error(res, "You can only delete your own reviews", null, 403);
+            return response_js_1.default.error(res, 'You can only delete your own reviews', null, 403);
         }
         yield prisma_client_js_1.default.review.delete({
             where: { id },
         });
-        response_js_1.default.success(res, "Review deleted successfully", null);
+        response_js_1.default.success(res, 'Review deleted successfully', null);
     }
     catch (error) {
-        console.error("Error deleting review:", error);
-        response_js_1.default.error(res, "Failed to delete review", 500);
+        console.error('Error deleting review:', error);
+        response_js_1.default.error(res, 'Failed to delete review', 500);
     }
 });
 exports.deleteReview = deleteReview;
@@ -241,7 +241,7 @@ const getReviewsForUser = (req, res) => __awaiter(void 0, void 0, void 0, functi
     const sellerId = req.params.userId;
     try {
         if (!sellerId) {
-            return response_js_1.default.error(res, "Seller ID is required", null, 422);
+            return response_js_1.default.error(res, 'Seller ID is required', null, 422);
         }
         // Vérifier que le vendeur existe
         const seller = yield prisma_client_js_1.default.user.findUnique({
@@ -254,7 +254,7 @@ const getReviewsForUser = (req, res) => __awaiter(void 0, void 0, void 0, functi
             },
         });
         if (!seller) {
-            return response_js_1.default.notFound(res, "Seller not found", 404);
+            return response_js_1.default.notFound(res, 'Seller not found', 404);
         }
         // Récupérer toutes les reviews pour ce vendeur
         const reviews = yield prisma_client_js_1.default.review.findMany({
@@ -270,7 +270,7 @@ const getReviewsForUser = (req, res) => __awaiter(void 0, void 0, void 0, functi
                 },
             },
             orderBy: {
-                createdAt: "desc",
+                createdAt: 'desc',
             },
         });
         // Calculer la moyenne et les statistiques
@@ -286,7 +286,7 @@ const getReviewsForUser = (req, res) => __awaiter(void 0, void 0, void 0, functi
             2: reviews.filter((r) => r.rating === 2).length,
             1: reviews.filter((r) => r.rating === 1).length,
         };
-        response_js_1.default.success(res, "Seller reviews retrieved successfully", {
+        response_js_1.default.success(res, 'Seller reviews retrieved successfully', {
             seller,
             reviews,
             statistics: {
@@ -297,8 +297,8 @@ const getReviewsForUser = (req, res) => __awaiter(void 0, void 0, void 0, functi
         });
     }
     catch (error) {
-        console.error("Error retrieving reviews for seller:", error);
-        response_js_1.default.error(res, "Failed to retrieve reviews for seller", 500);
+        console.error('Error retrieving reviews for seller:', error);
+        response_js_1.default.error(res, 'Failed to retrieve reviews for seller', 500);
     }
 });
 exports.getReviewsForUser = getReviewsForUser;
@@ -320,14 +320,14 @@ const getReviewsByUser = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 },
             },
             orderBy: {
-                createdAt: "desc",
+                createdAt: 'desc',
             },
         });
-        response_js_1.default.success(res, "Your reviews retrieved successfully", reviews);
+        response_js_1.default.success(res, 'Your reviews retrieved successfully', reviews);
     }
     catch (error) {
-        console.error("Error retrieving user reviews:", error);
-        response_js_1.default.error(res, "Failed to retrieve your reviews", 500);
+        console.error('Error retrieving user reviews:', error);
+        response_js_1.default.error(res, 'Failed to retrieve your reviews', 500);
     }
 });
 exports.getReviewsByUser = getReviewsByUser;

@@ -8,7 +8,7 @@ function createWelcomeTemplate(firstName, lastName) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bienvenue sur BuyamSale</title>
+    <title>Bienvenue sur BuyAndSale</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -97,7 +97,7 @@ function createWelcomeTemplate(firstName, lastName) {
                     <circle cx="15" cy="10" r="1" fill="#ff8c42"/>
                 </svg>
             </div>
-            <h1>BuyamSale</h1>
+            <h1>BuyAndSale</h1>
             <p>Votre marketplace de confiance</p>
         </div>
         
@@ -106,7 +106,7 @@ function createWelcomeTemplate(firstName, lastName) {
         <div class="content">
             <div class="greeting">Bonjour ${firstName} ${lastName} ! 👋</div>
             <div class="welcome-container">
-                <h2>Bienvenue sur BuyamSale !</h2>
+                <h2>Bienvenue sur BuyAndSale !</h2>
                 <p>Votre compte a été vérifié avec succès.<br>
                 Nous sommes ravis de vous compter parmi nous !</p>
             </div>
@@ -117,13 +117,13 @@ function createWelcomeTemplate(firstName, lastName) {
                 <br>✅ Gérez votre profil personnalisé
             </div>
             <br>
-            <p style="color:#4a5568;">L'équipe BuyamSale</p>
+            <p style="color:#4a5568;">L'équipe BuyAndSale</p>
         </div>
         
         <div class="divider"></div>
         
         <div class="footer">
-            <p><strong>BuyamSale</strong> - La marketplace qui rapproche</p>
+            <p><strong>BuyAndSale</strong> - La marketplace qui rapproche</p>
             <p>Cameroun | Achetez, Vendez, Échangez en toute confiance</p>
             <p style="margin-top: 20px; font-size: 12px; opacity: 0.7;">
                 Cet email a été envoyé automatiquement, merci de ne pas y répondre.

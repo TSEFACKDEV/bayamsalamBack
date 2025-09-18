@@ -1,5 +1,4 @@
-import prisma from "../model/prisma.client";
-
+import prisma from '../model/prisma.client';
 
 class Log {
   /**
@@ -8,7 +7,11 @@ class Log {
    * @param {string} ipAddress - Adresse IP de l'utilisateur.
    * @param {string} userAgent - Agent utilisateur (navigateur).
    */
-  static logConnection = async (userId:string, ipAddress:any, userAgent:string) => {
+  static logConnection = async (
+    userId: string,
+    ipAddress: any,
+    userAgent: string
+  ) => {
     await prisma.connectionLog.create({
       data: {
         userId,

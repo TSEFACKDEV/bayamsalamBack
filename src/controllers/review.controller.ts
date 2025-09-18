@@ -1,6 +1,6 @@
-import { Request, Response } from "express";
-import ResponseApi from "../helper/response.js";
-import prisma from "../model/prisma.client.js";
+import { Request, Response } from 'express';
+import ResponseApi from '../helper/response.js';
+import prisma from '../model/prisma.client.js';
 
 export const getAllReviews = async (
   req: Request,
@@ -27,13 +27,13 @@ export const getAllReviews = async (
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
-    ResponseApi.success(res, "Reviews retrieved successfully", reviews);
+    ResponseApi.success(res, 'Reviews retrieved successfully', reviews);
   } catch (error) {
-    console.error("Error retrieving reviews:", error);
-    ResponseApi.error(res, "Failed to retrieve reviews", 500);
+    console.error('Error retrieving reviews:', error);
+    ResponseApi.error(res, 'Failed to retrieve reviews', 500);
   }
 };
 
@@ -44,7 +44,7 @@ export const getReviewById = async (
   const id = req.params.id;
   try {
     if (!id) {
-      return ResponseApi.error(res, "Review ID is required", null, 422);
+      return ResponseApi.error(res, 'Review ID is required', null, 422);
     }
     const review = await prisma.review.findUnique({
       where: { id },
@@ -68,12 +68,12 @@ export const getReviewById = async (
       },
     });
     if (!review) {
-      return ResponseApi.notFound(res, "Review not found", 404);
+      return ResponseApi.notFound(res, 'Review not found', 404);
     }
-    ResponseApi.success(res, "Review retrieved successfully", review);
+    ResponseApi.success(res, 'Review retrieved successfully', review);
   } catch (error) {
-    console.error("Error retrieving review:", error);
-    ResponseApi.error(res, "Failed to retrieve review", 500);
+    console.error('Error retrieving review:', error);
+    ResponseApi.error(res, 'Failed to retrieve review', 500);
   }
 };
 
@@ -81,9 +81,9 @@ export const createReview = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { sellerId, rating } = req.body; // On utilise sellerId directement au lieu de 
+  const { sellerId, rating } = req.body; // On utilise sellerId directement au lieu de
   if (!req.authUser?.id) {
-    return ResponseApi.error(res, "User not authenticated", null, 401);
+    return ResponseApi.error(res, 'User not authenticated', null, 401);
   }
   const userId = req.authUser?.id; // Celui qui laisse la note
 
@@ -91,7 +91,7 @@ export const createReview = async (
     if (!sellerId || !rating) {
       return ResponseApi.error(
         res,
-        "Seller ID and rating are required",
+        'Seller ID and rating are required',
         null,
         400
       );
@@ -100,7 +100,7 @@ export const createReview = async (
     if (rating < 1 || rating > 5) {
       return ResponseApi.error(
         res,
-        "Rating must be between 1 and 5",
+        'Rating must be between 1 and 5',
         null,
         400
       );
@@ -108,7 +108,7 @@ export const createReview = async (
 
     // Vérifier que l'utilisateur ne se note pas lui-même
     if (userId === sellerId) {
-      return ResponseApi.error(res, "You cannot rate yourself", null, 400);
+      return ResponseApi.error(res, 'You cannot rate yourself', null, 400);
     }
 
     // Vérifier que le vendeur existe
@@ -117,7 +117,7 @@ export const createReview = async (
     });
 
     if (!seller) {
-      return ResponseApi.notFound(res, "Seller not found", 404);
+      return ResponseApi.notFound(res, 'Seller not found', 404);
     }
 
     // Vérifier si l'utilisateur a déjà noté ce vendeur
@@ -131,7 +131,7 @@ export const createReview = async (
     if (existingReview) {
       return ResponseApi.error(
         res,
-        "You have already rated this seller",
+        'You have already rated this seller',
         null,
         400
       );
@@ -163,10 +163,10 @@ export const createReview = async (
       },
     });
 
-    ResponseApi.success(res, "Review created successfully", review, 201);
+    ResponseApi.success(res, 'Review created successfully', review, 201);
   } catch (error) {
-    console.error("Error creating review:", error);
-    ResponseApi.error(res, "Failed to create review", 500);
+    console.error('Error creating review:', error);
+    ResponseApi.error(res, 'Failed to create review', 500);
   }
 };
 
@@ -180,13 +180,13 @@ export const updateReview = async (
 
   try {
     if (!id) {
-      return ResponseApi.error(res, "Review ID is required", null, 422);
+      return ResponseApi.error(res, 'Review ID is required', null, 422);
     }
 
     if (!rating || rating < 1 || rating > 5) {
       return ResponseApi.error(
         res,
-        "Valid rating (1-5) is required",
+        'Valid rating (1-5) is required',
         null,
         400
       );
@@ -197,14 +197,14 @@ export const updateReview = async (
     });
 
     if (!review) {
-      return ResponseApi.notFound(res, "Review not found", 404);
+      return ResponseApi.notFound(res, 'Review not found', 404);
     }
 
     // Vérifier que l'utilisateur ne peut modifier que ses propres reviews
     if (review.userId !== userId) {
       return ResponseApi.error(
         res,
-        "You can only update your own reviews",
+        'You can only update your own reviews',
         null,
         403
       );
@@ -235,10 +235,10 @@ export const updateReview = async (
       },
     });
 
-    ResponseApi.success(res, "Review updated successfully", updatedReview);
+    ResponseApi.success(res, 'Review updated successfully', updatedReview);
   } catch (error) {
-    console.error("Error updating review:", error);
-    ResponseApi.error(res, "Failed to update review", 500);
+    console.error('Error updating review:', error);
+    ResponseApi.error(res, 'Failed to update review', 500);
   }
 };
 
@@ -251,7 +251,7 @@ export const deleteReview = async (
 
   try {
     if (!id) {
-      return ResponseApi.error(res, "Review ID is required", null, 422);
+      return ResponseApi.error(res, 'Review ID is required', null, 422);
     }
 
     const review = await prisma.review.findUnique({
@@ -259,14 +259,14 @@ export const deleteReview = async (
     });
 
     if (!review) {
-      return ResponseApi.notFound(res, "Review not found", 404);
+      return ResponseApi.notFound(res, 'Review not found', 404);
     }
 
     // Vérifier que l'utilisateur ne peut supprimer que ses propres reviews
     if (review.userId !== userId) {
       return ResponseApi.error(
         res,
-        "You can only delete your own reviews",
+        'You can only delete your own reviews',
         null,
         403
       );
@@ -276,10 +276,10 @@ export const deleteReview = async (
       where: { id },
     });
 
-    ResponseApi.success(res, "Review deleted successfully", null);
+    ResponseApi.success(res, 'Review deleted successfully', null);
   } catch (error) {
-    console.error("Error deleting review:", error);
-    ResponseApi.error(res, "Failed to delete review", 500);
+    console.error('Error deleting review:', error);
+    ResponseApi.error(res, 'Failed to delete review', 500);
   }
 };
 
@@ -290,7 +290,7 @@ export const getReviewsForUser = async (
   const sellerId = req.params.userId;
   try {
     if (!sellerId) {
-      return ResponseApi.error(res, "Seller ID is required", null, 422);
+      return ResponseApi.error(res, 'Seller ID is required', null, 422);
     }
 
     // Vérifier que le vendeur existe
@@ -305,7 +305,7 @@ export const getReviewsForUser = async (
     });
 
     if (!seller) {
-      return ResponseApi.notFound(res, "Seller not found", 404);
+      return ResponseApi.notFound(res, 'Seller not found', 404);
     }
 
     // Récupérer toutes les reviews pour ce vendeur
@@ -322,7 +322,7 @@ export const getReviewsForUser = async (
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
@@ -344,7 +344,7 @@ export const getReviewsForUser = async (
       1: reviews.filter((r) => r.rating === 1).length,
     };
 
-    ResponseApi.success(res, "Seller reviews retrieved successfully", {
+    ResponseApi.success(res, 'Seller reviews retrieved successfully', {
       seller,
       reviews,
       statistics: {
@@ -354,8 +354,8 @@ export const getReviewsForUser = async (
       },
     });
   } catch (error) {
-    console.error("Error retrieving reviews for seller:", error);
-    ResponseApi.error(res, "Failed to retrieve reviews for seller", 500);
+    console.error('Error retrieving reviews for seller:', error);
+    ResponseApi.error(res, 'Failed to retrieve reviews for seller', 500);
   }
 };
 
@@ -379,13 +379,13 @@ export const getReviewsByUser = async (
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
-    ResponseApi.success(res, "Your reviews retrieved successfully", reviews);
+    ResponseApi.success(res, 'Your reviews retrieved successfully', reviews);
   } catch (error) {
-    console.error("Error retrieving user reviews:", error);
-    ResponseApi.error(res, "Failed to retrieve your reviews", 500);
+    console.error('Error retrieving user reviews:', error);
+    ResponseApi.error(res, 'Failed to retrieve your reviews', 500);
   }
 };

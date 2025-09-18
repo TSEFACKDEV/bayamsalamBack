@@ -8,7 +8,7 @@ const createWelcomeEmailTemplate = (firstName, lastName) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bienvenue sur BuyamSale !</title>
+  <title>Bienvenue sur BuyAndSale !</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -95,13 +95,13 @@ const createWelcomeEmailTemplate = (firstName, lastName) => {
   <div class="email-container">
     <div class="header">
       <span class="header-icon">🎉</span>
-      <h1>Bienvenue sur BuyamSale !</h1>
+      <h1>Bienvenue sur BuyAndSale !</h1>
       <p>Votre marketplace de confiance au Cameroun</p>
     </div>
     <div class="content">
       <div class="welcome-message">
         Bonjour <strong>${firstName} ${lastName}</strong>,<br><br>
-        Nous sommes ravis de vous accueillir sur <strong>BuyamSale</strong>.<br>
+        Nous sommes ravis de vous accueillir sur <strong>BuyAndSale</strong>.<br>
         Découvrez une nouvelle façon d'acheter, vendre et échanger en toute simplicité !
       </div>
       <ul class="features-list">
@@ -111,13 +111,13 @@ const createWelcomeEmailTemplate = (firstName, lastName) => {
         <li>Bénéficiez d'une plateforme sécurisée et conviviale</li>
       </ul>
       <div style="font-size:15px;color:#4a5568;">
-        Merci de rejoindre la communauté <strong>BuyamSale</strong> !
+        Merci de rejoindre la communauté <strong>BuyAndSale</strong> !
       </div>
     </div>
     <div class="footer">
-      <p><strong>BuyamSale</strong> - Système de notification automatique</p>
+      <p><strong>BuyAndSale</strong> - Système de notification automatique</p>
       <p>Cet email a été généré automatiquement lors de la création de votre compte</p>
-      <p>Cameroun | Administration BuyamSale</p>
+      <p>Cameroun | Administration BuyAndSale</p>
     </div>
   </div>
 </body>

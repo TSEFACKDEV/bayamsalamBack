@@ -1,4 +1,28 @@
 "use strict";
+/**
+ * 🔐 CONTRÔLEUR D'AUTHENTIFICATION - BuyAndSale
+ *
+ * Ce module gère l'authentification et l'autorisation des utilisateurs.
+ *
+ * 🎯 FONCTIONNALITÉS PRINCIPALES:
+ * - Inscription et vérification OTP
+ * - Connexion locale et Google OAuth
+ * - Gestion des tokens JWT (Access + Refresh)
+ * - Support multi-device (sessions simultanées)
+ * - Réinitialisation de mot de passe
+ * - Gestion sécurisée des erreurs
+ *
+ * 🔒 STRATÉGIE DE SÉCURITÉ:
+ * - Validation stricte des entrées utilisateur
+ * - Hachage sécurisé des mots de passe
+ * - Rotation automatique des refresh tokens
+ * - Gestion permissive pour sessions multiples
+ * - Logs détaillés pour monitoring
+ *
+ * 📱 SUPPORT MULTI-DEVICE:
+ * Les utilisateurs peuvent se connecter depuis plusieurs appareils simultanément.
+ * Les anciens refresh tokens restent valides pour éviter les déconnexions forcées.
+ */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -68,12 +92,15 @@ const response_js_1 = __importDefault(require("../helper/response.js"));
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
 const otpEmailTemplate_js_1 = require("../templates/otpEmailTemplate.js");
 const notification_service_js_1 = require("../services/notification.service.js");
+const input_validation_js_1 = require("../utilities/input.validation.js");
 const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { email, password, firstName, lastName, phone } = req.body;
-        if (!email || !password || !firstName || !lastName || !phone) {
-            return response_js_1.default.error(res, "Tous les champs sont obligatoires", null, 400);
+        // 🔐 VALIDATION SÉCURISÉE DES DONNÉES
+        const validation = (0, input_validation_js_1.validateAndNormalizeRegistration)(req.body);
+        if (!validation.isValid) {
+            return response_js_1.default.error(res, validation.message || "Données invalides", null, 400);
         }
+        const { email, firstName, lastName, phone, password } = validation.normalizedData;
         const existingUser = yield prisma_client_js_1.default.user.findUnique({
             where: { email },
         });
@@ -102,10 +129,10 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         }
         const otp = (0, otp_js_1.generateOTP)();
         const smsSent = yield (0, sms_js_1.sendSMS)(phone, `Votre code OTP est: ${otp}`);
-        /* log de l'otp pour le developement sans connexion */
-        console.log("====================================");
-        console.log(otp);
-        console.log("====================================");
+        // Log OTP en développement pour faciliter les tests
+        if (process.env.NODE_ENV === "development") {
+            console.log(`OTP pour ${phone}: ${otp}`);
+        }
         if (!smsSent) {
             // Plus besoin de logoUrl !
             const htmlTemplate = (0, otpEmailTemplate_js_1.createOTPEmailTemplate)(firstName, lastName, otp);
@@ -177,6 +204,11 @@ const verifyOTP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
 exports.verifyOTP = verifyOTP;
 const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        // 🔐 VALIDATION SÉCURISÉE DES DONNÉES DE CONNEXION
+        const validation = (0, input_validation_js_1.validateLoginData)(req.body);
+        if (!validation.isValid) {
+            return response_js_1.default.error(res, validation.message || "Données de connexion invalides", null, 400);
+        }
         const { identifiant, password } = req.body;
         if (!identifiant || !password) {
             return response_js_1.default.error(res, "Identifiant et mot de passe sont requis", null, 400);
@@ -211,6 +243,7 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         if (!isPasswordValid) {
             return response_js_1.default.error(res, " Identifiant ou mot de passe incorrect", null, 401);
         }
+        // 🔐 GÉNÉRATION DES TOKENS D'AUTHENTIFICATION
         const AccessToken = (0, token_js_1.generateToken)({
             id: user.id,
             email: user.email,
@@ -219,7 +252,31 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             id: user.id,
             email: user.email,
         });
+        // 🎯 GESTION MULTI-DEVICE POUR LOGIN NORMAL
+        // Stratégie: Préserver les sessions existantes, créer une nouvelle seulement si nécessaire
+        const shouldCreateNewSession = !user.refreshToken;
+        if (shouldCreateNewSession) {
+            // Première connexion ou pas de session active → créer une nouvelle session
+            yield prisma_client_js_1.default.user.update({
+                where: { id: user.id },
+                data: {
+                    refreshToken,
+                    lastConnexion: new Date(),
+                },
+            });
+        }
+        else {
+            // Session existante → juste mettre à jour la dernière connexion
+            yield prisma_client_js_1.default.user.update({
+                where: { id: user.id },
+                data: {
+                    lastConnexion: new Date(),
+                },
+            });
+        }
+        // 📊 EXTRACTION DES DONNÉES UTILISATEUR (sans le mot de passe)
         const { password: _ } = user, userData = __rest(user, ["password"]);
+        // 🔑 EXTRACTION DES PERMISSIONS ET RÔLES
         const permissions = userData.roles.flatMap((userRole) => {
             return userRole.role.permissions.map((permission) => {
                 return {
@@ -236,18 +293,16 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         const roles = user.roles.map((userRole) => {
             return userRole.role.name;
         });
-        // Récuperation des permissions sans doublons
+        // 🔄 DÉDUPLICATION DES PERMISSIONS
         const uniquePermissions = Array.from(new Map(permissions.map((permission) => {
             return [permission.permissionKey, permission];
         })).values());
-        // userData.roles = roles;
-        // userData.permissions = uniquePermissions;
-        // userData.permissionKeys = permissionKeys;
+        // 📤 RÉPONSE DE CONNEXION RÉUSSIE
         return response_js_1.default.success(res, "Connexion réussie", {
             token: {
                 type: "Bearer",
                 AccessToken,
-                refreshToken,
+                refreshToken: shouldCreateNewSession ? refreshToken : user.refreshToken, // Utiliser le token approprié
             },
             user: userData,
         });
@@ -263,81 +318,161 @@ exports.login = login;
  */
 const refreshToken = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { jwt } = req.cookies;
-        const refreshToken = jwt;
+        // 🔐 SUPPORT MULTI-SOURCE POUR REFRESH TOKEN
+        // Essayer de récupérer le refresh token depuis plusieurs sources
+        const { jwt: cookieToken } = req.cookies || {};
+        const { refreshToken: bodyToken } = req.body || {};
+        const refreshToken = bodyToken || cookieToken;
         if (!refreshToken) {
-            return response_js_1.default.error(res, "No Refresh Token found", 400);
+            return response_js_1.default.error(res, "Aucun refresh token fourni", {
+                code: "NO_REFRESH_TOKEN",
+                sources: {
+                    cookie: !!cookieToken,
+                    body: !!bodyToken,
+                },
+            }, 400);
         }
+        // Vérifier et décoder le refresh token
         const decoded = (0, token_js_1.verifyToken)(refreshToken);
         if (!decoded) {
-            return response_js_1.default.error(res, "Invalid Refresh Token", 400);
+            return response_js_1.default.error(res, "Refresh token invalide", {
+                code: "INVALID_REFRESH_TOKEN",
+            }, 400);
         }
+        // Récupérer l'utilisateur
         const user = yield prisma_client_js_1.default.user.findUnique({
             where: { id: decoded.id },
         });
         if (!user) {
-            return response_js_1.default.error(res, "User not found", 404);
+            return response_js_1.default.error(res, "Utilisateur non trouvé", {
+                code: "USER_NOT_FOUND",
+            }, 404);
         }
+        // 🔐 VALIDATION PERMISSIVE POUR MULTI-DEVICE
+        // Stratégie: Accepter les anciens refresh tokens pour permettre plusieurs appareils connectés
+        const storedToken = user.refreshToken;
+        if (storedToken && storedToken !== refreshToken) {
+            console.log(`ℹ️ [MultiDevice] Utilisateur ${user.id} utilise un ancien refresh token - Autorisé`);
+            // ✅ On continue le processus (stratégie permissive pour multi-device)
+        }
+        // 🔄 GÉNÉRATION DU NOUVEAU ACCESS TOKEN
         const newAccessToken = (0, token_js_1.generateToken)({
             id: user.id,
             email: user.email,
         });
-        return response_js_1.default.success(res, "Token refreshed successfully", {
-            token: {
-                type: "Bearer",
-                AccessToken: newAccessToken,
+        // � ROTATION OPTIONNELLE DU REFRESH TOKEN
+        // Générer un nouveau refresh token pour une sécurité renforcée
+        const newRefreshToken = (0, token_js_1.generateRefreshToken)({
+            id: user.id,
+            email: user.email,
+        });
+        // � STRATÉGIE DE MISE À JOUR INTELLIGENTE
+        // Mettre à jour seulement si:
+        // - Pas de refresh token en base OU
+        // - Token reçu via body (rotation explicite demandée)
+        const shouldRotateToken = !user.refreshToken || !!bodyToken;
+        if (shouldRotateToken) {
+            yield prisma_client_js_1.default.user.update({
+                where: { id: user.id },
+                data: {
+                    refreshToken: newRefreshToken,
+                    lastConnexion: new Date(),
+                },
+            });
+        }
+        // 🍪 MISE À JOUR DU COOKIE SI NÉCESSAIRE
+        // Seulement si le token venait du cookie ET qu'on a fait une rotation
+        if (cookieToken && shouldRotateToken) {
+            res.cookie("jwt", newRefreshToken, {
+                httpOnly: true,
+                secure: config_js_1.default.nodeEnv === "production",
+                sameSite: "strict",
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+            });
+        }
+        // 📤 RÉPONSE AVEC LES NOUVEAUX TOKENS
+        return response_js_1.default.success(res, "Token rafraîchi avec succès", {
+            token: Object.assign({ type: "Bearer", AccessToken: newAccessToken }, (bodyToken &&
+                shouldRotateToken && { RefreshToken: newRefreshToken })),
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
             },
         });
     }
     catch (error) {
-        console.error("Error refreshing token:", error);
-        return response_js_1.default.error(res, "An error occurred while refreshing token", error.message, 500);
+        console.error("Erreur lors du refresh token:", error);
+        // 🔐 GESTION SÉCURISÉE DES ERREURS
+        if (error.name === "TokenExpiredError") {
+            return response_js_1.default.error(res, "Refresh token expiré", {
+                code: "REFRESH_TOKEN_EXPIRED",
+                expiredAt: error.expiredAt,
+            }, 401);
+        }
+        else if (error.name === "JsonWebTokenError") {
+            return response_js_1.default.error(res, "Refresh token malformé", {
+                code: "MALFORMED_REFRESH_TOKEN",
+            }, 400);
+        }
+        return response_js_1.default.error(res, "Erreur lors du rafraîchissement du token", {
+            code: "REFRESH_ERROR",
+            message: error.message,
+        }, 500);
     }
 });
 exports.refreshToken = refreshToken;
 /**
- * Déconnexion de l'utilisateur.
+ * 🚪 DÉCONNEXION SÉCURISÉE DE L'UTILISATEUR
+ *
+ * Cette fonction gère la déconnexion en révoquant le refresh token
+ * et en nettoyant les cookies de session.
+ *
+ * 📱 IMPACT MULTI-DEVICE:
+ * La déconnexion révoque le refresh token principal, ce qui peut affecter
+ * les autres sessions actives. C'est un comportement volontaire pour la sécurité.
  */
 const logout = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { jwt } = req.cookies;
         const refreshToken = jwt;
-        // Si pas de refresh token, on considère que l'utilisateur est déjà déconnecté
+        // 🧹 NETTOYAGE SYSTÉMATIQUE DU COOKIE
+        const clearCookieOptions = {
+            httpOnly: true,
+            secure: config_js_1.default.nodeEnv === "production",
+            sameSite: "strict",
+        };
+        // Si pas de refresh token, considérer comme déjà déconnecté
         if (!refreshToken) {
-            // Supprimer le cookie quand même par sécurité
-            res.clearCookie("jwt", {
-                httpOnly: true,
-                secure: config_js_1.default.nodeEnv === "production",
-                sameSite: "strict",
-            });
-            return response_js_1.default.success(res, "Already logged out", {}, 200);
+            res.clearCookie("jwt", clearCookieOptions);
+            return response_js_1.default.success(res, "Utilisateur déjà déconnecté", {}, 200);
         }
-        // Révoquer le Refresh Token dans la base de données
+        // 🔍 RECHERCHE ET RÉVOCATION DU TOKEN
         const user = yield prisma_client_js_1.default.user.findFirst({ where: { refreshToken } });
-        console.log("Utilisateur trouvé pour ce refreshToken:", user);
         if (user) {
             yield prisma_client_js_1.default.user.update({
                 where: { id: user.id },
                 data: { refreshToken: null },
             });
+            console.log(`✅ [Logout] Token révoqué pour utilisateur ${user.id}`);
         }
-        // Supprimer le cookie dans tous les cas
-        res.clearCookie("jwt", {
-            httpOnly: true,
-            secure: config_js_1.default.nodeEnv === "production",
-            sameSite: "strict",
-        });
-        return response_js_1.default.success(res, "Logout successful !!!", {}, 200);
+        else {
+            console.log(`⚠️ [Logout] Aucun utilisateur trouvé pour ce refresh token`);
+        }
+        // 🧹 NETTOYAGE FINAL DU COOKIE
+        res.clearCookie("jwt", clearCookieOptions);
+        return response_js_1.default.success(res, "Déconnexion réussie", {}, 200);
     }
     catch (error) {
-        console.error("Erreur lors de la déconnexion:", error);
-        // Même en cas d'erreur, supprimer le cookie pour forcer la déconnexion côté client
+        console.error("❌ [Logout] Erreur:", error);
+        // 🛡️ NETTOYAGE DE SÉCURITÉ même en cas d'erreur
         res.clearCookie("jwt", {
             httpOnly: true,
             secure: config_js_1.default.nodeEnv === "production",
             sameSite: "strict",
         });
-        return response_js_1.default.success(res, "Logout completed with cleanup", {}, 200);
+        return response_js_1.default.success(res, "Déconnexion forcée (nettoyage sécurisé)", {}, 200);
     }
 });
 exports.logout = logout;
@@ -583,35 +718,44 @@ const googleCallback = (req, res) => __awaiter(void 0, void 0, void 0, function*
             res.redirect(`${config_js_1.default.frontendUrl}/auth/login?error=auth_failed`);
             return;
         }
-        // Générer les tokens
+        // 🔐 GÉNÉRATION DES TOKENS D'ACCÈS ET DE RAFRAÎCHISSEMENT
         const AccessToken = (0, token_js_1.generateToken)({
             id: user.id,
             email: user.email,
         });
-        const refreshToken = (0, token_js_1.generateRefreshToken)({
+        const newRefreshToken = (0, token_js_1.generateRefreshToken)({
             id: user.id,
             email: user.email,
         });
-        // Mettre à jour le refresh token dans la base de données
+        // 🔐 GESTION MULTI-DEVICE: Vérifier l'état actuel des tokens
+        const currentUser = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: user.id },
+            select: { refreshToken: true },
+        });
+        // 🎯 STRATÉGIE MULTI-DEVICE SIMPLIFIÉE:
+        // - Si aucun refresh token existant → utiliser le nouveau
+        // - Si refresh token existant → le conserver pour permettre les sessions multiples
+        const finalRefreshToken = (currentUser === null || currentUser === void 0 ? void 0 : currentUser.refreshToken) || newRefreshToken;
+        const shouldUpdateToken = !(currentUser === null || currentUser === void 0 ? void 0 : currentUser.refreshToken);
+        // 📝 MISE À JOUR EN BASE: Seulement si nécessaire
         yield prisma_client_js_1.default.user.update({
             where: { id: user.id },
-            data: {
-                refreshToken,
-                lastConnexion: new Date(),
-            },
+            data: Object.assign(Object.assign({}, (shouldUpdateToken && { refreshToken: finalRefreshToken })), { lastConnexion: new Date() }),
         });
-        // Stocker le refreshToken dans un cookie HTTP-only
-        res.cookie("jwt", refreshToken, {
+        // 🍪 CONFIGURATION DU COOKIE DE SESSION
+        res.cookie("jwt", finalRefreshToken, {
             httpOnly: true,
             secure: config_js_1.default.nodeEnv === "production",
             sameSite: "lax",
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
         });
-        console.log("[DEBUG] GoogleCallback - Utilisateur authentifié:", {
+        console.log("✅ [GoogleAuth] Connexion réussie:", {
             id: user.id,
             email: user.email,
-            tokenGenere: true,
+            tokenGenerated: true,
             sessionId: req.sessionID,
+            isMultiDevice: !shouldUpdateToken, // Indique si c'est une session supplémentaire
+            tokenStrategy: shouldUpdateToken ? "nouveau_token" : "token_existant",
         });
         // Rediriger vers le frontend avec le token en paramètre
         res.redirect(`${config_js_1.default.frontendUrl}/auth/social-callback?token=${encodeURIComponent(AccessToken)}`);

@@ -33,7 +33,7 @@ passport_1.default.use(new passport_google_oauth20_1.Strategy({
     clientID: config_js_1.default.GOOGLE_CLIENT_ID,
     clientSecret: config_js_1.default.GOOGLE_CLIENT_SECRET,
     callbackURL: config_js_1.default.GOOGLE_CALLBACK_URL,
-    scope: ["profile", "email"],
+    scope: ['profile', 'email'],
     // Ajouter des options pour gérer les timeouts et conflits
     passReqToCallback: false,
     skipUserProfile: false,
@@ -99,25 +99,25 @@ passport_1.default.use(new passport_google_oauth20_1.Strategy({
                 return linkedUser;
             }
             // Créer un nouvel utilisateur
-            const names = ((_j = profile.displayName) === null || _j === void 0 ? void 0 : _j.split(" ")) || ["", ""];
-            const firstName = names[0] || "";
-            const lastName = names.slice(1).join(" ") || "";
+            const names = ((_j = profile.displayName) === null || _j === void 0 ? void 0 : _j.split(' ')) || ['', ''];
+            const firstName = names[0] || '';
+            const lastName = names.slice(1).join(' ') || '';
             const newUser = yield tx.user.create({
                 data: {
-                    email: ((_l = (_k = profile.emails) === null || _k === void 0 ? void 0 : _k[0]) === null || _l === void 0 ? void 0 : _l.value) || "",
+                    email: ((_l = (_k = profile.emails) === null || _k === void 0 ? void 0 : _k[0]) === null || _l === void 0 ? void 0 : _l.value) || '',
                     firstName,
                     lastName,
-                    password: "", // Pas de mot de passe pour l'authentification Google
+                    password: '', // Pas de mot de passe pour l'authentification Google
                     googleId: profile.id,
                     avatar: (_o = (_m = profile.photos) === null || _m === void 0 ? void 0 : _m[0]) === null || _o === void 0 ? void 0 : _o.value,
                     isVerified: true, // L'email est déjà vérifié par Google
-                    status: "ACTIVE",
+                    status: 'ACTIVE',
                     lastConnexion: new Date(),
                 },
             });
             // Ajout automatique du rôle USER
             const userRole = yield tx.role.findUnique({
-                where: { name: "USER" },
+                where: { name: 'USER' },
             });
             if (userRole) {
                 yield tx.userRole.create({
@@ -136,16 +136,16 @@ passport_1.default.use(new passport_google_oauth20_1.Strategy({
                 new Date().toDateString();
         if (isNewConnection) {
             try {
-                yield (0, notification_service_js_1.createNotification)(result.id, "Bienvenue sur BuyamSale", result.lastConnexion
-                    ? "Heureux de vous revoir sur BuyamSale !"
-                    : "Votre compte a été créé avec succès via Google. Bienvenue !", {
-                    type: "WELCOME",
-                    link: "/",
+                yield (0, notification_service_js_1.createNotification)(result.id, 'Bienvenue sur BuyAndSale', result.lastConnexion
+                    ? 'Heureux de vous revoir sur BuyAndSale !'
+                    : 'Votre compte a été créé avec succès via Google. Bienvenue !', {
+                    type: 'WELCOME',
+                    link: '/',
                 });
             }
             catch (notificationError) {
                 // Log l'erreur mais ne pas faire échouer l'authentification
-                console.error("Erreur lors de la création de la notification:", notificationError);
+                console.error('Erreur lors de la création de la notification:', notificationError);
             }
         }
         return done(null, result);

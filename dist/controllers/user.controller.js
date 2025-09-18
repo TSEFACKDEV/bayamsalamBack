@@ -17,16 +17,6 @@ const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const bcrypt_js_1 = require("../utilities/bcrypt.js");
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
-/**
- * 📋 RÉCUPÉRATION DE TOUS LES UTILISATEURS AVEC SUPPORT ADMIN
- *
- * MODIFICATIONS APPORTÉES :
- * ✅ Ajout des relations avec les rôles (include: roles)
- * ✅ Amélioration de la recherche multi-champs (firstName, lastName, email)
- * ✅ Calcul automatique des statistiques utilisateur par statut
- * ✅ Format de réponse standardisé avec pagination et stats
- * ✅ Gestion robuste des erreurs
- */
 const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -50,11 +40,16 @@ const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 createdAt: "desc",
             },
             where: whereClause,
-            // 🔗 NOUVEAU : Inclusion des rôles pour l'interface admin
+            // 🔗 NOUVEAU : Inclusion des rôles ET comptage des produits
             include: {
                 roles: {
                     include: {
                         role: true,
+                    },
+                },
+                _count: {
+                    select: {
+                        products: true, // Compter tous les produits de l'utilisateur
                     },
                 },
             },
@@ -117,16 +112,6 @@ const getUserById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
 });
 exports.getUserById = getUserById;
-/**
- * ➕ CRÉATION D'UTILISATEUR AVEC SUPPORT DES RÔLES
- *
- * MODIFICATIONS APPORTÉES :
- * ✅ Support de l'assignation de rôle lors de la création (roleId)
- * ✅ Statut par défaut "ACTIVE" pour les créations admin
- * ✅ Retour des données avec les rôles inclus
- * ✅ Gestion optionnelle du mot de passe (pour les admins)
- * ✅ Validation améliorée des champs requis
- */
 const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // 🔧 NOUVEAU : Support du roleId pour l'assignation de rôle
@@ -200,17 +185,6 @@ const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.createUser = createUser;
-/**
- * ✏️ MISE À JOUR D'UTILISATEUR AVEC GESTION DES RÔLES ET STATUTS
- *
- * MODIFICATIONS APPORTÉES :
- * ✅ Support de la modification des rôles (roleId)
- * ✅ Support de la modification du statut utilisateur (status)
- * ✅ Gestion complète des champs utilisateur (firstName, lastName, etc.)
- * ✅ Remplacement automatique des rôles (suppression puis ajout)
- * ✅ Retour des données avec les rôles inclus
- * ✅ Récupération des rôles existants pour validation
- */
 const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id = req.params.id;
     if (!id) {

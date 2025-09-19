@@ -19,6 +19,82 @@ import {
   SecurityEventType,
 } from "../utils/securityMonitor.js";
 
+// Helper pour construire les filtres de produits validés génériques
+const buildValidatedProductFilters = (
+  search?: string,
+  categoryId?: string,
+  cityId?: string,
+  priceMin?: number,
+  priceMax?: number,
+  etat?: string
+) => {
+  const where: any = {
+    status: "VALIDATED" as const,
+    ...(search && { name: { contains: search } }),
+    ...(categoryId && { categoryId }),
+    ...(cityId && { cityId }),
+    ...(etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat) && { etat }),
+  };
+
+  // Gestion des filtres de prix
+  const priceFilter: any = {};
+  if (priceMin !== undefined && !isNaN(priceMin)) priceFilter.gte = priceMin;
+  if (priceMax !== undefined && !isNaN(priceMax)) priceFilter.lte = priceMax;
+  if (Object.keys(priceFilter).length > 0) where.price = priceFilter;
+
+  return where;
+};
+
+// Helper pour construire les filtres de produits
+const buildProductFilters = (
+  categoryId: string,
+  search?: string,
+  cityId?: string,
+  priceMin?: number,
+  priceMax?: number,
+  etat?: string
+) => {
+  const where: any = {
+    status: "VALIDATED" as const,
+    categoryId,
+    ...(search && { name: { contains: search } }),
+    ...(cityId && { cityId }),
+    ...(etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat) && { etat }),
+  };
+
+  // Gestion des filtres de prix
+  const priceFilter: any = {};
+  if (priceMin !== undefined && !isNaN(priceMin)) priceFilter.gte = priceMin;
+  if (priceMax !== undefined && !isNaN(priceMax)) priceFilter.lte = priceMax;
+  if (Object.keys(priceFilter).length > 0) where.price = priceFilter;
+
+  return where;
+};
+
+// Helper pour extraire et valider les paramètres de pagination
+const getPaginationParams = (query: any) => {
+  const page = sanitizeNumericParam(query.page, 1, 1, 1000);
+  const limit = sanitizeNumericParam(query.limit, 10, 1, 100);
+  return { page, limit };
+};
+
+// Helper pour calculer la pagination
+const calculatePagination = (
+  page: number,
+  limit: number,
+  totalCount: number
+) => {
+  const totalPage = Math.ceil(totalCount / limit);
+  return {
+    currentPage: page,
+    prevPage: page > 1 ? page - 1 : null,
+    nextPage: page < totalPage ? page + 1 : null,
+    totalPage,
+    perpage: limit,
+    total: totalCount,
+  };
+};
+
 // Fonction pour enregistrer une vue d'annonce (utilisateurs connectés uniquement)
 export const recordProductView = async (
   req: Request,
@@ -196,6 +272,17 @@ export const getAllProducts = async (
         category: true,
         city: true,
         user: true, // On inclut l'utilisateur
+        productForfaits: {
+          include: {
+            forfait: true,
+          },
+          where: {
+            isActive: true,
+            expiresAt: {
+              gt: new Date(),
+            },
+          },
+        },
       },
     });
 
@@ -286,12 +373,11 @@ export const getValidatedProducts = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const page = sanitizeNumericParam(req.query.page, 1, 1, 1000);
-  const limit = sanitizeNumericParam(req.query.limit, 10, 1, 100);
+  const { page, limit } = getPaginationParams(req.query);
   const offset = (page - 1) * limit;
   const search = sanitizeSearchParam(req.query.search);
-  const categoryId = req.query.categoryId;
-  const cityId = req.query.cityId;
+  const categoryId = req.query.categoryId as string;
+  const cityId = req.query.cityId as string;
 
   // 🔐 Logging de sécurité si des paramètres ont été nettoyés
   if (req.query.search && req.query.search !== search) {
@@ -322,40 +408,18 @@ export const getValidatedProducts = async (
         10000000
       )
     : undefined;
-  const etat = req.query.etat as string; // NEUF, OCCASION, CORRECT
+  const etat = req.query.etat as string;
 
   try {
-    const where: any = { status: "VALIDATED" };
-
-    // Filtre de recherche par nom
-    if (search) {
-      where.name = { contains: search };
-    }
-
-    // Filtre par catégorie
-    if (categoryId) {
-      where.categoryId = categoryId;
-    }
-
-    // Filtre par ville
-    if (cityId) {
-      where.cityId = cityId;
-    }
-
-    // ✅ NOUVEAU - Filtre par prix minimum
-    if (priceMin !== undefined && !isNaN(priceMin)) {
-      where.price = { ...where.price, gte: priceMin };
-    }
-
-    // ✅ NOUVEAU - Filtre par prix maximum
-    if (priceMax !== undefined && !isNaN(priceMax)) {
-      where.price = { ...where.price, lte: priceMax };
-    }
-
-    // ✅ NOUVEAU - Filtre par état
-    if (etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat)) {
-      where.etat = etat;
-    }
+    // Construction des filtres avec le helper
+    const where = buildValidatedProductFilters(
+      search,
+      categoryId,
+      cityId,
+      priceMin,
+      priceMax,
+      etat
+    );
 
     const products = await prisma.product.findMany({
       skip: offset,
@@ -374,13 +438,13 @@ export const getValidatedProducts = async (
       },
     });
 
-    // ✅ MISE À JOUR - Tri optimisé côté serveur par priorité des forfaits avec nouvelles priorités
+    // ✅ MISE À JOUR - Tri optimisé côté serveur par priorité des forfaits pour page produits
+    // Ordre: PREMIUM > TOP_ANNONCE > A_LA_UNE > URGENT > Produits sans forfait
     const forfaitPriority: Record<string, number> = {
-      PREMIUM: 1, // Priorité la plus haute
-      A_LA_UNE: 2, // ✅ NOUVEAU - Deuxième priorité
-      TOP_ANNONCE: 3, // Troisième priorité
-      URGENT: 4, // Quatrième priorité
-      MISE_EN_AVANT: 5, // Priorité la plus basse
+      PREMIUM: 1, // 1. Premium (regroupe tous les forfaits)
+      TOP_ANNONCE: 2, // 2. Top (en tête de liste)
+      A_LA_UNE: 3, // 3. À la une
+      URGENT: 4, // 4. Urgent (badge urgent)
     };
 
     const getPriority = (p: any) => {
@@ -408,16 +472,11 @@ export const getValidatedProducts = async (
     const productsWithImageUrls =
       ProductTransformer.transformProductsWithForfaits(req, sortedByForfait);
 
+    const links = calculatePagination(page, limit, total);
+
     ResponseApi.success(res, "Validated products retrieved successfully!", {
       products: productsWithImageUrls,
-      links: {
-        perpage: limit,
-        prevPage: page > 1 ? page - 1 : null,
-        currentPage: page,
-        nextPage: offset + limit < total ? page + 1 : null,
-        totalPage: Math.ceil(total / limit),
-        total: total,
-      },
+      links,
     });
   } catch (error: any) {
     ResponseApi.error(res, "Failed to get validated products", error.message);
@@ -565,12 +624,25 @@ export const createProduct = async (
       telephone,
       forfaitType,
     } = req.body;
+
     if (!req.authUser?.id) {
       return ResponseApi.error(res, "User not authenticated", null, 401);
     }
     const userId = req.authUser?.id;
 
     // Validation basique
+    if (
+      !name ||
+      !price ||
+      !quantity ||
+      !description ||
+      !categoryId ||
+      !cityId ||
+      !etat
+    ) {
+      return ResponseApi.error(res, "Tous les champs sont requis", null, 400);
+    }
+
     if (
       !name ||
       !price ||
@@ -597,24 +669,24 @@ export const createProduct = async (
     const savedImages = await uploadProductImages(req);
 
     // Création du produit
-    const product = await prisma.product.create({
-      data: {
-        name,
-        price: parseFloat(price),
-        quantity: parseInt(quantity),
-        description,
-        images: savedImages,
-        categoryId,
-        userId,
-        cityId,
-        status: "PENDING",
-        etat,
-        quartier,
-        telephone,
-      },
-    });
+    const productCreateData = {
+      name,
+      price: parseFloat(price),
+      quantity: parseInt(quantity),
+      description,
+      images: savedImages,
+      categoryId,
+      userId,
+      cityId,
+      status: "PENDING" as const,
+      etat,
+      quartier,
+      telephone,
+    };
 
-    // Si le frontend a demandé un forfait lors de la création
+    const product = await prisma.product.create({
+      data: productCreateData,
+    }); // Si le frontend a demandé un forfait lors de la création
     if (forfaitType) {
       const forfait = await prisma.forfait.findFirst({
         where: { type: forfaitType },
@@ -1031,14 +1103,15 @@ export const getHomePageProduct = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  // Priorité des forfaits (1 = plus prioritaire)
-  // Ordre: A_LA_UNE > PREMIUM > TOP_ANNONCE > URGENT > Produits classiques
-  const priorities: ForfaitType[] = [
-    ForfaitType.A_LA_UNE,
-    ForfaitType.PREMIUM,
-    ForfaitType.TOP_ANNONCE,
-    ForfaitType.URGENT,
-  ];
+  // Ordre de priorité des forfaits pour la page d'accueil (HOMEPAGE)
+  // 1=À la Une, 2=Premium, 3=Top Annonce, 4=Urgent, 5=Sans forfait
+  const forfaitPriority: Record<string, number> = {
+    A_LA_UNE: 1, // Priorité maximale homepage
+    PREMIUM: 2, // Deuxième priorité homepage
+    TOP_ANNONCE: 3, // Troisième priorité homepage
+    URGENT: 4, // Quatrième priorité homepage
+  };
+
   const limit = parseInt(req.query.limit as string) || 10;
 
   try {
@@ -1052,58 +1125,65 @@ export const getHomePageProduct = async (
       );
     }
 
-    let products: any[] = [];
-    let usedPriority: string | null = null;
+    // Récupérer TOUS les produits validés
+    const allProducts = await prisma.product.findMany({
+      where: { status: "VALIDATED" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        category: true,
+        city: true,
+        user: true,
+        productForfaits: {
+          where: { isActive: true, expiresAt: { gt: new Date() } },
+          include: { forfait: true },
+        },
+      },
+    });
 
-    // On parcourt les priorités dans l'ordre
-    for (const type of priorities) {
-      products = await prisma.product.findMany({
-        where: {
-          status: "VALIDATED",
-          productForfaits: {
-            some: {
-              isActive: true,
-              expiresAt: { gt: new Date() },
-              forfait: { type },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        include: {
-          category: true,
-          city: true,
-          user: true,
-          productForfaits: {
-            where: { isActive: true, expiresAt: { gt: new Date() } },
-            include: { forfait: true },
-          },
-        },
-      });
-      if (products.length > 0) {
-        usedPriority = type;
-        break;
+    // Fonction pour obtenir la priorité d'un produit
+    const getProductPriority = (product: any): number => {
+      if (!product.productForfaits || product.productForfaits.length === 0) {
+        return Number.MAX_SAFE_INTEGER; // Pas de forfait = priorité la plus faible
       }
-    }
 
-    // Si aucun produit avec forfait, prendre les produits validés les plus récents
-    if (products.length === 0) {
-      products = await prisma.product.findMany({
-        where: { status: "VALIDATED" },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        include: {
-          category: true,
-          city: true,
-          user: true,
-          productForfaits: {
-            where: { isActive: true, expiresAt: { gt: new Date() } },
-            include: { forfait: true },
-          },
-        },
-      });
-      usedPriority = null;
-    }
+      // Trouver la meilleure priorité parmi tous les forfaits actifs
+      const priorities = product.productForfaits.map(
+        (pf: any) =>
+          forfaitPriority[pf.forfait?.type] ?? Number.MAX_SAFE_INTEGER
+      );
+      return Math.min(...priorities); // Plus petit = meilleur
+    };
+
+    // Trier tous les produits selon l'ordre de priorité HOMEPAGE
+    const sortedProducts = allProducts.sort((a, b) => {
+      const priorityA = getProductPriority(a);
+      const priorityB = getProductPriority(b);
+
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB; // Tri par priorité forfait
+      }
+
+      // Si même priorité, tri par date décroissante (plus récent first)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    // Prendre les premiers produits selon la limite
+    const products = sortedProducts.slice(0, limit);
+
+    // Déterminer la priorité utilisée (pour debug/info)
+    const usedPriority =
+      products.length > 0
+        ? (() => {
+            const firstProductPriority = getProductPriority(products[0]);
+            if (firstProductPriority === Number.MAX_SAFE_INTEGER) return null;
+
+            // Trouver le type de forfait correspondant à cette priorité
+            for (const [type, priority] of Object.entries(forfaitPriority)) {
+              if (priority === firstProductPriority) return type;
+            }
+            return null;
+          })()
+        : null;
 
     // Conversion des images en URLs complètes
     const productsWithImageUrls =
@@ -1112,6 +1192,17 @@ export const getHomePageProduct = async (
     const responseData = {
       products: productsWithImageUrls,
       usedPriority,
+      totalProducts: allProducts.length,
+      priorityDistribution: {
+        aLaUne: allProducts.filter((p) => getProductPriority(p) === 1).length,
+        premium: allProducts.filter((p) => getProductPriority(p) === 2).length,
+        topAnnonce: allProducts.filter((p) => getProductPriority(p) === 3)
+          .length,
+        urgent: allProducts.filter((p) => getProductPriority(p) === 4).length,
+        sansForfait: allProducts.filter(
+          (p) => getProductPriority(p) === Number.MAX_SAFE_INTEGER
+        ).length,
+      },
     };
 
     // 🚀 CACHE: Mettre en cache le résultat
@@ -1126,6 +1217,266 @@ export const getHomePageProduct = async (
     ResponseApi.error(
       res,
       "Erreur lors de la récupération des produits homepage",
+      error.message
+    );
+  }
+};
+
+// ✅ NOUVEAU: Récupérer les produits validés d'un vendeur spécifique
+export const getSellerProducts = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const sellerId = req.params.sellerId;
+  const { page, limit } = getPaginationParams(req.query);
+  const search = sanitizeSearchParam(req.query.search);
+  const offset = (page - 1) * limit;
+
+  try {
+    // Vérifier que le vendeur existe
+    const seller = await prisma.user.findUnique({
+      where: { id: sellerId },
+      select: { id: true, firstName: true, lastName: true },
+    });
+
+    if (!seller) {
+      return ResponseApi.error(res, "Vendeur introuvable", null, 404);
+    }
+
+    const where = {
+      status: "VALIDATED" as const,
+      userId: sellerId,
+      ...(search && { name: { contains: search } }),
+    };
+
+    // Récupération des produits avec pagination
+    const [products, totalCount] = await Promise.all([
+      prisma.product.findMany({
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        where,
+        include: {
+          category: true,
+          city: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+              phone: true,
+            },
+          },
+        },
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    // Transformation des URLs d'images
+    const productsWithImageUrls = ProductTransformer.transformProducts(
+      req,
+      products
+    );
+
+    // Calcul de la pagination
+    const links = calculatePagination(page, limit, totalCount);
+
+    ResponseApi.success(
+      res,
+      `Produits du vendeur ${seller.firstName} ${seller.lastName} récupérés avec succès`,
+      {
+        products: productsWithImageUrls,
+        links,
+        seller: {
+          id: seller.id,
+          name: `${seller.firstName} ${seller.lastName}`,
+        },
+      }
+    );
+  } catch (error: any) {
+    ResponseApi.error(
+      res,
+      "Erreur lors de la récupération des produits du vendeur",
+      error.message
+    );
+  }
+};
+
+// ✅ NOUVEAU: Récupérer les produits validés d'un utilisateur spécifique (pour profil public)
+export const getUserProducts = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const userId = req.params.userId;
+  const { page, limit } = getPaginationParams(req.query);
+  const offset = (page - 1) * limit;
+
+  try {
+    // Vérifier que l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, firstName: true, lastName: true, avatar: true },
+    });
+
+    if (!user) {
+      return ResponseApi.error(res, "Utilisateur introuvable", null, 404);
+    }
+
+    const where = {
+      status: "VALIDATED" as const,
+      userId: userId,
+    };
+
+    // Récupération des produits avec pagination
+    const [products, totalCount] = await Promise.all([
+      prisma.product.findMany({
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        where,
+        include: {
+          category: true,
+          city: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+            },
+          },
+        },
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    // Transformation des URLs d'images
+    const productsWithImageUrls = ProductTransformer.transformProducts(
+      req,
+      products
+    );
+
+    // Calcul de la pagination
+    const links = calculatePagination(page, limit, totalCount);
+
+    ResponseApi.success(
+      res,
+      `Produits de ${user.firstName} ${user.lastName} récupérés avec succès`,
+      {
+        products: productsWithImageUrls,
+        links,
+        user: {
+          id: user.id,
+          name: `${user.firstName} ${user.lastName}`,
+          avatar: user.avatar,
+        },
+      }
+    );
+  } catch (error: any) {
+    ResponseApi.error(
+      res,
+      "Erreur lors de la récupération des produits de l'utilisateur",
+      error.message
+    );
+  }
+};
+
+// ✅ NOUVEAU: Récupérer les produits validés d'une catégorie spécifique
+export const getCategoryProducts = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const categoryId = req.params.categoryId;
+  const { page, limit } = getPaginationParams(req.query);
+  const offset = (page - 1) * limit;
+  const search = sanitizeSearchParam(req.query.search);
+
+  // Filtres additionnels
+  const cityId = req.query.cityId as string;
+  const priceMin = req.query.priceMin
+    ? sanitizeNumericParam(req.query.priceMin, 0, 0, 10000000)
+    : undefined;
+  const priceMax = req.query.priceMax
+    ? sanitizeNumericParam(
+        req.query.priceMax,
+        Number.MAX_SAFE_INTEGER,
+        0,
+        10000000
+      )
+    : undefined;
+  const etat = req.query.etat as string;
+
+  try {
+    // Vérifier que la catégorie existe
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { id: true, name: true, description: true },
+    });
+
+    if (!category) {
+      return ResponseApi.error(res, "Catégorie introuvable", null, 404);
+    }
+
+    // Construction des filtres avec le helper
+    const where = buildProductFilters(
+      categoryId,
+      search,
+      cityId,
+      priceMin,
+      priceMax,
+      etat
+    );
+
+    // Récupération des produits avec pagination
+    const [products, totalCount] = await Promise.all([
+      prisma.product.findMany({
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        where,
+        include: {
+          category: true,
+          city: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+            },
+          },
+        },
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    // Transformation des URLs d'images
+    const productsWithImageUrls = ProductTransformer.transformProducts(
+      req,
+      products
+    );
+
+    // Calcul de la pagination
+    const links = calculatePagination(page, limit, totalCount);
+
+    ResponseApi.success(
+      res,
+      `Produits de la catégorie "${category.name}" récupérés avec succès`,
+      {
+        products: productsWithImageUrls,
+        links,
+        category: {
+          id: category.id,
+          name: category.name,
+          description: category.description,
+        },
+      }
+    );
+  } catch (error: any) {
+    ResponseApi.error(
+      res,
+      "Erreur lors de la récupération des produits de la catégorie",
       error.message
     );
   }

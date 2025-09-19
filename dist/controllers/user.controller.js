@@ -24,16 +24,16 @@ const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
     try {
-        // 🔍 AMÉLIORATION : Recherche multi-champs au lieu d'un seul champ
-        const whereClause = !search
-            ? undefined
-            : {
+        // Construction des filtres de recherche
+        const whereClause = search
+            ? {
                 OR: [
                     { firstName: { contains: search } },
                     { lastName: { contains: search } },
                     { email: { contains: search } },
                 ],
-            };
+            }
+            : undefined;
         const params = {
             skip: offset,
             take: limit,
@@ -86,14 +86,15 @@ const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             pending: stats.get("pending") || 0,
             suspended: stats.get("suspended") || 0,
         };
-        // 📄 AMÉLIORATION : Format de pagination plus standard
+        // Calcul de la pagination simplifié
+        const totalPage = Math.ceil(total / limit);
         const pagination = {
             perpage: limit,
             prevPage: page > 1 ? page - 1 : null,
             currentPage: page,
-            nextPage: Math.ceil(total / limit) > page ? page + 1 : null,
-            totalPage: Math.ceil(total / limit),
-            total: total,
+            nextPage: page < totalPage ? page + 1 : null,
+            totalPage,
+            total,
         };
         // 🎯 NOUVEAU : Réponse enrichie avec users, pagination et stats
         response_js_1.default.success(res, "Users retrieved successfully!", {

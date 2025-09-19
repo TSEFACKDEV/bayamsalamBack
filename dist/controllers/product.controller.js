@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getHomePageProduct = exports.deleteProductOfSuspendedUser = exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getUserPendingProducts = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = exports.getProductViewStats = exports.recordProductView = void 0;
+exports.getCategoryProducts = exports.getUserProducts = exports.getSellerProducts = exports.getHomePageProduct = exports.deleteProductOfSuspendedUser = exports.reviewProduct = exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.getProductById = exports.getUserPendingProducts = exports.getPendingProducts = exports.getValidatedProducts = exports.getAllProductsWithoutPagination = exports.getAllProducts = exports.getProductViewStats = exports.recordProductView = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
@@ -21,11 +21,54 @@ const reviewProductTemplate_js_1 = require("../templates/reviewProductTemplate.j
 const notification_service_js_1 = require("../services/notification.service.js");
 const futurapay_service_js_1 = require("../services/futurapay.service.js");
 const upload_js_1 = require("../utilities/upload.js");
-const client_1 = require("@prisma/client");
 const cache_service_js_1 = require("../services/cache.service.js");
 const productTransformer_js_1 = __importDefault(require("../utils/productTransformer.js"));
 const securityUtils_js_1 = require("../utils/securityUtils.js");
 const securityMonitor_js_1 = require("../utils/securityMonitor.js");
+// Helper pour construire les filtres de produits validés génériques
+const buildValidatedProductFilters = (search, categoryId, cityId, priceMin, priceMax, etat) => {
+    const where = Object.assign(Object.assign(Object.assign(Object.assign({ status: "VALIDATED" }, (search && { name: { contains: search } })), (categoryId && { categoryId })), (cityId && { cityId })), (etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat) && { etat }));
+    // Gestion des filtres de prix
+    const priceFilter = {};
+    if (priceMin !== undefined && !isNaN(priceMin))
+        priceFilter.gte = priceMin;
+    if (priceMax !== undefined && !isNaN(priceMax))
+        priceFilter.lte = priceMax;
+    if (Object.keys(priceFilter).length > 0)
+        where.price = priceFilter;
+    return where;
+};
+// Helper pour construire les filtres de produits
+const buildProductFilters = (categoryId, search, cityId, priceMin, priceMax, etat) => {
+    const where = Object.assign(Object.assign(Object.assign({ status: "VALIDATED", categoryId }, (search && { name: { contains: search } })), (cityId && { cityId })), (etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat) && { etat }));
+    // Gestion des filtres de prix
+    const priceFilter = {};
+    if (priceMin !== undefined && !isNaN(priceMin))
+        priceFilter.gte = priceMin;
+    if (priceMax !== undefined && !isNaN(priceMax))
+        priceFilter.lte = priceMax;
+    if (Object.keys(priceFilter).length > 0)
+        where.price = priceFilter;
+    return where;
+};
+// Helper pour extraire et valider les paramètres de pagination
+const getPaginationParams = (query) => {
+    const page = (0, securityUtils_js_1.sanitizeNumericParam)(query.page, 1, 1, 1000);
+    const limit = (0, securityUtils_js_1.sanitizeNumericParam)(query.limit, 10, 1, 100);
+    return { page, limit };
+};
+// Helper pour calculer la pagination
+const calculatePagination = (page, limit, totalCount) => {
+    const totalPage = Math.ceil(totalCount / limit);
+    return {
+        currentPage: page,
+        prevPage: page > 1 ? page - 1 : null,
+        nextPage: page < totalPage ? page + 1 : null,
+        totalPage,
+        perpage: limit,
+        total: totalCount,
+    };
+};
 // Fonction pour enregistrer une vue d'annonce (utilisateurs connectés uniquement)
 const recordProductView = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -169,6 +212,17 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 category: true,
                 city: true,
                 user: true, // On inclut l'utilisateur
+                productForfaits: {
+                    include: {
+                        forfait: true,
+                    },
+                    where: {
+                        isActive: true,
+                        expiresAt: {
+                            gt: new Date(),
+                        },
+                    },
+                },
             },
         });
         // 🚀 OPTIMISATION N+1: Récupération groupée des reviews (85% réduction requêtes)
@@ -240,8 +294,7 @@ const getAllProductsWithoutPagination = (req, res) => __awaiter(void 0, void 0, 
 exports.getAllProductsWithoutPagination = getAllProductsWithoutPagination;
 //pour recuperer tous les produits avec un status = VALIDATED, pagination et recherche [pour les utilisateurs]
 const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const page = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.page, 1, 1, 1000);
-    const limit = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.limit, 10, 1, 100);
+    const { page, limit } = getPaginationParams(req.query);
     const offset = (page - 1) * limit;
     const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
     const categoryId = req.query.categoryId;
@@ -266,33 +319,10 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     const priceMax = req.query.priceMax
         ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMax, Number.MAX_SAFE_INTEGER, 0, 10000000)
         : undefined;
-    const etat = req.query.etat; // NEUF, OCCASION, CORRECT
+    const etat = req.query.etat;
     try {
-        const where = { status: "VALIDATED" };
-        // Filtre de recherche par nom
-        if (search) {
-            where.name = { contains: search };
-        }
-        // Filtre par catégorie
-        if (categoryId) {
-            where.categoryId = categoryId;
-        }
-        // Filtre par ville
-        if (cityId) {
-            where.cityId = cityId;
-        }
-        // ✅ NOUVEAU - Filtre par prix minimum
-        if (priceMin !== undefined && !isNaN(priceMin)) {
-            where.price = Object.assign(Object.assign({}, where.price), { gte: priceMin });
-        }
-        // ✅ NOUVEAU - Filtre par prix maximum
-        if (priceMax !== undefined && !isNaN(priceMax)) {
-            where.price = Object.assign(Object.assign({}, where.price), { lte: priceMax });
-        }
-        // ✅ NOUVEAU - Filtre par état
-        if (etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat)) {
-            where.etat = etat;
-        }
+        // Construction des filtres avec le helper
+        const where = buildValidatedProductFilters(search, categoryId, cityId, priceMin, priceMax, etat);
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,
             take: limit,
@@ -309,13 +339,13 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 },
             },
         });
-        // ✅ MISE À JOUR - Tri optimisé côté serveur par priorité des forfaits avec nouvelles priorités
+        // ✅ MISE À JOUR - Tri optimisé côté serveur par priorité des forfaits pour page produits
+        // Ordre: PREMIUM > TOP_ANNONCE > A_LA_UNE > URGENT > Produits sans forfait
         const forfaitPriority = {
-            PREMIUM: 1, // Priorité la plus haute
-            A_LA_UNE: 2, // ✅ NOUVEAU - Deuxième priorité
-            TOP_ANNONCE: 3, // Troisième priorité
-            URGENT: 4, // Quatrième priorité
-            MISE_EN_AVANT: 5, // Priorité la plus basse
+            PREMIUM: 1, // 1. Premium (regroupe tous les forfaits)
+            TOP_ANNONCE: 2, // 2. Top (en tête de liste)
+            A_LA_UNE: 3, // 3. À la une
+            URGENT: 4, // 4. Urgent (badge urgent)
         };
         const getPriority = (p) => {
             if (!p.productForfaits || p.productForfaits.length === 0)
@@ -334,16 +364,10 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
         });
         const total = yield prisma_client_js_1.default.product.count({ where });
         const productsWithImageUrls = productTransformer_js_1.default.transformProductsWithForfaits(req, sortedByForfait);
+        const links = calculatePagination(page, limit, total);
         response_js_1.default.success(res, "Validated products retrieved successfully!", {
             products: productsWithImageUrls,
-            links: {
-                perpage: limit,
-                prevPage: page > 1 ? page - 1 : null,
-                currentPage: page,
-                nextPage: offset + limit < total ? page + 1 : null,
-                totalPage: Math.ceil(total / limit),
-                total: total,
-            },
+            links,
         });
     }
     catch (error) {
@@ -462,6 +486,15 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             !etat) {
             return response_js_1.default.error(res, "Tous les champs sont requis", null, 400);
         }
+        if (!name ||
+            !price ||
+            !quantity ||
+            !description ||
+            !categoryId ||
+            !cityId ||
+            !etat) {
+            return response_js_1.default.error(res, "Tous les champs sont requis", null, 400);
+        }
         // 🔐 Upload sécurisé des images avec optimisation
         if (!req.files || !req.files.images) {
             return response_js_1.default.error(res, "Au moins une image est requise", null, 400);
@@ -469,23 +502,23 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         // Utilisation du système d'upload sécurisé
         const savedImages = yield (0, upload_js_1.uploadProductImages)(req);
         // Création du produit
+        const productCreateData = {
+            name,
+            price: parseFloat(price),
+            quantity: parseInt(quantity),
+            description,
+            images: savedImages,
+            categoryId,
+            userId,
+            cityId,
+            status: "PENDING",
+            etat,
+            quartier,
+            telephone,
+        };
         const product = yield prisma_client_js_1.default.product.create({
-            data: {
-                name,
-                price: parseFloat(price),
-                quantity: parseInt(quantity),
-                description,
-                images: savedImages,
-                categoryId,
-                userId,
-                cityId,
-                status: "PENDING",
-                etat,
-                quartier,
-                telephone,
-            },
-        });
-        // Si le frontend a demandé un forfait lors de la création
+            data: productCreateData,
+        }); // Si le frontend a demandé un forfait lors de la création
         if (forfaitType) {
             const forfait = yield prisma_client_js_1.default.forfait.findFirst({
                 where: { type: forfaitType },
@@ -786,14 +819,14 @@ const deleteProductOfSuspendedUser = (req, res) => __awaiter(void 0, void 0, voi
 });
 exports.deleteProductOfSuspendedUser = deleteProductOfSuspendedUser;
 const getHomePageProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    // Priorité des forfaits (1 = plus prioritaire)
-    // Ordre: A_LA_UNE > PREMIUM > TOP_ANNONCE > URGENT > Produits classiques
-    const priorities = [
-        client_1.ForfaitType.A_LA_UNE,
-        client_1.ForfaitType.PREMIUM,
-        client_1.ForfaitType.TOP_ANNONCE,
-        client_1.ForfaitType.URGENT,
-    ];
+    // Ordre de priorité des forfaits pour la page d'accueil (HOMEPAGE)
+    // 1=À la Une, 2=Premium, 3=Top Annonce, 4=Urgent, 5=Sans forfait
+    const forfaitPriority = {
+        A_LA_UNE: 1, // Priorité maximale homepage
+        PREMIUM: 2, // Deuxième priorité homepage
+        TOP_ANNONCE: 3, // Troisième priorité homepage
+        URGENT: 4, // Quatrième priorité homepage
+    };
     const limit = parseInt(req.query.limit) || 10;
     try {
         // 🚀 CACHE: Vérifier d'abord si les données sont en cache
@@ -801,61 +834,69 @@ const getHomePageProduct = (req, res) => __awaiter(void 0, void 0, void 0, funct
         if (cachedData) {
             return response_js_1.default.success(res, "Produits homepage récupérés avec succès (cache)", cachedData);
         }
-        let products = [];
-        let usedPriority = null;
-        // On parcourt les priorités dans l'ordre
-        for (const type of priorities) {
-            products = yield prisma_client_js_1.default.product.findMany({
-                where: {
-                    status: "VALIDATED",
-                    productForfaits: {
-                        some: {
-                            isActive: true,
-                            expiresAt: { gt: new Date() },
-                            forfait: { type },
-                        },
-                    },
+        // Récupérer TOUS les produits validés
+        const allProducts = yield prisma_client_js_1.default.product.findMany({
+            where: { status: "VALIDATED" },
+            orderBy: { createdAt: "desc" },
+            include: {
+                category: true,
+                city: true,
+                user: true,
+                productForfaits: {
+                    where: { isActive: true, expiresAt: { gt: new Date() } },
+                    include: { forfait: true },
                 },
-                orderBy: { createdAt: "desc" },
-                take: limit,
-                include: {
-                    category: true,
-                    city: true,
-                    user: true,
-                    productForfaits: {
-                        where: { isActive: true, expiresAt: { gt: new Date() } },
-                        include: { forfait: true },
-                    },
-                },
-            });
-            if (products.length > 0) {
-                usedPriority = type;
-                break;
+            },
+        });
+        // Fonction pour obtenir la priorité d'un produit
+        const getProductPriority = (product) => {
+            if (!product.productForfaits || product.productForfaits.length === 0) {
+                return Number.MAX_SAFE_INTEGER; // Pas de forfait = priorité la plus faible
             }
-        }
-        // Si aucun produit avec forfait, prendre les produits validés les plus récents
-        if (products.length === 0) {
-            products = yield prisma_client_js_1.default.product.findMany({
-                where: { status: "VALIDATED" },
-                orderBy: { createdAt: "desc" },
-                take: limit,
-                include: {
-                    category: true,
-                    city: true,
-                    user: true,
-                    productForfaits: {
-                        where: { isActive: true, expiresAt: { gt: new Date() } },
-                        include: { forfait: true },
-                    },
-                },
-            });
-            usedPriority = null;
-        }
+            // Trouver la meilleure priorité parmi tous les forfaits actifs
+            const priorities = product.productForfaits.map((pf) => { var _a, _b; return (_b = forfaitPriority[(_a = pf.forfait) === null || _a === void 0 ? void 0 : _a.type]) !== null && _b !== void 0 ? _b : Number.MAX_SAFE_INTEGER; });
+            return Math.min(...priorities); // Plus petit = meilleur
+        };
+        // Trier tous les produits selon l'ordre de priorité HOMEPAGE
+        const sortedProducts = allProducts.sort((a, b) => {
+            const priorityA = getProductPriority(a);
+            const priorityB = getProductPriority(b);
+            if (priorityA !== priorityB) {
+                return priorityA - priorityB; // Tri par priorité forfait
+            }
+            // Si même priorité, tri par date décroissante (plus récent first)
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+        // Prendre les premiers produits selon la limite
+        const products = sortedProducts.slice(0, limit);
+        // Déterminer la priorité utilisée (pour debug/info)
+        const usedPriority = products.length > 0
+            ? (() => {
+                const firstProductPriority = getProductPriority(products[0]);
+                if (firstProductPriority === Number.MAX_SAFE_INTEGER)
+                    return null;
+                // Trouver le type de forfait correspondant à cette priorité
+                for (const [type, priority] of Object.entries(forfaitPriority)) {
+                    if (priority === firstProductPriority)
+                        return type;
+                }
+                return null;
+            })()
+            : null;
         // Conversion des images en URLs complètes
         const productsWithImageUrls = productTransformer_js_1.default.transformProductsWithForfaits(req, products);
         const responseData = {
             products: productsWithImageUrls,
             usedPriority,
+            totalProducts: allProducts.length,
+            priorityDistribution: {
+                aLaUne: allProducts.filter((p) => getProductPriority(p) === 1).length,
+                premium: allProducts.filter((p) => getProductPriority(p) === 2).length,
+                topAnnonce: allProducts.filter((p) => getProductPriority(p) === 3)
+                    .length,
+                urgent: allProducts.filter((p) => getProductPriority(p) === 4).length,
+                sansForfait: allProducts.filter((p) => getProductPriority(p) === Number.MAX_SAFE_INTEGER).length,
+            },
         };
         // 🚀 CACHE: Mettre en cache le résultat
         cache_service_js_1.cacheService.setHomepageProducts(limit, responseData);
@@ -866,3 +907,186 @@ const getHomePageProduct = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.getHomePageProduct = getHomePageProduct;
+// ✅ NOUVEAU: Récupérer les produits validés d'un vendeur spécifique
+const getSellerProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const sellerId = req.params.sellerId;
+    const { page, limit } = getPaginationParams(req.query);
+    const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
+    const offset = (page - 1) * limit;
+    try {
+        // Vérifier que le vendeur existe
+        const seller = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: sellerId },
+            select: { id: true, firstName: true, lastName: true },
+        });
+        if (!seller) {
+            return response_js_1.default.error(res, "Vendeur introuvable", null, 404);
+        }
+        const where = Object.assign({ status: "VALIDATED", userId: sellerId }, (search && { name: { contains: search } }));
+        // Récupération des produits avec pagination
+        const [products, totalCount] = yield Promise.all([
+            prisma_client_js_1.default.product.findMany({
+                skip: offset,
+                take: limit,
+                orderBy: { createdAt: "desc" },
+                where,
+                include: {
+                    category: true,
+                    city: true,
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            avatar: true,
+                            phone: true,
+                        },
+                    },
+                },
+            }),
+            prisma_client_js_1.default.product.count({ where }),
+        ]);
+        // Transformation des URLs d'images
+        const productsWithImageUrls = productTransformer_js_1.default.transformProducts(req, products);
+        // Calcul de la pagination
+        const links = calculatePagination(page, limit, totalCount);
+        response_js_1.default.success(res, `Produits du vendeur ${seller.firstName} ${seller.lastName} récupérés avec succès`, {
+            products: productsWithImageUrls,
+            links,
+            seller: {
+                id: seller.id,
+                name: `${seller.firstName} ${seller.lastName}`,
+            },
+        });
+    }
+    catch (error) {
+        response_js_1.default.error(res, "Erreur lors de la récupération des produits du vendeur", error.message);
+    }
+});
+exports.getSellerProducts = getSellerProducts;
+// ✅ NOUVEAU: Récupérer les produits validés d'un utilisateur spécifique (pour profil public)
+const getUserProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const userId = req.params.userId;
+    const { page, limit } = getPaginationParams(req.query);
+    const offset = (page - 1) * limit;
+    try {
+        // Vérifier que l'utilisateur existe
+        const user = yield prisma_client_js_1.default.user.findUnique({
+            where: { id: userId },
+            select: { id: true, firstName: true, lastName: true, avatar: true },
+        });
+        if (!user) {
+            return response_js_1.default.error(res, "Utilisateur introuvable", null, 404);
+        }
+        const where = {
+            status: "VALIDATED",
+            userId: userId,
+        };
+        // Récupération des produits avec pagination
+        const [products, totalCount] = yield Promise.all([
+            prisma_client_js_1.default.product.findMany({
+                skip: offset,
+                take: limit,
+                orderBy: { createdAt: "desc" },
+                where,
+                include: {
+                    category: true,
+                    city: true,
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            avatar: true,
+                        },
+                    },
+                },
+            }),
+            prisma_client_js_1.default.product.count({ where }),
+        ]);
+        // Transformation des URLs d'images
+        const productsWithImageUrls = productTransformer_js_1.default.transformProducts(req, products);
+        // Calcul de la pagination
+        const links = calculatePagination(page, limit, totalCount);
+        response_js_1.default.success(res, `Produits de ${user.firstName} ${user.lastName} récupérés avec succès`, {
+            products: productsWithImageUrls,
+            links,
+            user: {
+                id: user.id,
+                name: `${user.firstName} ${user.lastName}`,
+                avatar: user.avatar,
+            },
+        });
+    }
+    catch (error) {
+        response_js_1.default.error(res, "Erreur lors de la récupération des produits de l'utilisateur", error.message);
+    }
+});
+exports.getUserProducts = getUserProducts;
+// ✅ NOUVEAU: Récupérer les produits validés d'une catégorie spécifique
+const getCategoryProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const categoryId = req.params.categoryId;
+    const { page, limit } = getPaginationParams(req.query);
+    const offset = (page - 1) * limit;
+    const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
+    // Filtres additionnels
+    const cityId = req.query.cityId;
+    const priceMin = req.query.priceMin
+        ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMin, 0, 0, 10000000)
+        : undefined;
+    const priceMax = req.query.priceMax
+        ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMax, Number.MAX_SAFE_INTEGER, 0, 10000000)
+        : undefined;
+    const etat = req.query.etat;
+    try {
+        // Vérifier que la catégorie existe
+        const category = yield prisma_client_js_1.default.category.findUnique({
+            where: { id: categoryId },
+            select: { id: true, name: true, description: true },
+        });
+        if (!category) {
+            return response_js_1.default.error(res, "Catégorie introuvable", null, 404);
+        }
+        // Construction des filtres avec le helper
+        const where = buildProductFilters(categoryId, search, cityId, priceMin, priceMax, etat);
+        // Récupération des produits avec pagination
+        const [products, totalCount] = yield Promise.all([
+            prisma_client_js_1.default.product.findMany({
+                skip: offset,
+                take: limit,
+                orderBy: { createdAt: "desc" },
+                where,
+                include: {
+                    category: true,
+                    city: true,
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            avatar: true,
+                        },
+                    },
+                },
+            }),
+            prisma_client_js_1.default.product.count({ where }),
+        ]);
+        // Transformation des URLs d'images
+        const productsWithImageUrls = productTransformer_js_1.default.transformProducts(req, products);
+        // Calcul de la pagination
+        const links = calculatePagination(page, limit, totalCount);
+        response_js_1.default.success(res, `Produits de la catégorie "${category.name}" récupérés avec succès`, {
+            products: productsWithImageUrls,
+            links,
+            category: {
+                id: category.id,
+                name: category.name,
+                description: category.description,
+            },
+        });
+    }
+    catch (error) {
+        response_js_1.default.error(res, "Erreur lors de la récupération des produits de la catégorie", error.message);
+    }
+});
+exports.getCategoryProducts = getCategoryProducts;

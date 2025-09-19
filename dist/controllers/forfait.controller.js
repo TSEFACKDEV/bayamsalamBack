@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.confirmForfaitPayment = exports.initiateForfaitPayment = exports.activateForfait = void 0;
+exports.confirmForfaitPayment = exports.initiateForfaitPayment = exports.deactivateForfait = exports.activateForfait = void 0;
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const notification_service_js_1 = require("../services/notification.service.js");
@@ -77,6 +77,55 @@ const activateForfait = (req, res) => __awaiter(void 0, void 0, void 0, function
     }
 });
 exports.activateForfait = activateForfait;
+/**
+ * Désactivation d'un forfait sur un produit par l'administrateur
+ */
+const deactivateForfait = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const { productId, forfaitType } = req.body;
+    try {
+        // Vérifier si le produit existe
+        const product = yield prisma_client_js_1.default.product.findUnique({
+            where: { id: productId },
+            include: { user: true },
+        });
+        if (!product)
+            return response_js_1.default.notFound(res, "Produit non trouvé", 404);
+        // Trouver le forfait actif à désactiver
+        const activeForfait = yield prisma_client_js_1.default.productForfait.findFirst({
+            where: {
+                productId,
+                forfait: { type: forfaitType },
+                isActive: true,
+            },
+            include: { forfait: true },
+        });
+        if (!activeForfait) {
+            return response_js_1.default.error(res, "Aucun forfait actif de ce type trouvé sur ce produit", null, 404);
+        }
+        // Désactiver le forfait
+        yield prisma_client_js_1.default.productForfait.update({
+            where: { id: activeForfait.id },
+            data: {
+                isActive: false,
+                deactivatedAt: new Date(),
+            },
+        });
+        // Créer une notification pour l'utilisateur
+        if ((_a = product.user) === null || _a === void 0 ? void 0 : _a.id) {
+            yield (0, notification_service_js_1.createNotification)(product.user.id, `Forfait ${forfaitType} retiré`, `Le forfait ${forfaitType} a été retiré de votre annonce "${product.name}".`, {
+                type: "PRODUCT_FORFAIT",
+                link: `/annonce/${productId}`,
+            });
+        }
+        response_js_1.default.success(res, `Forfait ${forfaitType} retiré du produit avec succès`, null);
+    }
+    catch (error) {
+        console.error("Erreur lors de la désactivation du forfait:", error);
+        response_js_1.default.error(res, "Erreur lors de la désactivation du forfait", error.message);
+    }
+});
+exports.deactivateForfait = deactivateForfait;
 //desacttivation de forfait
 // Nouvel endpoint : initier le paiement pour un forfait (frontend affiche iframe avec l'URL)
 const initiateForfaitPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {

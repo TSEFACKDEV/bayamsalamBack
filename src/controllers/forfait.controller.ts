@@ -91,6 +91,78 @@ export const activateForfait = async (
   }
 };
 
+/**
+ * Désactivation d'un forfait sur un produit par l'administrateur
+ */
+export const deactivateForfait = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const { productId, forfaitType } = req.body;
+  try {
+    // Vérifier si le produit existe
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: { user: true },
+    });
+    if (!product) return ResponseApi.notFound(res, "Produit non trouvé", 404);
+
+    // Trouver le forfait actif à désactiver
+    const activeForfait = await prisma.productForfait.findFirst({
+      where: {
+        productId,
+        forfait: { type: forfaitType },
+        isActive: true,
+      },
+      include: { forfait: true },
+    });
+
+    if (!activeForfait) {
+      return ResponseApi.error(
+        res,
+        "Aucun forfait actif de ce type trouvé sur ce produit",
+        null,
+        404
+      );
+    }
+
+    // Désactiver le forfait
+    await prisma.productForfait.update({
+      where: { id: activeForfait.id },
+      data: {
+        isActive: false,
+        deactivatedAt: new Date(),
+      },
+    });
+
+    // Créer une notification pour l'utilisateur
+    if (product.user?.id) {
+      await createNotification(
+        product.user.id,
+        `Forfait ${forfaitType} retiré`,
+        `Le forfait ${forfaitType} a été retiré de votre annonce "${product.name}".`,
+        {
+          type: "PRODUCT_FORFAIT",
+          link: `/annonce/${productId}`,
+        }
+      );
+    }
+
+    ResponseApi.success(
+      res,
+      `Forfait ${forfaitType} retiré du produit avec succès`,
+      null
+    );
+  } catch (error: any) {
+    console.error("Erreur lors de la désactivation du forfait:", error);
+    ResponseApi.error(
+      res,
+      "Erreur lors de la désactivation du forfait",
+      error.message
+    );
+  }
+};
+
 //desacttivation de forfait
 
 // Nouvel endpoint : initier le paiement pour un forfait (frontend affiche iframe avec l'URL)

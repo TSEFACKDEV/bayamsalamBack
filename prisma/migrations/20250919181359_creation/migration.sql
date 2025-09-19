@@ -170,7 +170,7 @@ CREATE TABLE `ConnectionLog` (
 -- CreateTable
 CREATE TABLE `Forfait` (
     `id` VARCHAR(36) NOT NULL,
-    `type` ENUM('URGENT', 'TOP_ANNONCE', 'MISE_EN_AVANT', 'PREMIUM', 'A_LA_UNE') NOT NULL,
+    `type` ENUM('URGENT', 'TOP_ANNONCE', 'A_LA_UNE', 'PREMIUM') NOT NULL,
     `price` INTEGER NOT NULL,
     `duration` INTEGER NOT NULL,
     `description` VARCHAR(191) NULL,
@@ -186,6 +186,7 @@ CREATE TABLE `ProductForfait` (
     `forfaitId` VARCHAR(36) NOT NULL,
     `activatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `expiresAt` DATETIME(3) NOT NULL,
+    `deactivatedAt` DATETIME(3) NULL,
     `isActive` BOOLEAN NOT NULL DEFAULT true,
 
     PRIMARY KEY (`id`)

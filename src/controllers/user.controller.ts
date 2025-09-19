@@ -16,16 +16,16 @@ export const getAllUsers = async (
   const search = (req.query.search as string) || "";
 
   try {
-    // 🔍 AMÉLIORATION : Recherche multi-champs au lieu d'un seul champ
-    const whereClause = !search
-      ? undefined
-      : {
+    // Construction des filtres de recherche
+    const whereClause = search
+      ? {
           OR: [
             { firstName: { contains: search } },
             { lastName: { contains: search } },
             { email: { contains: search } },
           ],
-        };
+        }
+      : undefined;
 
     const params = {
       skip: offset,
@@ -87,14 +87,15 @@ export const getAllUsers = async (
       suspended: stats.get("suspended") || 0,
     };
 
-    // 📄 AMÉLIORATION : Format de pagination plus standard
+    // Calcul de la pagination simplifié
+    const totalPage = Math.ceil(total / limit);
     const pagination = {
       perpage: limit,
       prevPage: page > 1 ? page - 1 : null,
       currentPage: page,
-      nextPage: Math.ceil(total / limit) > page ? page + 1 : null,
-      totalPage: Math.ceil(total / limit),
-      total: total,
+      nextPage: page < totalPage ? page + 1 : null,
+      totalPage,
+      total,
     };
 
     // 🎯 NOUVEAU : Réponse enrichie avec users, pagination et stats

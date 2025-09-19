@@ -1,5 +1,5 @@
-import { Request } from 'express';
-import Utils from '../helper/utils.js';
+import { Request } from "express";
+import Utils from "../helper/utils.js";
 
 /**
  * 🚀 PRODUCT TRANSFORMER SERVICE
@@ -73,13 +73,13 @@ export class ProductTransformer {
   ): ProductWithForfaits {
     const baseTransformed = this.transformProduct(req, product);
 
-    // 🎫 Priorités des forfaits pour le tri
+    // 🎫 Priorités des forfaits pour le tri général (pages produits)
+    // Ordre: PREMIUM > TOP_ANNONCE > A_LA_UNE > URGENT
     const forfaitPriority: Record<string, number> = {
-      PREMIUM: 1,
-      A_LA_UNE: 2,
-      TOP_ANNONCE: 3,
-      URGENT: 4,
-      MISE_EN_AVANT: 5,
+      PREMIUM: 1, // 1. Premium (regroupe tous les forfaits)
+      TOP_ANNONCE: 2, // 2. Top (en tête de liste)
+      A_LA_UNE: 3, // 3. À la une
+      URGENT: 4, // 4. Urgent (badge urgent)
     };
 
     return {

@@ -175,32 +175,32 @@ async function main() {
     });
   }
 
-  // Créer les forfaits
+  // Créer les forfaits - Durée uniforme de 7 jours
   await prisma.forfait.createMany({
     data: [
       {
         type: "URGENT",
         price: 100,
-        duration: 1,
+        duration: 7, // 7 jours pour tous les forfaits
         description: "Badge urgent sur l'annonce",
       },
       {
         type: "TOP_ANNONCE",
         price: 200,
-        duration: 1,
+        duration: 7, // 7 jours pour tous les forfaits
         description: "Annonce en tête de page",
       },
       {
         type: "PREMIUM",
         price: 500,
-        duration: 1,
-        description: "Tous les privilèges",
+        duration: 7, // 7 jours pour tous les forfaits
+        description: "Regroupe tous les autres forfaits",
       },
       {
         type: "A_LA_UNE",
-        price: 500,
-        duration: 1,
-        description: "s'affiche toujours en page d'acceuille",
+        price: 300,
+        duration: 7, // 7 jours pour tous les forfaits
+        description: "S'affiche toujours en page d'accueil",
       },
     ],
     skipDuplicates: true,

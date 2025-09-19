@@ -223,11 +223,10 @@ model ConnectionLog {
 }
 
 enum ForfaitType {
-  URGENT
-  TOP_ANNONCE
-  MISE_EN_AVANT
-  PREMIUM
-  A_LA_UNE
+  URGENT // Badge urgent
+  TOP_ANNONCE // En tête de liste  
+  A_LA_UNE // Apparaît sur page d'accueil
+  PREMIUM // Regroupe tous les autres forfaits
 }
 
 model Forfait {
@@ -241,14 +240,15 @@ model Forfait {
 }
 
 model ProductForfait {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId   String   @db.VarChar(36)
-  forfait     Forfait  @relation(fields: [forfaitId], references: [id])
-  forfaitId   String   @db.VarChar(36)
-  activatedAt DateTime @default(now())
-  expiresAt   DateTime
-  isActive    Boolean  @default(true)
+  id            String    @id @default(uuid()) @db.VarChar(36)
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId     String    @db.VarChar(36)
+  forfait       Forfait   @relation(fields: [forfaitId], references: [id])
+  forfaitId     String    @db.VarChar(36)
+  activatedAt   DateTime  @default(now())
+  expiresAt     DateTime
+  deactivatedAt DateTime?
+  isActive      Boolean   @default(true)
 }
 
 model Notification {

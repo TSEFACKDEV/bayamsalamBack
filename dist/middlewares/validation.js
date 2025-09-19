@@ -15,6 +15,11 @@ const validate = (schema) => (req, res, next) => __awaiter(void 0, void 0, void 
         next();
     }
     catch (err) {
+        // En mode développement, logguer les erreurs de validation pour debug
+        if (process.env.NODE_ENV === "development") {
+            console.log("❌ Erreur de validation Yup:", err.message);
+            console.log("📄 Champ en erreur:", err.path);
+        }
         res.status(400).json({ error: err.errors });
     }
 });

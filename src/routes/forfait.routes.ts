@@ -1,6 +1,7 @@
 import express from "express";
 import {
   activateForfait,
+  deactivateForfait,
   initiateForfaitPayment,
   confirmForfaitPayment,
 } from "../controllers/forfait.controller.js";
@@ -15,6 +16,14 @@ router.post(
   authenticate,
   checkPermission("ASSIGN_FORFAIT"),
   activateForfait
+);
+
+// Désactivation par admin
+router.post(
+  "/deactivate",
+  authenticate,
+  checkPermission("ASSIGN_FORFAIT"),
+  deactivateForfait
 );
 
 // Initier paiement (utilisateur choisit forfait -> obtenir URL iframe)

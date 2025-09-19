@@ -14,10 +14,6 @@ import path from "node:path";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { validateContentType } from "./middlewares/contentTypeValidator.js";
 import { generalRateLimiter } from "./middlewares/rateLimiter.js";
-import {
-  generateCSRFMiddleware,
-  validateCSRFMiddleware,
-} from "./middlewares/csrf.middleware.js";
 import { SecurityUtils } from "./utilities/security.utils.js";
 import { initSockets } from "./utilities/socket.js";
 import Router from "./routes/index.js";
@@ -96,7 +92,6 @@ app.use(
 app.use(cookieParser());
 app.use(morgan("dev"));
 app.use(validateContentType());
-app.use("/api/bayamsalam", generateCSRFMiddleware);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -110,7 +105,6 @@ app.use(
 
 app.use("/public", express.static(path.join(__dirname, "../public")));
 app.use("/api/bayamsalam", generalRateLimiter);
-app.use("/api/bayamsalam", validateCSRFMiddleware);
 
 // Routes
 app.use(passport.initialize());

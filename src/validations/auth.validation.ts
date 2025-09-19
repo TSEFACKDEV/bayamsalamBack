@@ -1,4 +1,4 @@
-import * as yup from 'yup';
+import * as yup from "yup";
 
 // min 6 characters, 1 upper case letter, 1 lower case letter, 1 numeric digit.
 const passwordRules = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
@@ -7,7 +7,7 @@ export const registerSchema = yup.object({
   email: yup.string().email().required(),
   password: yup
     .string()
-    .matches(passwordRules, { message: 'Please create a stronger password' })
+    .matches(passwordRules, { message: "Please create a stronger password" })
     .required()
     .min(6),
   firstName: yup.string().required(),
@@ -17,6 +17,10 @@ export const registerSchema = yup.object({
 
 export const verifyOTPSchema = yup.object({
   otp: yup.string().required(),
+  userId: yup.string().required(),
+});
+
+export const resendOTPSchema = yup.object({
   userId: yup.string().required(),
 });
 
@@ -41,7 +45,7 @@ export const resetPasswordSchema = yup.object({
   token: yup.string().required(),
   newPassword: yup
     .string()
-    .matches(passwordRules, { message: 'Please create a stronger password' })
+    .matches(passwordRules, { message: "Please create a stronger password" })
     .required()
     .min(6),
 });

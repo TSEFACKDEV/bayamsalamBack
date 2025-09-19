@@ -1,5 +1,43 @@
 import NodeCache from "node-cache";
 
+// Interfaces pour typer les données du cache
+interface CacheStats {
+  keys: number;
+  hits: number;
+  misses: number;
+  ksize: number;
+  vsize: number;
+  hitRate: string;
+  hitRateNumeric: number;
+}
+
+interface City {
+  id: string;
+  name: string;
+  region: string | null;
+  country: string;
+  latitude: number | null;
+  longitude: number | null;
+  userCount: number;
+  productCount: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string;
+  isActive: boolean;
+  productCount: number;
+  parentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * 🚀 Service de cache in-memory optimisé avec TTL intelligent
  * Utilise node-cache pour améliorer les performances des requêtes répétitives
@@ -11,16 +49,16 @@ class CacheService {
   private readonly TTL = {
     CATEGORIES: 300, // 5 minutes - changent rarement
     CITIES: 600, // 10 minutes - très stables
-    HOMEPAGE_PRODUCTS: 180, // 3 minutes - plus dynamiques
     USER_STATS: 120, // 2 minutes - évoluent avec les reviews
+    HOMEPAGE_PRODUCTS: 180, // 3 minutes - produits populaires
   } as const;
 
   // Préfixes des clés pour une meilleure organisation
   private readonly KEYS = {
     CATEGORIES: "categories",
     CITIES: "cities",
-    HOMEPAGE_PRODUCTS: "homepage_products",
     USER_STATS: "user_stats",
+    HOMEPAGE_PRODUCTS: "homepage_products",
   } as const;
 
   constructor() {
@@ -29,22 +67,6 @@ class CacheService {
       checkperiod: 60, // Nettoyage toutes les 60s
       useClones: false, // Performance: évite le clonage
       deleteOnExpire: true, // Nettoyage automatique
-    });
-
-    // Logs pour le monitoring
-    this.setupEventListeners();
-  }
-
-  /**
-   * Configuration des événements pour le monitoring
-   */
-  private setupEventListeners(): void {
-    this.cache.on("expired", (key: string) => {
-      // Cache expiré et supprimé
-    });
-
-    this.cache.on("flush", () => {
-      // Cache vidé complètement
     });
   }
 
@@ -71,11 +93,11 @@ class CacheService {
   /**
    * 📂 Gestion du cache des catégories
    */
-  getCategories(): any[] | undefined {
-    return this.get<any[]>(this.KEYS.CATEGORIES);
+  getCategories(): Category[] | undefined {
+    return this.get<Category[]>(this.KEYS.CATEGORIES);
   }
 
-  setCategories(categories: any[]): boolean {
+  setCategories(categories: Category[]): boolean {
     return this.set(this.KEYS.CATEGORIES, categories, this.TTL.CATEGORIES);
   }
 
@@ -86,16 +108,31 @@ class CacheService {
   /**
    * 🏙️ Gestion du cache des villes
    */
-  getCities(): any[] | undefined {
-    return this.get<any[]>(this.KEYS.CITIES);
+  getCities(): City[] | undefined {
+    return this.get<City[]>(this.KEYS.CITIES);
   }
 
-  setCities(cities: any[]): boolean {
+  setCities(cities: City[]): boolean {
     return this.set(this.KEYS.CITIES, cities, this.TTL.CITIES);
   }
 
   invalidateCities(): void {
     this.del(this.KEYS.CITIES);
+  }
+
+  /**
+   * 👥 Gestion du cache des stats utilisateurs globales
+   */
+  getUserStats(): Map<string, number> | undefined {
+    return this.get<Map<string, number>>(this.KEYS.USER_STATS);
+  }
+
+  setUserStats(stats: Map<string, number>): boolean {
+    return this.set(this.KEYS.USER_STATS, stats, this.TTL.USER_STATS);
+  }
+
+  invalidateUserStats(): void {
+    this.del(this.KEYS.USER_STATS);
   }
 
   /**
@@ -105,10 +142,10 @@ class CacheService {
     return this.get<any>(`${this.KEYS.HOMEPAGE_PRODUCTS}_${limit}`);
   }
 
-  setHomepageProducts(limit: number, data: any): boolean {
+  setHomepageProducts(limit: number, products: any): boolean {
     return this.set(
       `${this.KEYS.HOMEPAGE_PRODUCTS}_${limit}`,
-      data,
+      products,
       this.TTL.HOMEPAGE_PRODUCTS
     );
   }
@@ -117,41 +154,12 @@ class CacheService {
     this.invalidateByPrefix(this.KEYS.HOMEPAGE_PRODUCTS);
   }
 
-  /**
-   * 👥 Gestion du cache des stats utilisateurs
-   */
-  getUserStats(userIds: string[]): Map<string, any> | undefined {
-    const key = `${this.KEYS.USER_STATS}_${userIds.sort().join("_")}`;
-    return this.get<Map<string, any>>(key);
-  }
-
-  setUserStats(userIds: string[], stats: Map<string, any>): boolean {
-    const key = `${this.KEYS.USER_STATS}_${userIds.sort().join("_")}`;
-    return this.set(key, stats, this.TTL.USER_STATS);
-  }
-
-  invalidateUserStats(): void {
-    this.invalidateByPrefix(this.KEYS.USER_STATS);
-  }
-
   // === MÉTHODES UTILITAIRES ===
-
-  /**
-   * Invalide toutes les clés commençant par un préfixe
-   */
-  private invalidateByPrefix(prefix: string): void {
-    const keys = this.cache.keys();
-    keys.forEach((key) => {
-      if (key.startsWith(prefix)) {
-        this.del(key);
-      }
-    });
-  }
 
   /**
    * 📊 Statistiques détaillées du cache
    */
-  getStats() {
+  getStats(): CacheStats {
     const stats = this.cache.getStats();
     const hitRate =
       stats.hits + stats.misses > 0
@@ -177,6 +185,15 @@ class CacheService {
     // Le nettoyage automatique est géré par node-cache
     const afterKeys = this.cache.keys().length;
     return beforeKeys - afterKeys;
+  }
+
+  /**
+   * 🗑️ Invalider toutes les clés avec un préfixe donné
+   */
+  private invalidateByPrefix(prefix: string): void {
+    const keys = this.cache.keys();
+    const toDelete = keys.filter((key) => key.startsWith(prefix));
+    toDelete.forEach((key) => this.del(key));
   }
 }
 

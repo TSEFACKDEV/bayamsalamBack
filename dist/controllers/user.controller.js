@@ -17,6 +17,7 @@ const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 const bcrypt_js_1 = require("../utilities/bcrypt.js");
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
+const cache_service_js_1 = require("../services/cache.service.js");
 const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -58,12 +59,32 @@ const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         const result = yield prisma_client_js_1.default.user.findMany(params);
         // Compter le total pour la pagination
         const total = yield prisma_client_js_1.default.user.count({ where: whereClause });
-        // 📊 NOUVEAU : Calcul automatique des statistiques par statut
-        const stats = {
-            total: yield prisma_client_js_1.default.user.count(),
-            active: yield prisma_client_js_1.default.user.count({ where: { status: "ACTIVE" } }),
-            pending: yield prisma_client_js_1.default.user.count({ where: { status: "PENDING" } }),
-            suspended: yield prisma_client_js_1.default.user.count({ where: { status: "SUSPENDED" } }),
+        // 📊 NOUVEAU : Calcul des statistiques avec cache
+        let stats = cache_service_js_1.cacheService.getUserStats();
+        if (!stats) {
+            // Calculer les stats si pas en cache
+            const calculatedStats = {
+                total: yield prisma_client_js_1.default.user.count(),
+                active: yield prisma_client_js_1.default.user.count({ where: { status: "ACTIVE" } }),
+                pending: yield prisma_client_js_1.default.user.count({ where: { status: "PENDING" } }),
+                suspended: yield prisma_client_js_1.default.user.count({ where: { status: "SUSPENDED" } }),
+            };
+            // Convertir en Map pour le cache
+            const statsMap = new Map();
+            statsMap.set("total", calculatedStats.total);
+            statsMap.set("active", calculatedStats.active);
+            statsMap.set("pending", calculatedStats.pending);
+            statsMap.set("suspended", calculatedStats.suspended);
+            // Mettre en cache
+            cache_service_js_1.cacheService.setUserStats(statsMap);
+            stats = statsMap;
+        }
+        // Extraire les stats du cache
+        const userStats = {
+            total: stats.get("total") || 0,
+            active: stats.get("active") || 0,
+            pending: stats.get("pending") || 0,
+            suspended: stats.get("suspended") || 0,
         };
         // 📄 AMÉLIORATION : Format de pagination plus standard
         const pagination = {
@@ -78,7 +99,7 @@ const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         response_js_1.default.success(res, "Users retrieved successfully!", {
             users: result,
             pagination,
-            stats,
+            stats: userStats,
         });
     }
     catch (error) {
@@ -171,9 +192,13 @@ const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
                     },
                 },
             });
+            // 🚀 CACHE: Invalider le cache des stats utilisateurs après création
+            cache_service_js_1.cacheService.invalidateUserStats();
             response_js_1.default.success(res, "User created successfully!", userWithRoles);
         }
         else {
+            // 🚀 CACHE: Invalider le cache des stats utilisateurs après création
+            cache_service_js_1.cacheService.invalidateUserStats();
             response_js_1.default.success(res, "User created successfully!", newUser);
         }
     }
@@ -251,6 +276,8 @@ const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
                 },
             },
         });
+        // 🚀 CACHE: Invalider le cache des stats utilisateurs après mise à jour
+        cache_service_js_1.cacheService.invalidateUserStats();
         response_js_1.default.success(res, "User updated successfully!", userWithRoles);
     }
     catch (error) {
@@ -280,6 +307,8 @@ const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         const user = yield prisma_client_js_1.default.user.delete({
             where: { id },
         });
+        // 🚀 CACHE: Invalider le cache des stats utilisateurs après suppression
+        cache_service_js_1.cacheService.invalidateUserStats();
         response_js_1.default.success(res, "User deleted successfully!", user);
     }
     catch (error) {

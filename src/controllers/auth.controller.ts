@@ -80,12 +80,28 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (existingUser) {
-      return ResponseApi.error(
-        res,
-        "Un utilisateur avec cet email existe déjà",
-        null,
-        400
-      );
+      // ✅ PERMETTRE LA RÉINSCRIPTION SI COMPTE NON VÉRIFIÉ
+      if (!existingUser.isVerified) {
+        // Supprimer l'ancien compte non vérifié et ses relations
+        await prisma.userRole.deleteMany({
+          where: { userId: existingUser.id },
+        });
+        await prisma.user.delete({
+          where: { id: existingUser.id },
+        });
+
+        console.log(
+          `🔄 Compte non vérifié supprimé pour réinscription: ${email}`
+        );
+      } else {
+        // Compte déjà vérifié, impossible de se réinscrire
+        return ResponseApi.error(
+          res,
+          "Un utilisateur avec cet email existe déjà",
+          null,
+          400
+        );
+      }
     }
 
     const hashedPassword = await hashPassword(password);
@@ -131,7 +147,12 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     }
     await prisma.user.update({
       where: { id: newUser.id },
-      data: { otp },
+      data: {
+        otp,
+        otpExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes d'expiration
+        otpAttempts: 1, // Premier envoi d'OTP
+        otpLastAttempt: new Date(), // Timestamp du premier envoi
+      },
     });
 
     return ResponseApi.success(
@@ -173,6 +194,20 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
       return ResponseApi.error(res, "Le compte est déjà vérifié", null, 400);
     }
 
+    // 🕒 VÉRIFICATION DE L'EXPIRATION DE L'OTP
+    if (existingUser.otpExpires && existingUser.otpExpires < new Date()) {
+      return ResponseApi.error(
+        res,
+        "Code OTP expiré. Demandez un nouveau code via resend-otp",
+        {
+          code: "OTP_EXPIRED",
+          expiredAt: existingUser.otpExpires,
+          hint: "Utilisez l'endpoint /resend-otp pour obtenir un nouveau code",
+        },
+        400
+      );
+    }
+
     if (!validateOTP(otp, existingUser.otp)) {
       return ResponseApi.error(res, "OTP invalide", null, 400);
     }
@@ -181,6 +216,9 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
       where: { id: userId },
       data: {
         otp: null,
+        otpExpires: null, // Nettoyer l'expiration aussi
+        otpAttempts: 0, // Réinitialiser le compteur de tentatives
+        otpLastAttempt: null, // Réinitialiser le timestamp
         isVerified: true,
         status: "ACTIVE",
       },
@@ -222,6 +260,149 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
     return ResponseApi.error(
       res,
       "Une erreur est survenue lors de la vérification OTP",
+      error.message,
+      500
+    );
+  }
+};
+
+export const resendOTP = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return ResponseApi.error(res, "UserId est requis", null, 400);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return ResponseApi.error(res, "Utilisateur non trouvé", null, 404);
+    }
+
+    if (user.isVerified) {
+      return ResponseApi.error(res, "Compte déjà vérifié", null, 400);
+    }
+
+    // �️ PROTECTION: Vérifier les tentatives de renvoi OTP (3 max par heure)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const shouldResetAttempts =
+      !user.otpLastAttempt || user.otpLastAttempt < oneHourAgo;
+
+    if (shouldResetAttempts) {
+      // Réinitialiser le compteur si plus d'1 heure s'est écoulée
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          otpAttempts: 0,
+          otpLastAttempt: new Date(),
+        },
+      });
+    } else if (user.otpAttempts >= 3) {
+      // Limite de 3 tentatives par heure atteinte
+      const timeLeft = Math.ceil(
+        (user.otpLastAttempt!.getTime() + 60 * 60 * 1000 - Date.now()) /
+          1000 /
+          60
+      );
+      return ResponseApi.error(
+        res,
+        `Limite de tentatives atteinte (3 max par heure). Réessayez dans ${timeLeft} minutes`,
+        {
+          code: "OTP_ATTEMPT_LIMIT_EXCEEDED",
+          attemptsUsed: user.otpAttempts,
+          maxAttempts: 3,
+          resetInMinutes: timeLeft,
+          nextAttemptAt: new Date(
+            user.otpLastAttempt!.getTime() + 60 * 60 * 1000
+          ),
+        },
+        429
+      );
+    }
+
+    // �🔐 SÉCURITÉ: Vérifier si un OTP a été récemment envoyé (limite 1 minute)
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+    if (user.updatedAt && user.updatedAt > oneMinuteAgo) {
+      return ResponseApi.error(
+        res,
+        "Veuillez attendre 1 minute avant de demander un nouveau code",
+        null,
+        429
+      );
+    }
+
+    // 🔢 GÉNÉRATION D'UN NOUVEAU CODE OTP
+    const otp = generateOTP();
+
+    // 📱 ENVOI PAR SMS EN PRIORITÉ
+    const smsSent = await sendSMS(
+      user.phone!,
+      `Votre nouveau code OTP est: ${otp}`
+    );
+
+    // Log OTP en développement pour faciliter les tests
+    if (process.env.NODE_ENV === "development") {
+      console.log(`🔄 Nouveau OTP pour ${user.phone}: ${otp}`);
+    }
+
+    // 📧 FALLBACK EMAIL SI SMS ÉCHOUE
+    if (!smsSent && user.email) {
+      const htmlTemplate = createOTPEmailTemplate(
+        user.firstName,
+        user.lastName,
+        otp
+      );
+
+      await sendEmail(
+        user.email,
+        "🔄 Nouveau code de vérification BuyAndSale",
+        `Bonjour ${user.firstName} ${user.lastName},\n\nVotre nouveau code OTP est: ${otp}\n\nCe code remplace le précédent.`,
+        htmlTemplate
+      );
+    }
+
+    // 💾 MISE À JOUR EN BASE DE DONNÉES
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        otp,
+        otpExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes d'expiration
+        otpAttempts: shouldResetAttempts ? 1 : (user.otpAttempts || 0) + 1, // Incrémenter ou réinitialiser
+        otpLastAttempt: new Date(), // Mettre à jour le timestamp de la dernière tentative
+        updatedAt: new Date(), // Important pour le rate limiting
+      },
+    });
+
+    // 📊 LOG POUR MONITORING
+    console.log(
+      `✅ [ResendOTP] Nouveau code envoyé pour utilisateur ${userId}:`,
+      {
+        phone: user.phone,
+        email: user.email,
+        method: smsSent ? "SMS" : "EMAIL",
+        timestamp: new Date().toISOString(),
+      }
+    );
+
+    return ResponseApi.success(
+      res,
+      smsSent
+        ? "Nouveau code OTP envoyé par SMS"
+        : "Nouveau code OTP envoyé par email",
+      {
+        userId: user.id,
+        method: smsSent ? "SMS" : "EMAIL",
+      },
+      200
+    );
+  } catch (error: any) {
+    console.error("❌ Erreur lors du renvoi OTP:", error);
+    return ResponseApi.error(
+      res,
+      "Une erreur est survenue lors du renvoi de l'OTP",
       error.message,
       500
     );

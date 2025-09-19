@@ -4,6 +4,7 @@ import prisma from "../model/prisma.client.js";
 import { hashPassword } from "../utilities/bcrypt.js";
 import { UploadedFile } from "express-fileupload";
 import Utils from "../helper/utils.js";
+import { cacheService } from "../services/cache.service.js";
 
 export const getAllUsers = async (
   req: Request,
@@ -54,12 +55,36 @@ export const getAllUsers = async (
     // Compter le total pour la pagination
     const total = await prisma.user.count({ where: whereClause });
 
-    // 📊 NOUVEAU : Calcul automatique des statistiques par statut
-    const stats = {
-      total: await prisma.user.count(),
-      active: await prisma.user.count({ where: { status: "ACTIVE" } }),
-      pending: await prisma.user.count({ where: { status: "PENDING" } }),
-      suspended: await prisma.user.count({ where: { status: "SUSPENDED" } }),
+    // 📊 NOUVEAU : Calcul des statistiques avec cache
+    let stats = cacheService.getUserStats();
+
+    if (!stats) {
+      // Calculer les stats si pas en cache
+      const calculatedStats = {
+        total: await prisma.user.count(),
+        active: await prisma.user.count({ where: { status: "ACTIVE" } }),
+        pending: await prisma.user.count({ where: { status: "PENDING" } }),
+        suspended: await prisma.user.count({ where: { status: "SUSPENDED" } }),
+      };
+
+      // Convertir en Map pour le cache
+      const statsMap = new Map();
+      statsMap.set("total", calculatedStats.total);
+      statsMap.set("active", calculatedStats.active);
+      statsMap.set("pending", calculatedStats.pending);
+      statsMap.set("suspended", calculatedStats.suspended);
+
+      // Mettre en cache
+      cacheService.setUserStats(statsMap);
+      stats = statsMap;
+    }
+
+    // Extraire les stats du cache
+    const userStats = {
+      total: stats.get("total") || 0,
+      active: stats.get("active") || 0,
+      pending: stats.get("pending") || 0,
+      suspended: stats.get("suspended") || 0,
     };
 
     // 📄 AMÉLIORATION : Format de pagination plus standard
@@ -76,7 +101,7 @@ export const getAllUsers = async (
     ResponseApi.success(res, "Users retrieved successfully!", {
       users: result,
       pagination,
-      stats,
+      stats: userStats,
     });
   } catch (error: any) {
     console.log("====================================");
@@ -177,8 +202,14 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
+      // 🚀 CACHE: Invalider le cache des stats utilisateurs après création
+      cacheService.invalidateUserStats();
+
       ResponseApi.success(res, "User created successfully!", userWithRoles);
     } else {
+      // 🚀 CACHE: Invalider le cache des stats utilisateurs après création
+      cacheService.invalidateUserStats();
+
       ResponseApi.success(res, "User created successfully!", newUser);
     }
   } catch (error: any) {
@@ -265,6 +296,9 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
+    // 🚀 CACHE: Invalider le cache des stats utilisateurs après mise à jour
+    cacheService.invalidateUserStats();
+
     ResponseApi.success(res, "User updated successfully!", userWithRoles);
   } catch (error: any) {
     console.log("====================================");
@@ -295,6 +329,9 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
     const user = await prisma.user.delete({
       where: { id },
     });
+
+    // 🚀 CACHE: Invalider le cache des stats utilisateurs après suppression
+    cacheService.invalidateUserStats();
 
     ResponseApi.success(res, "User deleted successfully!", user);
   } catch (error: any) {

@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteCity = exports.updateCity = exports.getCityById = exports.getAllCities = exports.createCity = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
+const cache_service_js_1 = require("../services/cache.service.js");
 //creation de la ville
 const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -24,7 +25,7 @@ const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             where: { name: { equals: name } },
         });
         if (existingCity) {
-            return response_js_1.default.notFound(res, 'City Already exist');
+            return response_js_1.default.notFound(res, "City Already exist");
         }
         //creer la ville
         const city = yield prisma_client_js_1.default.city.create({
@@ -37,7 +38,7 @@ const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             id: city.id,
             name: city.name,
             region: null,
-            country: 'Cameroun',
+            country: "Cameroun",
             latitude: null,
             longitude: null,
             userCount: 0, // Nouvelle ville = 0 utilisateurs
@@ -46,19 +47,26 @@ const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             createdAt: city.createdAt.toISOString(),
             updatedAt: city.updatedAt.toISOString(),
         };
-        response_js_1.default.success(res, 'City create succesfully', enrichedCity);
+        // 🚀 CACHE: Invalider le cache des villes après création
+        cache_service_js_1.cacheService.invalidateCities();
+        response_js_1.default.success(res, "City create succesfully", enrichedCity);
     }
     catch (error) {
         console.log(error);
-        response_js_1.default.error(res, 'Failled to create City', error);
+        response_js_1.default.error(res, "Failled to create City", error);
     }
 });
 exports.createCity = createCity;
 //obtenir toutes les villes
 const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        // 🚀 CACHE: Vérifier d'abord si les données sont en cache
+        const cachedCities = cache_service_js_1.cacheService.getCities();
+        if (cachedCities) {
+            return response_js_1.default.success(res, "Cities retrieved successfully (cache)", cachedCities);
+        }
         const cities = yield prisma_client_js_1.default.city.findMany({
-            orderBy: { name: 'asc' },
+            orderBy: { name: "asc" },
             include: {
                 _count: {
                     select: {
@@ -83,7 +91,7 @@ const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 id: city.id,
                 name: city.name,
                 region: null, // Pas encore défini dans le schéma
-                country: 'Cameroun', // Valeur par défaut
+                country: "Cameroun", // Valeur par défaut
                 latitude: null,
                 longitude: null,
                 userCount,
@@ -93,11 +101,13 @@ const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 updatedAt: city.updatedAt.toISOString(),
             };
         })));
-        response_js_1.default.success(res, 'Cities retrieved successfully', enrichedCities);
+        // 🚀 CACHE: Mettre en cache les données enrichies
+        cache_service_js_1.cacheService.setCities(enrichedCities);
+        response_js_1.default.success(res, "Cities retrieved successfully", enrichedCities);
     }
     catch (error) {
         console.log(error);
-        response_js_1.default.error(res, 'Failled to fect all cities', error);
+        response_js_1.default.error(res, "Failled to fect all cities", error);
     }
 });
 exports.getAllCities = getAllCities;
@@ -107,7 +117,7 @@ const getCityById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         const { id } = req.params;
         //verification de l'id
         if (!id) {
-            return response_js_1.default.notFound(res, 'Id is not Found');
+            return response_js_1.default.notFound(res, "Id is not Found");
         }
         //recuperation de la ville
         const city = yield prisma_client_js_1.default.city.findUnique({
@@ -115,7 +125,7 @@ const getCityById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             include: {
                 products: {
                     take: 5,
-                    orderBy: { createdAt: 'desc' },
+                    orderBy: { createdAt: "desc" },
                     select: {
                         id: true,
                         name: true,
@@ -128,13 +138,13 @@ const getCityById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             },
         });
         if (!city) {
-            return response_js_1.default.notFound(res, 'city not Found');
+            return response_js_1.default.notFound(res, "city not Found");
         }
-        response_js_1.default.success(res, 'City retrieved succesfully', city);
+        response_js_1.default.success(res, "City retrieved succesfully", city);
     }
     catch (error) {
         console.log(error);
-        response_js_1.default.error(res, 'Failled to get city', error);
+        response_js_1.default.error(res, "Failled to get city", error);
     }
 });
 exports.getCityById = getCityById;
@@ -145,14 +155,14 @@ const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         const { name } = req.body;
         //verification de l'id
         if (!id) {
-            return response_js_1.default.notFound(res, 'Id is not Found');
+            return response_js_1.default.notFound(res, "Id is not Found");
         }
         //verifions si la ville existe par ID
         const existingCity = yield prisma_client_js_1.default.city.findUnique({
             where: { id },
         });
         if (!existingCity) {
-            return response_js_1.default.notFound(res, 'City not Found');
+            return response_js_1.default.notFound(res, "City not Found");
         }
         // Vérifier si le nouveau nom est déjà utilisé par une autre ville
         if (name && name.toLowerCase() !== existingCity.name.toLowerCase()) {
@@ -160,7 +170,7 @@ const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
                 where: { name: { equals: name }, NOT: { id } },
             });
             if (nameExists) {
-                return response_js_1.default.error(res, 'city name already in use', null);
+                return response_js_1.default.error(res, "city name already in use", null);
             }
         }
         const updatedCity = yield prisma_client_js_1.default.city.update({
@@ -188,7 +198,7 @@ const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             id: updatedCity.id,
             name: updatedCity.name,
             region: null,
-            country: 'Cameroun',
+            country: "Cameroun",
             latitude: null,
             longitude: null,
             userCount,
@@ -197,11 +207,13 @@ const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             createdAt: updatedCity.createdAt.toISOString(),
             updatedAt: updatedCity.updatedAt.toISOString(),
         };
-        response_js_1.default.success(res, 'city update succesfully', enrichedCity);
+        // 🚀 CACHE: Invalider le cache des villes après mise à jour
+        cache_service_js_1.cacheService.invalidateCities();
+        response_js_1.default.success(res, "city update succesfully", enrichedCity);
     }
     catch (error) {
-        console.log('Failled to update city', error);
-        response_js_1.default.error(res, 'Failled to update city', error);
+        console.log("Failled to update city", error);
+        response_js_1.default.error(res, "Failled to update city", error);
     }
 });
 exports.updateCity = updateCity;
@@ -214,22 +226,24 @@ const deleteCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             where: { id },
         });
         if (!existingCity) {
-            return response_js_1.default.notFound(res, 'City not Found');
+            return response_js_1.default.notFound(res, "City not Found");
         }
         // Vérifier si la ville contient des produits
         const productsCount = yield prisma_client_js_1.default.product.count({
             where: { cityId: id },
         });
         if (productsCount > 0) {
-            return response_js_1.default.notFound(res, 'impossible to Delete ville  who have a product');
+            return response_js_1.default.notFound(res, "impossible to Delete ville  who have a product");
         }
         // Supprimer la ville
         const city = yield prisma_client_js_1.default.city.delete({ where: { id } });
-        response_js_1.default.success(res, 'city Delete succesfully', city);
+        // 🚀 CACHE: Invalider le cache des villes après suppression
+        cache_service_js_1.cacheService.invalidateCities();
+        response_js_1.default.success(res, "city Delete succesfully", city);
     }
     catch (error) {
         console.log(error);
-        response_js_1.default.error(res, 'Failled to delete city', error);
+        response_js_1.default.error(res, "Failled to delete city", error);
     }
 });
 exports.deleteCity = deleteCity;

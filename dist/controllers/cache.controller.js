@@ -25,14 +25,26 @@ const cache_service_js_1 = require("../services/cache.service.js");
 const getCacheStats = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const stats = cache_service_js_1.cacheService.getStats();
-        response_js_1.default.success(res, 'Statistiques du cache récupérées', Object.assign(Object.assign({}, stats), { hitRate: `${stats.hitRate}%`, memoryUsage: `${(stats.vsize / 1024).toFixed(2)} KB`, efficiency: stats.hitRateNumeric > 70
-                ? 'Excellent'
+        // Format standardisé pour le frontend
+        response_js_1.default.success(res, "Statistiques du cache récupérées", {
+            keys: stats.keys,
+            hits: stats.hits,
+            misses: stats.misses,
+            ksize: stats.ksize,
+            vsize: stats.vsize,
+            hitRate: stats.hitRate,
+            hitRateNumeric: stats.hitRateNumeric,
+            // Métadonnées supplémentaires pour le monitoring
+            memoryUsage: `${(stats.vsize / 1024).toFixed(2)} KB`,
+            efficiency: stats.hitRateNumeric > 70
+                ? "Excellent"
                 : stats.hitRateNumeric > 50
-                    ? 'Bon'
-                    : 'À améliorer' }));
+                    ? "Bon"
+                    : "À améliorer",
+        });
     }
     catch (error) {
-        response_js_1.default.error(res, 'Erreur lors de la récupération des statistiques du cache', error.message);
+        response_js_1.default.error(res, "Erreur lors de la récupération des statistiques du cache", error.message);
     }
 });
 exports.getCacheStats = getCacheStats;
@@ -43,10 +55,10 @@ exports.getCacheStats = getCacheStats;
 const flushCache = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         cache_service_js_1.cacheService.flush();
-        response_js_1.default.success(res, 'Cache vidé avec succès', null);
+        response_js_1.default.success(res, "Cache vidé avec succès", null);
     }
     catch (error) {
-        response_js_1.default.error(res, 'Erreur lors du vidage du cache', error.message);
+        response_js_1.default.error(res, "Erreur lors du vidage du cache", error.message);
     }
 });
 exports.flushCache = flushCache;
@@ -57,12 +69,12 @@ exports.flushCache = flushCache;
 const cleanupCache = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const deletedCount = cache_service_js_1.cacheService.cleanupExpired();
-        response_js_1.default.success(res, 'Nettoyage du cache effectué', {
+        response_js_1.default.success(res, "Nettoyage du cache effectué", {
             deletedEntries: deletedCount,
         });
     }
     catch (error) {
-        response_js_1.default.error(res, 'Erreur lors du nettoyage du cache', error.message);
+        response_js_1.default.error(res, "Erreur lors du nettoyage du cache", error.message);
     }
 });
 exports.cleanupCache = cleanupCache;

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetPasswordSchema = exports.forgotPasswordSchema = exports.logoutSchema = exports.refreshTokenSchema = exports.loginSchema = exports.verifyOTPSchema = exports.registerSchema = void 0;
+exports.resetPasswordSchema = exports.forgotPasswordSchema = exports.logoutSchema = exports.refreshTokenSchema = exports.loginSchema = exports.resendOTPSchema = exports.verifyOTPSchema = exports.registerSchema = void 0;
 const yup = __importStar(require("yup"));
 // min 6 characters, 1 upper case letter, 1 lower case letter, 1 numeric digit.
 const passwordRules = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
@@ -41,7 +41,7 @@ exports.registerSchema = yup.object({
     email: yup.string().email().required(),
     password: yup
         .string()
-        .matches(passwordRules, { message: 'Please create a stronger password' })
+        .matches(passwordRules, { message: "Please create a stronger password" })
         .required()
         .min(6),
     firstName: yup.string().required(),
@@ -50,6 +50,9 @@ exports.registerSchema = yup.object({
 });
 exports.verifyOTPSchema = yup.object({
     otp: yup.string().required(),
+    userId: yup.string().required(),
+});
+exports.resendOTPSchema = yup.object({
     userId: yup.string().required(),
 });
 exports.loginSchema = yup.object({
@@ -69,7 +72,7 @@ exports.resetPasswordSchema = yup.object({
     token: yup.string().required(),
     newPassword: yup
         .string()
-        .matches(passwordRules, { message: 'Please create a stronger password' })
+        .matches(passwordRules, { message: "Please create a stronger password" })
         .required()
         .min(6),
 });

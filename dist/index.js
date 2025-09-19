@@ -17,7 +17,6 @@ const node_path_1 = __importDefault(require("node:path"));
 const errorHandler_js_1 = require("./middlewares/errorHandler.js");
 const contentTypeValidator_js_1 = require("./middlewares/contentTypeValidator.js");
 const rateLimiter_js_1 = require("./middlewares/rateLimiter.js");
-const csrf_middleware_js_1 = require("./middlewares/csrf.middleware.js");
 const security_utils_js_1 = require("./utilities/security.utils.js");
 const socket_js_1 = require("./utilities/socket.js");
 const index_js_1 = __importDefault(require("./routes/index.js"));
@@ -81,7 +80,6 @@ app.use((0, express_session_1.default)({
 app.use((0, cookie_parser_1.default)());
 app.use((0, morgan_1.default)("dev"));
 app.use((0, contentTypeValidator_js_1.validateContentType)());
-app.use("/api/bayamsalam", csrf_middleware_js_1.generateCSRFMiddleware);
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use((0, express_fileupload_1.default)({
@@ -91,7 +89,6 @@ app.use((0, express_fileupload_1.default)({
 }));
 app.use("/public", express_1.default.static(node_path_1.default.join(__dirname, "../public")));
 app.use("/api/bayamsalam", rateLimiter_js_1.generalRateLimiter);
-app.use("/api/bayamsalam", csrf_middleware_js_1.validateCSRFMiddleware);
 // Routes
 app.use(passport_1.default.initialize());
 app.use(passport_1.default.session());

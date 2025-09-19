@@ -41,6 +41,9 @@ const PERMISSIONS = [
   "VIEW_FORFAIT",
   "ACTIVATE_FORFAIT",
   "DEACTIVATE_FORFAIT",
+  // 🚀 PERMISSIONS CACHE - Ajout des permissions manquantes
+  "ADMIN_READ", // Permission pour consulter les statistiques admin/cache
+  "ADMIN_WRITE", // Permission pour effectuer des actions admin/cache
 ];
 
 const USER_PERMISSIONS = [

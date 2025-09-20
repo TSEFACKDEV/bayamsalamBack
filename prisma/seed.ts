@@ -70,20 +70,50 @@ const cities = [
 ];
 
 const categories = [
-  { name: "Électronique", description: "Appareils et gadgets électroniques" },
   {
-    name: "Vêtements",
-    description: "Vêtements pour hommes, femmes et enfants",
+    name: "Électronique",
+    description: "Téléphones, ordinateurs, TV et appareils électroniques",
   },
-  { name: "Meubles", description: "Meubles pour la maison et le bureau" },
-  { name: "Jouets", description: "Jouets pour enfants de tous âges" },
-  { name: "Livres", description: "Livres de tous genres" },
-  { name: "Sport", description: "Équipements et vêtements de sport" },
+  {
+    name: "Maison",
+    description: "Mobilier, électroménager, décoration et jardin",
+  },
   { name: "Automobile", description: "Véhicules et accessoires automobiles" },
-  { name: "Immobilier", description: "Biens immobiliers et terrains" },
-  { name: "Services", description: "Services divers" },
-  { name: "Rencontres", description: "Trouvez l'amour" },
-  { name: "Autres", description: "Catégories diverses" },
+  {
+    name: "Immobilier",
+    description: "Appartements, maisons, terrains et locaux",
+  },
+  {
+    name: "Mode",
+    description: "Vêtements, chaussures, accessoires et bijoux",
+  },
+  {
+    name: "Enfants",
+    description: "Vêtements, jouets, puériculture et équipement bébé",
+  },
+  { name: "Sport", description: "Équipements et vêtements de sport" },
+  {
+    name: "Animaux",
+    description: "Chiens, chats, accessoires et nourriture animaux",
+  },
+  { name: "Loisirs", description: "Livres, musique, jeux et divertissement" },
+
+  {
+    name: "Services",
+    description: "Emploi, cours, réparations et services à domicile",
+  },
+  {
+    name: "Rencontres",
+    description: "Recherche d'amis, partenaires et connexions sociales",
+  },
+  {
+    name: "Événements",
+    description: "Billets de concert, spectacles, formations et événements",
+  },
+  {
+    name: "Divers",
+    description: "Objets de collection, antiquités et autres articles",
+  },
 ];
 
 async function main() {

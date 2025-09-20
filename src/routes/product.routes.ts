@@ -14,7 +14,6 @@ import {
   reviewProduct,
   updateProduct,
   getHomePageProduct,
-  // ✅ NOUVEAUX CONTRÔLEURS SPÉCIALISÉS
   getSellerProducts,
   getUserProducts,
   getCategoryProducts,
@@ -115,8 +114,6 @@ router.post(
   checkPermission("PRODUCT_DELETE"),
   deleteProductOfSuspendedUser
 );
-
-// ✅ NOUVELLES ROUTES SPÉCIALISÉES POUR OPTIMISER LES REQUÊTES
 
 // Route pour récupérer les produits validés d'un vendeur spécifique
 router.get(

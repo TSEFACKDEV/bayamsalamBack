@@ -49,12 +49,12 @@ const getAllCategories = (req, res) => __awaiter(void 0, void 0, void 0, functio
     try {
         // Pagination
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
+        const limit = parseInt(req.query.limit) || 20; // ✅ Augmenté de 10 à 20
         const skip = (page - 1) * limit;
         // Recherche
         const search = req.query.search || "";
         // 🚀 CACHE: Pour les requêtes simples sans recherche ni pagination
-        const isSimpleRequest = !search && page === 1 && limit >= 50;
+        const isSimpleRequest = !search && page === 1 && limit >= 15;
         if (isSimpleRequest) {
             const cachedCategories = cache_service_js_1.cacheService.getCategories();
             if (cachedCategories) {

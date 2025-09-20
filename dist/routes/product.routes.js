@@ -40,7 +40,6 @@ router.get("/:productId/stats", product_controller_js_1.getProductViewStats);
 router.get("/:id", product_controller_js_1.getProductById);
 // Route pour supprimer tous les produits d'un utilisateur suspendu
 router.post("/delete-of-suspended-user", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_DELETE"), product_controller_js_1.deleteProductOfSuspendedUser);
-// ✅ NOUVELLES ROUTES SPÉCIALISÉES POUR OPTIMISER LES REQUÊTES
 // Route pour récupérer les produits validés d'un vendeur spécifique
 router.get("/seller/:sellerId", strictValidator_js_1.readValidator, // 🔒 Validation stricte lecture
 product_controller_js_1.getSellerProducts);

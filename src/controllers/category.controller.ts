@@ -46,14 +46,14 @@ export const getAllCategories = async (
   try {
     // Pagination
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit as string) || 20; // ✅ Augmenté de 10 à 20
     const skip = (page - 1) * limit;
 
     // Recherche
     const search = (req.query.search as string) || "";
 
     // 🚀 CACHE: Pour les requêtes simples sans recherche ni pagination
-    const isSimpleRequest = !search && page === 1 && limit >= 50;
+    const isSimpleRequest = !search && page === 1 && limit >= 15;
     if (isSimpleRequest) {
       const cachedCategories = cacheService.getCategories();
       if (cachedCategories) {

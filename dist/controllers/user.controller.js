@@ -243,9 +243,38 @@ const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         if (password) {
             data.password = yield (0, bcrypt_js_1.hashPassword)(password);
         }
-        // 🎯 NOUVEAU : Support de la modification du statut utilisateur
+        // 🎯 NOUVEAU : Support de la modification du statut utilisateur avec gestion automatique des produits
+        let deletedProductsInfo = null;
         if (status) {
             data.status = status;
+            // ✅ AUTOMATIQUE : Supprimer tous les produits si l'utilisateur est suspendu ou banni
+            if (status === "SUSPENDED" || status === "BANNED") {
+                // Récupérer d'abord tous les produits pour supprimer les images
+                const userProducts = yield prisma_client_js_1.default.product.findMany({
+                    where: { userId: id },
+                    select: { id: true, images: true, name: true },
+                });
+                if (userProducts.length > 0) {
+                    // Supprimer les images associées aux produits
+                    const imagePromises = userProducts.flatMap((product) => {
+                        const images = product.images;
+                        return images.map((img) => utils_js_1.default.deleteFile(img));
+                    });
+                    // Attendre que toutes les suppressions d'images soient terminées
+                    yield Promise.allSettled(imagePromises);
+                    // Supprimer tous les produits de l'utilisateur
+                    const deleteResult = yield prisma_client_js_1.default.product.deleteMany({
+                        where: { userId: id },
+                    });
+                    deletedProductsInfo = {
+                        count: deleteResult.count,
+                        products: userProducts.map((p) => p.name),
+                    };
+                    // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+                    cache_service_js_1.cacheService.invalidateAllProducts();
+                    console.log(`🗑️ Cache produits invalidé après suppression de ${deleteResult.count} produits`);
+                }
+            }
         }
         // Mettre à jour l'utilisateur
         const updatedUser = yield prisma_client_js_1.default.user.update({
@@ -279,7 +308,17 @@ const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         });
         // 🚀 CACHE: Invalider le cache des stats utilisateurs après mise à jour
         cache_service_js_1.cacheService.invalidateUserStats();
-        response_js_1.default.success(res, "User updated successfully!", userWithRoles);
+        // ✅ RÉPONSE : Inclure les informations sur les produits supprimés si applicable
+        const responseMessage = deletedProductsInfo
+            ? `Utilisateur mis à jour avec succès. ${deletedProductsInfo.count} produit(s) supprimé(s) automatiquement.`
+            : "User updated successfully!";
+        const responseData = Object.assign({ user: userWithRoles }, (deletedProductsInfo && {
+            deletedProducts: {
+                count: deletedProductsInfo.count,
+                message: `${deletedProductsInfo.count} produit(s) supprimé(s) suite à la suspension/bannissement`,
+            },
+        }));
+        response_js_1.default.success(res, responseMessage, responseData);
     }
     catch (error) {
         console.log("====================================");

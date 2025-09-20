@@ -192,14 +192,17 @@ function logSecurityEvent(event, req) {
         });
         // 💾 SAUVEGARDE EN BASE (asynchrone pour ne pas bloquer)
         try {
-            // Créer un log de sécurité (on peut étendre le schema plus tard)
-            yield prisma_client_js_1.default.connectionLog.create({
-                data: {
-                    userId: fullEvent.userId || "anonymous",
-                    ipAddress: fullEvent.ip,
-                    userAgent: `[${fullEvent.type}] ${fullEvent.userAgent.substring(0, 100)}`,
-                },
-            });
+            // ✅ MARKETPLACE: Ne sauvegarder que pour les utilisateurs authentifiés
+            if (fullEvent.userId) {
+                yield prisma_client_js_1.default.connectionLog.create({
+                    data: {
+                        userId: fullEvent.userId,
+                        ipAddress: fullEvent.ip,
+                        userAgent: `[${fullEvent.type}] ${fullEvent.userAgent.substring(0, 100)}`,
+                    },
+                });
+            }
+            // Pour les anonymes, seul le logging console est suffisant
             // 🔔 NOTIFICATION ADMINS POUR ÉVÉNEMENTS CRITIQUES
             if (fullEvent.severity === "CRITICAL" || fullEvent.severity === "HIGH") {
                 yield notifySecurityTeam(fullEvent);

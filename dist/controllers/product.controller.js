@@ -808,6 +808,9 @@ const deleteProductOfSuspendedUser = (req, res) => __awaiter(void 0, void 0, voi
         const result = yield prisma_client_js_1.default.product.deleteMany({
             where: { userId },
         });
+        // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+        cache_service_js_1.cacheService.invalidateAllProducts();
+        console.log(`🗑️ [MANUAL CLEANUP] Cache produits invalidé après suppression manuelle de ${result.count} produits`);
         const userName = user.firstName && user.lastName
             ? `${user.firstName} ${user.lastName}`
             : "l'utilisateur suspendu";

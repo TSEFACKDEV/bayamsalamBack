@@ -1081,6 +1081,12 @@ export const deleteProductOfSuspendedUser = async (
       where: { userId },
     });
 
+    // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+    cacheService.invalidateAllProducts();
+    console.log(
+      `🗑️ [MANUAL CLEANUP] Cache produits invalidé après suppression manuelle de ${result.count} produits`
+    );
+
     const userName =
       user.firstName && user.lastName
         ? `${user.firstName} ${user.lastName}`

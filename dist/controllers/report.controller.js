@@ -15,6 +15,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getReportsStatistics = exports.processReport = exports.getReportById = exports.getAllReports = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
+const utils_js_1 = __importDefault(require("../helper/utils.js"));
+const cache_service_js_1 = require("../services/cache.service.js");
 const getAllReports = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -56,7 +58,7 @@ const getAllReports = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 },
             },
             orderBy: {
-                createdAt: 'desc',
+                createdAt: "desc",
             },
         });
         // Compter le total
@@ -65,7 +67,7 @@ const getAllReports = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         });
         // Statistiques
         const stats = yield prisma_client_js_1.default.userReport.groupBy({
-            by: ['reason'],
+            by: ["reason"],
             _count: {
                 _all: true,
             },
@@ -87,11 +89,11 @@ const getAllReports = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 }, {}),
             },
         };
-        response_js_1.default.success(res, 'Reports retrieved successfully', result);
+        response_js_1.default.success(res, "Reports retrieved successfully", result);
     }
     catch (error) {
-        console.error('Error fetching reports:', error);
-        response_js_1.default.error(res, 'Failed to fetch reports', error.message);
+        console.error("Error fetching reports:", error);
+        response_js_1.default.error(res, "Failed to fetch reports", error.message);
     }
 });
 exports.getAllReports = getAllReports;
@@ -141,13 +143,13 @@ const getReportById = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             },
         });
         if (!report) {
-            return response_js_1.default.notFound(res, 'Report not found', 404);
+            return response_js_1.default.notFound(res, "Report not found", 404);
         }
-        response_js_1.default.success(res, 'Report retrieved successfully', report);
+        response_js_1.default.success(res, "Report retrieved successfully", report);
     }
     catch (error) {
-        console.error('Error fetching report:', error);
-        response_js_1.default.error(res, 'Failed to fetch report', error.message);
+        console.error("Error fetching report:", error);
+        response_js_1.default.error(res, "Failed to fetch report", error.message);
     }
 });
 exports.getReportById = getReportById;
@@ -157,7 +159,7 @@ const processReport = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     const { action, adminNotes } = req.body; // action: 'dismiss', 'warn', 'suspend', 'ban'
     const adminUserId = (_a = req.authUser) === null || _a === void 0 ? void 0 : _a.id;
     if (!action) {
-        return response_js_1.default.error(res, 'Action is required', 400);
+        return response_js_1.default.error(res, "Action is required", 400);
     }
     try {
         const report = yield prisma_client_js_1.default.userReport.findUnique({
@@ -167,7 +169,7 @@ const processReport = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             },
         });
         if (!report) {
-            return response_js_1.default.notFound(res, 'Report not found', 404);
+            return response_js_1.default.notFound(res, "Report not found", 404);
         }
         // Commencer une transaction
         const result = yield prisma_client_js_1.default.$transaction((tx) => __awaiter(void 0, void 0, void 0, function* () {
@@ -175,7 +177,7 @@ const processReport = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             const updatedReport = yield tx.userReport.update({
                 where: { id: reportId },
                 data: {
-                    status: action === 'dismiss' ? 'DISMISSED' : 'PROCESSED',
+                    status: action === "dismiss" ? "DISMISSED" : "PROCESSED",
                     processedAt: new Date(),
                     processedBy: adminUserId,
                     adminNotes,
@@ -183,45 +185,98 @@ const processReport = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             });
             // Appliquer l'action sur l'utilisateur signalé selon le type d'action
             let userAction = null;
-            if (action === 'suspend') {
+            let deletedProductsInfo = null;
+            if (action === "suspend") {
+                // ✅ AUTOMATIQUE : Supprimer les produits avant suspension
+                const userProducts = yield tx.product.findMany({
+                    where: { userId: report.reportedUserId },
+                    select: { id: true, images: true, name: true },
+                });
+                if (userProducts.length > 0) {
+                    // Supprimer les images associées aux produits
+                    const imagePromises = userProducts.flatMap((product) => {
+                        const images = product.images;
+                        return images.map((img) => utils_js_1.default.deleteFile(img));
+                    });
+                    yield Promise.allSettled(imagePromises);
+                    // Supprimer tous les produits
+                    const deleteResult = yield tx.product.deleteMany({
+                        where: { userId: report.reportedUserId },
+                    });
+                    deletedProductsInfo = {
+                        count: deleteResult.count,
+                        products: userProducts.map((p) => p.name),
+                    };
+                    // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+                    cache_service_js_1.cacheService.invalidateAllProducts();
+                    console.log(`🗑️ [SUSPEND] Cache produits invalidé après suppression de ${deleteResult.count} produits`);
+                }
                 userAction = yield tx.user.update({
                     where: { id: report.reportedUserId },
-                    data: { status: 'SUSPENDED' },
+                    data: { status: "SUSPENDED" },
                 });
             }
-            else if (action === 'ban') {
+            else if (action === "ban") {
+                // ✅ AUTOMATIQUE : Supprimer les produits avant bannissement
+                const userProducts = yield tx.product.findMany({
+                    where: { userId: report.reportedUserId },
+                    select: { id: true, images: true, name: true },
+                });
+                if (userProducts.length > 0) {
+                    // Supprimer les images associées aux produits
+                    const imagePromises = userProducts.flatMap((product) => {
+                        const images = product.images;
+                        return images.map((img) => utils_js_1.default.deleteFile(img));
+                    });
+                    yield Promise.allSettled(imagePromises);
+                    // Supprimer tous les produits
+                    const deleteResult = yield tx.product.deleteMany({
+                        where: { userId: report.reportedUserId },
+                    });
+                    deletedProductsInfo = {
+                        count: deleteResult.count,
+                        products: userProducts.map((p) => p.name),
+                    };
+                    // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+                    cache_service_js_1.cacheService.invalidateAllProducts();
+                    console.log(`🗑️ [BAN] Cache produits invalidé après suppression de ${deleteResult.count} produits`);
+                }
                 userAction = yield tx.user.update({
                     where: { id: report.reportedUserId },
-                    data: { status: 'BANNED' },
+                    data: { status: "BANNED" },
                 });
             }
             // Créer une notification pour l'utilisateur signalé
-            if (action !== 'dismiss') {
+            if (action !== "dismiss") {
+                const baseMessage = `Suite à un signalement, votre compte a été ${action === "warn"
+                    ? "averti"
+                    : action === "suspend"
+                        ? "suspendu"
+                        : "banni"}.`;
+                const productMessage = deletedProductsInfo
+                    ? ` Vos ${deletedProductsInfo.count} produit(s) ont également été supprimés.`
+                    : "";
                 yield tx.notification.create({
                     data: {
                         userId: report.reportedUserId,
                         title: `Votre compte a fait l'objet d'une action administrative`,
-                        message: `Suite à un signalement, votre compte a été ${action === 'warn'
-                            ? 'averti'
-                            : action === 'suspend'
-                                ? 'suspendu'
-                                : 'banni'}.`,
-                        type: 'ADMIN_ACTION',
-                        data: {
-                            reportId,
+                        message: baseMessage + productMessage,
+                        type: "ADMIN_ACTION",
+                        data: Object.assign({ reportId,
                             action,
-                            adminNotes,
-                        },
+                            adminNotes }, (deletedProductsInfo && {
+                            deletedProducts: deletedProductsInfo,
+                        })),
                     },
                 });
             }
             return { updatedReport, userAction };
         }));
-        response_js_1.default.success(res, 'Report processed successfully', result);
+        response_js_1.default.success(res, "Report processed successfully", result);
     }
     catch (error) {
-        console.error('Error processing report:', error);
-        response_js_1.default.error(res, 'Failed to process report', error.message);
+        console.error("Error processing report:", error);
+        response_js_1.default.error(res, "Failed to process report", error.message);
     }
 });
 exports.processReport = processReport;
@@ -235,11 +290,11 @@ const getReportsStatistics = (req, res) => __awaiter(void 0, void 0, void 0, fun
             prisma_client_js_1.default.userReport.count(),
             // Signalements en attente
             prisma_client_js_1.default.userReport.count({
-                where: { status: 'PENDING' },
+                where: { status: "PENDING" },
             }),
             // Signalements par raison
             prisma_client_js_1.default.userReport.groupBy({
-                by: ['reason'],
+                by: ["reason"],
                 _count: { _all: true },
             }),
             // Signalements par mois (6 derniers mois)
@@ -254,13 +309,13 @@ const getReportsStatistics = (req, res) => __awaiter(void 0, void 0, void 0, fun
       `,
             // Utilisateurs les plus signalés
             prisma_client_js_1.default.userReport.groupBy({
-                by: ['reportedUserId'],
+                by: ["reportedUserId"],
                 _count: {
                     reportedUserId: true,
                 },
                 orderBy: {
                     _count: {
-                        reportedUserId: 'desc',
+                        reportedUserId: "desc",
                     },
                 },
                 take: 10,
@@ -285,11 +340,11 @@ const getReportsStatistics = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 count: item._count.reportedUserId || 0,
             })),
         };
-        response_js_1.default.success(res, 'Statistics retrieved successfully', statistics);
+        response_js_1.default.success(res, "Statistics retrieved successfully", statistics);
     }
     catch (error) {
-        console.error('Error fetching statistics:', error);
-        response_js_1.default.error(res, 'Failed to fetch statistics', error.message);
+        console.error("Error fetching statistics:", error);
+        response_js_1.default.error(res, "Failed to fetch statistics", error.message);
     }
 });
 exports.getReportsStatistics = getReportsStatistics;

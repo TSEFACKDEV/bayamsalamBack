@@ -105,7 +105,8 @@ router.get("/home", readValidator, getHomePageProduct); // 🔒 Validation stric
 router.post("/:productId/view", authenticate, recordProductView);
 router.get("/:productId/stats", getProductViewStats);
 
-router.get("/:id", getProductById);
+// ✅ MARKETPLACE LOGIC: Voir détails produit nécessite une authentification
+router.get("/:id", authenticate, getProductById);
 
 // Route pour supprimer tous les produits d'un utilisateur suspendu
 router.post(
@@ -115,17 +116,19 @@ router.post(
   deleteProductOfSuspendedUser
 );
 
-// Route pour récupérer les produits validés d'un vendeur spécifique
+// ✅ MARKETPLACE LOGIC: Voir profil vendeur nécessite une authentification
 router.get(
   "/seller/:sellerId",
-  readValidator, // 🔒 Validation stricte lecture
+  authenticate, // � AUTH REQUISE - Voir profil vendeur
+  readValidator,
   getSellerProducts
 );
 
-// Route pour récupérer les produits validés d'un utilisateur (profil public)
+// ✅ MARKETPLACE LOGIC: Voir profil utilisateur nécessite une authentification
 router.get(
   "/user/:userId",
-  readValidator, // 🔒 Validation stricte lecture
+  authenticate, // � AUTH REQUISE - Voir profil utilisateur
+  readValidator,
   getUserProducts
 );
 

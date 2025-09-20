@@ -1,6 +1,8 @@
-import { Request, Response } from 'express';
-import ResponseApi from '../helper/response.js';
-import prisma from '../model/prisma.client.js';
+import { Request, Response } from "express";
+import ResponseApi from "../helper/response.js";
+import prisma from "../model/prisma.client.js";
+import Utils from "../helper/utils.js";
+import { cacheService } from "../services/cache.service.js";
 
 export const getAllReports = async (
   req: Request,
@@ -48,7 +50,7 @@ export const getAllReports = async (
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
@@ -59,7 +61,7 @@ export const getAllReports = async (
 
     // Statistiques
     const stats = await prisma.userReport.groupBy({
-      by: ['reason'],
+      by: ["reason"],
       _count: {
         _all: true,
       },
@@ -83,10 +85,10 @@ export const getAllReports = async (
       },
     };
 
-    ResponseApi.success(res, 'Reports retrieved successfully', result);
+    ResponseApi.success(res, "Reports retrieved successfully", result);
   } catch (error: any) {
-    console.error('Error fetching reports:', error);
-    ResponseApi.error(res, 'Failed to fetch reports', error.message);
+    console.error("Error fetching reports:", error);
+    ResponseApi.error(res, "Failed to fetch reports", error.message);
   }
 };
 
@@ -141,13 +143,13 @@ export const getReportById = async (
     });
 
     if (!report) {
-      return ResponseApi.notFound(res, 'Report not found', 404);
+      return ResponseApi.notFound(res, "Report not found", 404);
     }
 
-    ResponseApi.success(res, 'Report retrieved successfully', report);
+    ResponseApi.success(res, "Report retrieved successfully", report);
   } catch (error: any) {
-    console.error('Error fetching report:', error);
-    ResponseApi.error(res, 'Failed to fetch report', error.message);
+    console.error("Error fetching report:", error);
+    ResponseApi.error(res, "Failed to fetch report", error.message);
   }
 };
 
@@ -160,7 +162,7 @@ export const processReport = async (
   const adminUserId = req.authUser?.id;
 
   if (!action) {
-    return ResponseApi.error(res, 'Action is required', 400);
+    return ResponseApi.error(res, "Action is required", 400);
   }
 
   try {
@@ -172,7 +174,7 @@ export const processReport = async (
     });
 
     if (!report) {
-      return ResponseApi.notFound(res, 'Report not found', 404);
+      return ResponseApi.notFound(res, "Report not found", 404);
     }
 
     // Commencer une transaction
@@ -181,7 +183,7 @@ export const processReport = async (
       const updatedReport = await tx.userReport.update({
         where: { id: reportId },
         data: {
-          status: action === 'dismiss' ? 'DISMISSED' : 'PROCESSED',
+          status: action === "dismiss" ? "DISMISSED" : "PROCESSED",
           processedAt: new Date(),
           processedBy: adminUserId,
           adminNotes,
@@ -190,36 +192,109 @@ export const processReport = async (
 
       // Appliquer l'action sur l'utilisateur signalé selon le type d'action
       let userAction = null;
-      if (action === 'suspend') {
-        userAction = await tx.user.update({
-          where: { id: report.reportedUserId },
-          data: { status: 'SUSPENDED' },
+      let deletedProductsInfo = null;
+
+      if (action === "suspend") {
+        // ✅ AUTOMATIQUE : Supprimer les produits avant suspension
+        const userProducts = await tx.product.findMany({
+          where: { userId: report.reportedUserId },
+          select: { id: true, images: true, name: true },
         });
-      } else if (action === 'ban') {
+
+        if (userProducts.length > 0) {
+          // Supprimer les images associées aux produits
+          const imagePromises = userProducts.flatMap((product) => {
+            const images = product.images as string[];
+            return images.map((img) => Utils.deleteFile(img));
+          });
+          await Promise.allSettled(imagePromises);
+
+          // Supprimer tous les produits
+          const deleteResult = await tx.product.deleteMany({
+            where: { userId: report.reportedUserId },
+          });
+
+          deletedProductsInfo = {
+            count: deleteResult.count,
+            products: userProducts.map((p) => p.name),
+          };
+
+          // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+          cacheService.invalidateAllProducts();
+          console.log(
+            `🗑️ [SUSPEND] Cache produits invalidé après suppression de ${deleteResult.count} produits`
+          );
+        }
+
         userAction = await tx.user.update({
           where: { id: report.reportedUserId },
-          data: { status: 'BANNED' },
+          data: { status: "SUSPENDED" },
+        });
+      } else if (action === "ban") {
+        // ✅ AUTOMATIQUE : Supprimer les produits avant bannissement
+        const userProducts = await tx.product.findMany({
+          where: { userId: report.reportedUserId },
+          select: { id: true, images: true, name: true },
+        });
+
+        if (userProducts.length > 0) {
+          // Supprimer les images associées aux produits
+          const imagePromises = userProducts.flatMap((product) => {
+            const images = product.images as string[];
+            return images.map((img) => Utils.deleteFile(img));
+          });
+          await Promise.allSettled(imagePromises);
+
+          // Supprimer tous les produits
+          const deleteResult = await tx.product.deleteMany({
+            where: { userId: report.reportedUserId },
+          });
+
+          deletedProductsInfo = {
+            count: deleteResult.count,
+            products: userProducts.map((p) => p.name),
+          };
+
+          // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+          cacheService.invalidateAllProducts();
+          console.log(
+            `🗑️ [BAN] Cache produits invalidé après suppression de ${deleteResult.count} produits`
+          );
+        }
+
+        userAction = await tx.user.update({
+          where: { id: report.reportedUserId },
+          data: { status: "BANNED" },
         });
       }
 
       // Créer une notification pour l'utilisateur signalé
-      if (action !== 'dismiss') {
+      if (action !== "dismiss") {
+        const baseMessage = `Suite à un signalement, votre compte a été ${
+          action === "warn"
+            ? "averti"
+            : action === "suspend"
+            ? "suspendu"
+            : "banni"
+        }.`;
+
+        const productMessage = deletedProductsInfo
+          ? ` Vos ${deletedProductsInfo.count} produit(s) ont également été supprimés.`
+          : "";
+
         await tx.notification.create({
           data: {
             userId: report.reportedUserId,
             title: `Votre compte a fait l'objet d'une action administrative`,
-            message: `Suite à un signalement, votre compte a été ${
-              action === 'warn'
-                ? 'averti'
-                : action === 'suspend'
-                  ? 'suspendu'
-                  : 'banni'
-            }.`,
-            type: 'ADMIN_ACTION',
+            message: baseMessage + productMessage,
+            type: "ADMIN_ACTION",
             data: {
               reportId,
               action,
               adminNotes,
+              ...(deletedProductsInfo && {
+                deletedProducts: deletedProductsInfo,
+              }),
             },
           },
         });
@@ -228,10 +303,10 @@ export const processReport = async (
       return { updatedReport, userAction };
     });
 
-    ResponseApi.success(res, 'Report processed successfully', result);
+    ResponseApi.success(res, "Report processed successfully", result);
   } catch (error: any) {
-    console.error('Error processing report:', error);
-    ResponseApi.error(res, 'Failed to process report', error.message);
+    console.error("Error processing report:", error);
+    ResponseApi.error(res, "Failed to process report", error.message);
   }
 };
 
@@ -255,12 +330,12 @@ export const getReportsStatistics = async (
 
       // Signalements en attente
       prisma.userReport.count({
-        where: { status: 'PENDING' },
+        where: { status: "PENDING" },
       }),
 
       // Signalements par raison
       prisma.userReport.groupBy({
-        by: ['reason'],
+        by: ["reason"],
         _count: { _all: true },
       }),
 
@@ -277,13 +352,13 @@ export const getReportsStatistics = async (
 
       // Utilisateurs les plus signalés
       prisma.userReport.groupBy({
-        by: ['reportedUserId'],
+        by: ["reportedUserId"],
         _count: {
           reportedUserId: true,
         },
         orderBy: {
           _count: {
-            reportedUserId: 'desc',
+            reportedUserId: "desc",
           },
         },
         take: 10,
@@ -310,9 +385,9 @@ export const getReportsStatistics = async (
       })),
     };
 
-    ResponseApi.success(res, 'Statistics retrieved successfully', statistics);
+    ResponseApi.success(res, "Statistics retrieved successfully", statistics);
   } catch (error: any) {
-    console.error('Error fetching statistics:', error);
-    ResponseApi.error(res, 'Failed to fetch statistics', error.message);
+    console.error("Error fetching statistics:", error);
+    ResponseApi.error(res, "Failed to fetch statistics", error.message);
   }
 };

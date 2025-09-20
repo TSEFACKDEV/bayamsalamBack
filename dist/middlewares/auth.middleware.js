@@ -54,9 +54,16 @@ const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         }
         // 🔓 DÉCODAGE ET VALIDATION DU TOKEN JWT
         const decoded = jsonwebtoken_1.default.verify(token, config_js_1.default.jwtSecret);
-        // 👤 RÉCUPÉRATION DES DONNÉES UTILISATEUR
+        // 👤 RÉCUPÉRATION DES DONNÉES UTILISATEUR AVEC RÔLES
         const user = yield prisma_client_js_1.default.user.findUnique({
             where: { id: decoded.id },
+            include: {
+                roles: {
+                    include: {
+                        role: true,
+                    },
+                },
+            },
         });
         if (!user) {
             return response_js_1.default.error(res, "Utilisateur non trouvé", {

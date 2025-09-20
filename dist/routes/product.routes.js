@@ -37,15 +37,16 @@ router.get("/home", strictValidator_js_1.readValidator, product_controller_js_1.
 // Routes pour les vues d'annonces (utilisateurs connectés uniquement)
 router.post("/:productId/view", auth_middleware_js_1.authenticate, product_controller_js_1.recordProductView);
 router.get("/:productId/stats", product_controller_js_1.getProductViewStats);
-router.get("/:id", product_controller_js_1.getProductById);
+// ✅ MARKETPLACE LOGIC: Voir détails produit nécessite une authentification
+router.get("/:id", auth_middleware_js_1.authenticate, product_controller_js_1.getProductById);
 // Route pour supprimer tous les produits d'un utilisateur suspendu
 router.post("/delete-of-suspended-user", auth_middleware_js_1.authenticate, (0, checkPermission_js_1.default)("PRODUCT_DELETE"), product_controller_js_1.deleteProductOfSuspendedUser);
-// Route pour récupérer les produits validés d'un vendeur spécifique
-router.get("/seller/:sellerId", strictValidator_js_1.readValidator, // 🔒 Validation stricte lecture
-product_controller_js_1.getSellerProducts);
-// Route pour récupérer les produits validés d'un utilisateur (profil public)
-router.get("/user/:userId", strictValidator_js_1.readValidator, // 🔒 Validation stricte lecture
-product_controller_js_1.getUserProducts);
+// ✅ MARKETPLACE LOGIC: Voir profil vendeur nécessite une authentification
+router.get("/seller/:sellerId", auth_middleware_js_1.authenticate, // � AUTH REQUISE - Voir profil vendeur
+strictValidator_js_1.readValidator, product_controller_js_1.getSellerProducts);
+// ✅ MARKETPLACE LOGIC: Voir profil utilisateur nécessite une authentification
+router.get("/user/:userId", auth_middleware_js_1.authenticate, // � AUTH REQUISE - Voir profil utilisateur
+strictValidator_js_1.readValidator, product_controller_js_1.getUserProducts);
 // Route pour récupérer les produits d'une catégorie spécifique
 router.get("/category/:categoryId/products", strictValidator_js_1.readValidator, // 🔒 Validation stricte lecture
 product_controller_js_1.getCategoryProducts);

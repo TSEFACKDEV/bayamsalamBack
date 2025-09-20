@@ -94,6 +94,15 @@ class CacheService {
     invalidateHomepageProducts() {
         this.invalidateByPrefix(this.KEYS.HOMEPAGE_PRODUCTS);
     }
+    /**
+     * 🗑️ INVALIDATION COMPLÈTE DES PRODUITS
+     * Utilisé lors de suppressions massives (suspension/bannissement)
+     */
+    invalidateAllProducts() {
+        this.invalidateByPrefix("product"); // Invalide toutes les clés commençant par "product"
+        this.invalidateByPrefix("homepage"); // Invalide toutes les clés commençant par "homepage"
+        console.log("🗑️ Tous les caches de produits ont été invalidés");
+    }
     // === MÉTHODES UTILITAIRES ===
     /**
      * 📊 Statistiques détaillées du cache

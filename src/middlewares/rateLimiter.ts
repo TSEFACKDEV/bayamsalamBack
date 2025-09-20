@@ -1,8 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 import {
   logSecurityEvent,
   SecurityEventType,
-} from '../utils/securityMonitor.js';
+} from "../utils/securityMonitor.js";
 // import { Redis } from 'ioredis'; // Optionnel pour usage futur avec Redis
 
 /**
@@ -39,35 +39,35 @@ export const RATE_LIMIT_CONFIGS = {
   AUTH: {
     windowMs: 15 * 60 * 1000, // 15 minutes
     maxRequests: 5, // 5 tentatives max
-    message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.',
+    message: "Trop de tentatives de connexion. Réessayez dans 15 minutes.",
   },
 
   // 📝 Création de contenu - Modérée
   CREATE: {
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 10, // 10 créations par minute
-    message: 'Limite de création atteinte. Attendez 1 minute.',
+    message: "Limite de création atteinte. Attendez 1 minute.",
   },
 
-  // 📖 Lecture publique - Permissive
+  // 📖 Lecture publique - TRÈS PERMISSIVE POUR MARKETPLACE
   READ: {
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 100, // 100 lectures par minute
-    message: 'Trop de requêtes. Attendez quelques secondes.',
+    maxRequests: 5000, // ✅ MARKETPLACE: Navigation libre pour tous
+    message: "Trop de requêtes. Attendez quelques secondes.",
   },
 
   // 🔄 Updates - Modérée
   UPDATE: {
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 20, // 20 updates par minute
-    message: 'Limite de modification atteinte. Attendez 1 minute.',
+    message: "Limite de modification atteinte. Attendez 1 minute.",
   },
 
   // 🗑️ Suppressions - Restrictive
   DELETE: {
     windowMs: 5 * 60 * 1000, // 5 minutes
     maxRequests: 5, // 5 suppressions max
-    message: 'Limite de suppression atteinte. Attendez 5 minutes.',
+    message: "Limite de suppression atteinte. Attendez 5 minutes.",
   },
 
   // 📤 Upload de fichiers - Restrictive
@@ -86,27 +86,27 @@ function detectEndpointType(req: Request): keyof typeof RATE_LIMIT_CONFIGS {
   const path = req.path.toLowerCase();
 
   // Routes d'authentification
-  if (path.includes('/auth/login') || path.includes('/auth/register')) {
-    return 'AUTH';
+  if (path.includes("/auth/login") || path.includes("/auth/register")) {
+    return "AUTH";
   }
 
   // Upload de fichiers
-  if (method === 'post' && path.includes('/product') && req.files) {
-    return 'UPLOAD';
+  if (method === "post" && path.includes("/product") && req.files) {
+    return "UPLOAD";
   }
 
   // Par méthode HTTP
   switch (method) {
-    case 'post':
-      return 'CREATE';
-    case 'put':
-    case 'patch':
-      return 'UPDATE';
-    case 'delete':
-      return 'DELETE';
-    case 'get':
+    case "post":
+      return "CREATE";
+    case "put":
+    case "patch":
+      return "UPDATE";
+    case "delete":
+      return "DELETE";
+    case "get":
     default:
-      return 'READ';
+      return "READ";
   }
 }
 
@@ -115,9 +115,9 @@ function detectEndpointType(req: Request): keyof typeof RATE_LIMIT_CONFIGS {
  */
 function generateRateLimitKey(req: Request, type: string): string {
   // Priorité : User ID > IP + User-Agent hash
-  const userId = (req.user as any)?.id || 'anonymous';
-  const ip = req.ip || req.connection.remoteAddress || 'unknown';
-  const userAgent = req.get('User-Agent') || 'unknown';
+  const userId = (req.user as any)?.id || "anonymous";
+  const ip = req.ip || req.connection.remoteAddress || "unknown";
+  const userAgent = req.get("User-Agent") || "unknown";
 
   // Hash simple du User-Agent pour éviter les clés trop longues
   const uaHash = userAgent.substring(0, 10);
@@ -135,6 +135,20 @@ export function createRateLimiter(customConfig?: Partial<RateLimitConfig>) {
     next: NextFunction
   ): Promise<void | Response> => {
     try {
+      // 🛡️ EXEMPTION TOTALE POUR SUPER_ADMIN (doit valider toutes les annonces)
+      const authUser = (req as any).authUser;
+      if (authUser && authUser.roles) {
+        const isSuperAdmin = authUser.roles.some(
+          (userRole: any) =>
+            userRole.role && userRole.role.name === "SUPER_ADMIN"
+        );
+
+        if (isSuperAdmin) {
+          // Aucune limite pour super admin
+          return next();
+        }
+      }
+
       // Détection automatique du type d'endpoint
       const endpointType = detectEndpointType(req);
       const config = { ...RATE_LIMIT_CONFIGS[endpointType], ...customConfig };
@@ -168,17 +182,17 @@ export function createRateLimiter(customConfig?: Partial<RateLimitConfig>) {
       const resetTimeSeconds = Math.ceil(store.resetTime / 1000);
 
       // 📊 HEADERS INFORMATIFS POUR LE FRONTEND
-      res.setHeader('X-RateLimit-Limit', config.maxRequests);
-      res.setHeader('X-RateLimit-Remaining', remaining);
-      res.setHeader('X-RateLimit-Reset', resetTimeSeconds);
-      res.setHeader('X-RateLimit-Window', config.windowMs / 1000);
-      res.setHeader('X-RateLimit-Type', endpointType);
+      res.setHeader("X-RateLimit-Limit", config.maxRequests);
+      res.setHeader("X-RateLimit-Remaining", remaining);
+      res.setHeader("X-RateLimit-Reset", resetTimeSeconds);
+      res.setHeader("X-RateLimit-Window", config.windowMs / 1000);
+      res.setHeader("X-RateLimit-Type", endpointType);
 
       // ❌ LIMITE ATTEINTE
       if (store.requests > config.maxRequests) {
         const retryAfterSeconds = Math.ceil((store.resetTime - now) / 1000);
 
-        res.setHeader('Retry-After', retryAfterSeconds);
+        res.setHeader("Retry-After", retryAfterSeconds);
 
         // 🚨 LOGGING DE SÉCURITÉ AVANCÉ
         console.warn(`🚦 Rate limit exceeded for ${endpointType}:`, {
@@ -186,9 +200,9 @@ export function createRateLimiter(customConfig?: Partial<RateLimitConfig>) {
           requests: store.requests,
           limit: config.maxRequests,
           ip: req.ip,
-          userAgent: req.get('User-Agent'),
+          userAgent: req.get("User-Agent"),
           endpoint: req.path,
-          userId: (req.user as any)?.id || 'anonymous',
+          userId: (req.user as any)?.id || "anonymous",
         });
 
         // 🔥 LOG AVANCÉ POUR DÉTECTION DE BRUTE FORCE
@@ -196,7 +210,7 @@ export function createRateLimiter(customConfig?: Partial<RateLimitConfig>) {
           {
             type: SecurityEventType.RATE_LIMIT_EXCEEDED,
             severity:
-              store.requests > config.maxRequests * 2 ? 'HIGH' : 'MEDIUM',
+              store.requests > config.maxRequests * 2 ? "HIGH" : "MEDIUM",
             details: {
               original: `${store.requests} requests`,
               sanitized: `${config.maxRequests} allowed`,
@@ -208,9 +222,9 @@ export function createRateLimiter(customConfig?: Partial<RateLimitConfig>) {
         );
 
         return res.status(429).json({
-          error: 'Rate limit exceeded',
+          error: "Rate limit exceeded",
           message:
-            config.message || 'Too many requests. Please try again later.',
+            config.message || "Too many requests. Please try again later.",
           retryAfter: retryAfterSeconds,
           type: endpointType,
           details: {
@@ -224,12 +238,12 @@ export function createRateLimiter(customConfig?: Partial<RateLimitConfig>) {
 
       // ⚠️ WARNING À 80% DE LA LIMITE
       if (store.requests >= config.maxRequests * 0.8) {
-        res.setHeader('X-RateLimit-Warning', 'Approaching rate limit');
+        res.setHeader("X-RateLimit-Warning", "Approaching rate limit");
       }
 
       next();
     } catch (error) {
-      console.error('Rate limiter error:', error);
+      console.error("Rate limiter error:", error);
       // En cas d'erreur, on laisse passer pour ne pas casser l'API
       next();
     }
@@ -242,7 +256,7 @@ export function createRateLimiter(customConfig?: Partial<RateLimitConfig>) {
 export const authRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
   maxRequests: 5,
-  message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.',
+  message: "Trop de tentatives de connexion. Réessayez dans 15 minutes.",
 });
 
 export const uploadRateLimiter = createRateLimiter({
@@ -254,7 +268,7 @@ export const uploadRateLimiter = createRateLimiter({
 export const createProductRateLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 10,
-  message: 'Limite de création atteinte. Attendez 1 minute.',
+  message: "Limite de création atteinte. Attendez 1 minute.",
 });
 
 // Rate limiter général pour toutes les routes
@@ -263,16 +277,13 @@ export const generalRateLimiter = createRateLimiter();
 /**
  * 🧹 NETTOYAGE PÉRIODIQUE DU STORE MÉMOIRE
  */
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, store] of memoryStore.entries()) {
-      if (store.resetTime <= now) {
-        memoryStore.delete(key);
-      }
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, store] of memoryStore.entries()) {
+    if (store.resetTime <= now) {
+      memoryStore.delete(key);
     }
-  },
-  5 * 60 * 1000
-); // Nettoyage toutes les 5 minutes
+  }
+}, 5 * 60 * 1000); // Nettoyage toutes les 5 minutes
 
 export default createRateLimiter;

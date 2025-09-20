@@ -258,9 +258,46 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       data.password = await hashPassword(password);
     }
 
-    // 🎯 NOUVEAU : Support de la modification du statut utilisateur
+    // 🎯 NOUVEAU : Support de la modification du statut utilisateur avec gestion automatique des produits
+    let deletedProductsInfo = null;
     if (status) {
       data.status = status;
+
+      // ✅ AUTOMATIQUE : Supprimer tous les produits si l'utilisateur est suspendu ou banni
+      if (status === "SUSPENDED" || status === "BANNED") {
+        // Récupérer d'abord tous les produits pour supprimer les images
+        const userProducts = await prisma.product.findMany({
+          where: { userId: id },
+          select: { id: true, images: true, name: true },
+        });
+
+        if (userProducts.length > 0) {
+          // Supprimer les images associées aux produits
+          const imagePromises = userProducts.flatMap((product) => {
+            const images = product.images as string[];
+            return images.map((img) => Utils.deleteFile(img));
+          });
+
+          // Attendre que toutes les suppressions d'images soient terminées
+          await Promise.allSettled(imagePromises);
+
+          // Supprimer tous les produits de l'utilisateur
+          const deleteResult = await prisma.product.deleteMany({
+            where: { userId: id },
+          });
+
+          deletedProductsInfo = {
+            count: deleteResult.count,
+            products: userProducts.map((p) => p.name),
+          };
+
+          // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+          cacheService.invalidateAllProducts();
+          console.log(
+            `🗑️ Cache produits invalidé après suppression de ${deleteResult.count} produits`
+          );
+        }
+      }
     }
 
     // Mettre à jour l'utilisateur
@@ -300,7 +337,22 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
     // 🚀 CACHE: Invalider le cache des stats utilisateurs après mise à jour
     cacheService.invalidateUserStats();
 
-    ResponseApi.success(res, "User updated successfully!", userWithRoles);
+    // ✅ RÉPONSE : Inclure les informations sur les produits supprimés si applicable
+    const responseMessage = deletedProductsInfo
+      ? `Utilisateur mis à jour avec succès. ${deletedProductsInfo.count} produit(s) supprimé(s) automatiquement.`
+      : "User updated successfully!";
+
+    const responseData = {
+      user: userWithRoles,
+      ...(deletedProductsInfo && {
+        deletedProducts: {
+          count: deletedProductsInfo.count,
+          message: `${deletedProductsInfo.count} produit(s) supprimé(s) suite à la suspension/bannissement`,
+        },
+      }),
+    };
+
+    ResponseApi.success(res, responseMessage, responseData);
   } catch (error: any) {
     console.log("====================================");
     console.log(error);

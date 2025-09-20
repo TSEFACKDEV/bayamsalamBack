@@ -57,9 +57,16 @@ export const authenticate = async (
       email: string;
     };
 
-    // 👤 RÉCUPÉRATION DES DONNÉES UTILISATEUR
+    // 👤 RÉCUPÉRATION DES DONNÉES UTILISATEUR AVEC RÔLES
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
 
     if (!user) {

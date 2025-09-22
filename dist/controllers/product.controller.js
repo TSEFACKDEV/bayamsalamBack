@@ -920,7 +920,14 @@ const getSellerProducts = (req, res) => __awaiter(void 0, void 0, void 0, functi
         // Vérifier que le vendeur existe
         const seller = yield prisma_client_js_1.default.user.findUnique({
             where: { id: sellerId },
-            select: { id: true, firstName: true, lastName: true },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                phone: true,
+                email: true,
+            },
         });
         if (!seller) {
             return response_js_1.default.error(res, "Vendeur introuvable", null, 404);
@@ -958,7 +965,12 @@ const getSellerProducts = (req, res) => __awaiter(void 0, void 0, void 0, functi
             links,
             seller: {
                 id: seller.id,
+                firstName: seller.firstName,
+                lastName: seller.lastName,
                 name: `${seller.firstName} ${seller.lastName}`,
+                avatar: seller.avatar,
+                phone: seller.phone,
+                email: seller.email,
             },
         });
     }

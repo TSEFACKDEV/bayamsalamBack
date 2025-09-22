@@ -93,6 +93,10 @@ model User {
   reportsMade     UserReport[]    @relation("ReportingUser")
   reportsReceived UserReport[]    @relation("ReportedUser")
   productViews    ProductView[] // Relation avec les vues de produits
+
+  // Index pour optimiser les requêtes d'administration
+  @@index([status])
+  @@index([isVerified])
 }
 
 model Role {
@@ -161,6 +165,13 @@ model Product {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   productForfaits ProductForfait[]
+
+  // Index pour optimiser les requêtes fréquentes
+  @@index([status])
+  @@index([status, categoryId])
+  @@index([status, cityId])
+  @@index([createdAt])
+  @@index([price])
 }
 
 model Category {
@@ -181,10 +192,10 @@ model City {
 }
 
 model Review {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid()) @db.VarChar(36)
   rating    Int // Note de 1 à 5
-  userId    String // Celui qui laisse la note
-  authorId  String // Celui qui reçoit la note (auteur du produit)
+  userId    String   @db.VarChar(36) // Celui qui laisse la note
+  authorId  String   @db.VarChar(36) // Celui qui reçoit la note (auteur du produit)
   createdAt DateTime @default(now())
 
   user   User @relation("Reviewer", fields: [userId], references: [id], onDelete: Cascade)
@@ -265,6 +276,7 @@ model Notification {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([userId, read]) // Optimiser les requêtes "notifications non lues"
 }
 
 enum ReportStatus {

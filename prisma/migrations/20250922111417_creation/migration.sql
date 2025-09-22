@@ -25,6 +25,8 @@ CREATE TABLE `User` (
     `resetExpires` DATETIME(3) NULL,
 
     UNIQUE INDEX `User_email_key`(`email`),
+    INDEX `User_status_idx`(`status`),
+    INDEX `User_isVerified_idx`(`isVerified`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -95,6 +97,11 @@ CREATE TABLE `Product` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    INDEX `Product_status_idx`(`status`),
+    INDEX `Product_status_categoryId_idx`(`status`, `categoryId`),
+    INDEX `Product_status_cityId_idx`(`status`, `cityId`),
+    INDEX `Product_createdAt_idx`(`createdAt`),
+    INDEX `Product_price_idx`(`price`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -123,10 +130,10 @@ CREATE TABLE `City` (
 
 -- CreateTable
 CREATE TABLE `Review` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` VARCHAR(36) NOT NULL,
     `rating` INTEGER NOT NULL,
-    `userId` VARCHAR(191) NOT NULL,
-    `authorId` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(36) NOT NULL,
+    `authorId` VARCHAR(36) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     PRIMARY KEY (`id`)
@@ -206,6 +213,7 @@ CREATE TABLE `Notification` (
     `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `Notification_userId_idx`(`userId`),
+    INDEX `Notification_userId_read_idx`(`userId`, `read`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

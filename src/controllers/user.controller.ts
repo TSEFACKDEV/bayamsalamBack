@@ -98,7 +98,7 @@ export const getAllUsers = async (
       total,
     };
 
-    // 🎯 NOUVEAU : Réponse enrichie avec users, pagination et stats
+    // Réponse enrichie avec users, pagination et stats
     ResponseApi.success(res, "Users retrieved successfully!", {
       users: result,
       pagination,
@@ -169,7 +169,7 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
         password: hashed,
         phone,
         avatar: avatar,
-        // 🎯 NOUVEAU : Statut ACTIVE par défaut pour les créations admin
+        // Statut ACTIVE par défaut pour les créations admin
         status: "ACTIVE", // Par défaut actif pour les créations admin
       },
       // 🔗 NOUVEAU : Inclusion des rôles dans la réponse
@@ -203,12 +203,12 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
-      // 🚀 CACHE: Invalider le cache des stats utilisateurs après création
+      // Invalider le cache des stats utilisateurs après création
       cacheService.invalidateUserStats();
 
       ResponseApi.success(res, "User created successfully!", userWithRoles);
     } else {
-      // 🚀 CACHE: Invalider le cache des stats utilisateurs après création
+      // Invalider le cache des stats utilisateurs après création
       cacheService.invalidateUserStats();
 
       ResponseApi.success(res, "User created successfully!", newUser);
@@ -258,12 +258,12 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       data.password = await hashPassword(password);
     }
 
-    // 🎯 NOUVEAU : Support de la modification du statut utilisateur avec gestion automatique des produits
+    // Support de la modification du statut utilisateur avec gestion automatique des produits
     let deletedProductsInfo = null;
     if (status) {
       data.status = status;
 
-      // ✅ AUTOMATIQUE : Supprimer tous les produits si l'utilisateur est suspendu ou banni
+      // Supprimer tous les produits si l'utilisateur est suspendu ou banni
       if (status === "SUSPENDED" || status === "BANNED") {
         // Récupérer d'abord tous les produits pour supprimer les images
         const userProducts = await prisma.product.findMany({
@@ -291,11 +291,8 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
             products: userProducts.map((p) => p.name),
           };
 
-          // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+          // Invalider le cache après suppression des produits
           cacheService.invalidateAllProducts();
-          console.log(
-            `🗑️ Cache produits invalidé après suppression de ${deleteResult.count} produits`
-          );
         }
       }
     }
@@ -334,10 +331,10 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    // 🚀 CACHE: Invalider le cache des stats utilisateurs après mise à jour
+    // Invalider le cache des stats utilisateurs après mise à jour
     cacheService.invalidateUserStats();
 
-    // ✅ RÉPONSE : Inclure les informations sur les produits supprimés si applicable
+    // Inclure les informations sur les produits supprimés si applicable
     const responseMessage = deletedProductsInfo
       ? `Utilisateur mis à jour avec succès. ${deletedProductsInfo.count} produit(s) supprimé(s) automatiquement.`
       : "User updated successfully!";
@@ -361,56 +358,21 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export const deleteUser = async (req: Request, res: Response): Promise<any> => {
-  const id = req.params.id;
-  if (!id) {
-    return ResponseApi.notFound(res, "id is not found", 422);
-  }
-  try {
-    const existingUser = await prisma.user.findUnique({
-      where: { id },
-    });
-    if (!existingUser) {
-      return ResponseApi.notFound(res, "User not found", 404);
-    }
-
-    // Supprimer l'avatar si présent
-    if (existingUser.avatar) {
-      await Utils.deleteFile(existingUser.avatar);
-    }
-
-    const user = await prisma.user.delete({
-      where: { id },
-    });
-
-    // 🚀 CACHE: Invalider le cache des stats utilisateurs après suppression
-    cacheService.invalidateUserStats();
-
-    ResponseApi.success(res, "User deleted successfully!", user);
-  } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
-    ResponseApi.error(res, "Failed to delete user", error.message);
-  }
-};
-
-// rajoutons une fonctionaliter permettant de signaler un utilisateur
 export const reportUser = async (req: Request, res: Response): Promise<any> => {
   const reportedUserId = req.params.id;
   const { reason, details } = req.body;
-  // ✅ CORRECTION : Utiliser l'utilisateur authentifié depuis le middleware
+
   if (!req.authUser?.id) {
     return ResponseApi.error(res, "User not authenticated", null, 401);
   }
-  const reportingUserId = req.authUser?.id; // ID de l'utilisateur qui signale
+  const reportingUserId = req.authUser?.id;
 
   if (!reportedUserId || !reason) {
     return ResponseApi.error(res, "Missing required fields", 400);
   }
 
   try {
-    // ✅ CORRECTION : Empêcher l'auto-signalement
+    // Empêcher l'auto-signalement
     if (reportedUserId === reportingUserId) {
       return ResponseApi.error(res, "You cannot report yourself", 400);
     }
@@ -423,7 +385,7 @@ export const reportUser = async (req: Request, res: Response): Promise<any> => {
       return ResponseApi.notFound(res, "Reported user not found", 404);
     }
 
-    // ✅ CORRECTION : Empêcher les signalements en double
+    // Empêcher les signalements en double
     const existingReport = await prisma.userReport.findFirst({
       where: {
         reportedUserId,
@@ -446,9 +408,6 @@ export const reportUser = async (req: Request, res: Response): Promise<any> => {
 
     ResponseApi.success(res, "User reported successfully!", report);
   } catch (error: any) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     ResponseApi.error(res, "Failed to report user", error.message);
   }
 };

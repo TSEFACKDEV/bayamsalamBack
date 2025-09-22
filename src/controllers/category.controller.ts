@@ -27,7 +27,7 @@ export const createCategory = async (
       },
     });
 
-    // 🚀 CACHE: Invalider le cache des catégories après création
+    // Invalider le cache des catégories après création
     cacheService.invalidateCategories();
 
     ResponseApi.success(res, "Category create succesfully", category);
@@ -46,13 +46,13 @@ export const getAllCategories = async (
   try {
     // Pagination
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20; // ✅ Augmenté de 10 à 20
+    const limit = parseInt(req.query.limit as string) || 20;
     const skip = (page - 1) * limit;
 
     // Recherche
     const search = (req.query.search as string) || "";
 
-    // 🚀 CACHE: Pour les requêtes simples sans recherche ni pagination
+    // Utiliser le cache pour les requêtes simples sans recherche ni pagination
     const isSimpleRequest = !search && page === 1 && limit >= 15;
     if (isSimpleRequest) {
       const cachedCategories = cacheService.getCategories();
@@ -126,7 +126,7 @@ export const getAllCategories = async (
       },
     };
 
-    // 🚀 CACHE: Mettre en cache si c'est une requête simple (seulement les catégories enrichies)
+    // Mettre en cache si c'est une requête simple (seulement les catégories enrichies)
     if (isSimpleRequest) {
       cacheService.setCategories(enrichedCategories);
     }
@@ -219,7 +219,7 @@ export const updateCategory = async (
       },
     });
 
-    // 🚀 CACHE: Invalider le cache des catégories après mise à jour
+    // Invalider le cache des catégories après mise à jour
     cacheService.invalidateCategories();
 
     ResponseApi.success(res, "category update succesfully", category);
@@ -259,7 +259,7 @@ export const deleteCategory = async (
     // Supprimer la catégorie
     const category = await prisma.category.delete({ where: { id } });
 
-    // 🚀 CACHE: Invalider le cache des catégories après suppression
+    // Invalider le cache des catégories après suppression
     cacheService.invalidateCategories();
 
     ResponseApi.success(res, "category Delete succesfully", category);

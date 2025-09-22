@@ -34,7 +34,7 @@ const createCategory = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 description,
             },
         });
-        // 🚀 CACHE: Invalider le cache des catégories après création
+        // Invalider le cache des catégories après création
         cache_service_js_1.cacheService.invalidateCategories();
         response_js_1.default.success(res, "Category create succesfully", category);
     }
@@ -49,11 +49,11 @@ const getAllCategories = (req, res) => __awaiter(void 0, void 0, void 0, functio
     try {
         // Pagination
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20; // ✅ Augmenté de 10 à 20
+        const limit = parseInt(req.query.limit) || 20;
         const skip = (page - 1) * limit;
         // Recherche
         const search = req.query.search || "";
-        // 🚀 CACHE: Pour les requêtes simples sans recherche ni pagination
+        // Utiliser le cache pour les requêtes simples sans recherche ni pagination
         const isSimpleRequest = !search && page === 1 && limit >= 15;
         if (isSimpleRequest) {
             const cachedCategories = cache_service_js_1.cacheService.getCategories();
@@ -117,7 +117,7 @@ const getAllCategories = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 totalPages,
             },
         };
-        // 🚀 CACHE: Mettre en cache si c'est une requête simple (seulement les catégories enrichies)
+        // Mettre en cache si c'est une requête simple (seulement les catégories enrichies)
         if (isSimpleRequest) {
             cache_service_js_1.cacheService.setCategories(enrichedCategories);
         }
@@ -198,7 +198,7 @@ const updateCategory = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 description,
             },
         });
-        // 🚀 CACHE: Invalider le cache des catégories après mise à jour
+        // Invalider le cache des catégories après mise à jour
         cache_service_js_1.cacheService.invalidateCategories();
         response_js_1.default.success(res, "category update succesfully", category);
     }
@@ -228,7 +228,7 @@ const deleteCategory = (req, res) => __awaiter(void 0, void 0, void 0, function*
         }
         // Supprimer la catégorie
         const category = yield prisma_client_js_1.default.category.delete({ where: { id } });
-        // 🚀 CACHE: Invalider le cache des catégories après suppression
+        // Invalider le cache des catégories après suppression
         cache_service_js_1.cacheService.invalidateCategories();
         response_js_1.default.success(res, "category Delete succesfully", category);
     }

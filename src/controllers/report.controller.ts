@@ -195,7 +195,7 @@ export const processReport = async (
       let deletedProductsInfo = null;
 
       if (action === "suspend") {
-        // ✅ AUTOMATIQUE : Supprimer les produits avant suspension
+        // Supprimer les produits avant suspension
         const userProducts = await tx.product.findMany({
           where: { userId: report.reportedUserId },
           select: { id: true, images: true, name: true },

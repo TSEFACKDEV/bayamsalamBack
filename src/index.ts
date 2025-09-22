@@ -19,6 +19,7 @@ import { initSockets } from "./utilities/socket.js";
 import Router from "./routes/index.js";
 import prisma from "./model/prisma.client.js";
 import { hashPassword } from "./utilities/bcrypt.js";
+import { ForfaitSchedulerService } from "./services/forfaitScheduler.service.js";
 import "./config/passport.config.js";
 
 SecurityUtils.runSecurityAudit();
@@ -123,4 +124,7 @@ initSockets(server);
 
 server.listen(env.port, () => {
   console.log(`Server is running on http://${env.host}:${env.port}`);
+
+  // 🚀 Démarrage du service de surveillance des forfaits
+  ForfaitSchedulerService.start();
 });

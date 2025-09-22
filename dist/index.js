@@ -20,6 +20,7 @@ const rateLimiter_js_1 = require("./middlewares/rateLimiter.js");
 const security_utils_js_1 = require("./utilities/security.utils.js");
 const socket_js_1 = require("./utilities/socket.js");
 const index_js_1 = __importDefault(require("./routes/index.js"));
+const forfaitScheduler_service_js_1 = require("./services/forfaitScheduler.service.js");
 require("./config/passport.config.js");
 security_utils_js_1.SecurityUtils.runSecurityAudit();
 const app = (0, express_1.default)();
@@ -102,4 +103,6 @@ const server = http_1.default.createServer(app);
 (0, socket_js_1.initSockets)(server);
 server.listen(config_js_1.default.port, () => {
     console.log(`Server is running on http://${config_js_1.default.host}:${config_js_1.default.port}`);
+    // 🚀 Démarrage du service de surveillance des forfaits
+    forfaitScheduler_service_js_1.ForfaitSchedulerService.start();
 });

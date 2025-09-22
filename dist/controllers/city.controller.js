@@ -47,7 +47,7 @@ const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             createdAt: city.createdAt.toISOString(),
             updatedAt: city.updatedAt.toISOString(),
         };
-        // 🚀 CACHE: Invalider le cache des villes après création
+        // Invalider le cache des villes après création
         cache_service_js_1.cacheService.invalidateCities();
         response_js_1.default.success(res, "City create succesfully", enrichedCity);
     }
@@ -60,7 +60,7 @@ exports.createCity = createCity;
 //obtenir toutes les villes
 const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // 🚀 CACHE: Vérifier d'abord si les données sont en cache
+        // Vérifier d'abord si les données sont en cache
         const cachedCities = cache_service_js_1.cacheService.getCities();
         if (cachedCities) {
             return response_js_1.default.success(res, "Cities retrieved successfully (cache)", cachedCities);
@@ -101,7 +101,7 @@ const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 updatedAt: city.updatedAt.toISOString(),
             };
         })));
-        // 🚀 CACHE: Mettre en cache les données enrichies
+        // Mettre en cache les données enrichies
         cache_service_js_1.cacheService.setCities(enrichedCities);
         response_js_1.default.success(res, "Cities retrieved successfully", enrichedCities);
     }
@@ -207,7 +207,7 @@ const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             createdAt: updatedCity.createdAt.toISOString(),
             updatedAt: updatedCity.updatedAt.toISOString(),
         };
-        // 🚀 CACHE: Invalider le cache des villes après mise à jour
+        // Invalider le cache des villes après mise à jour
         cache_service_js_1.cacheService.invalidateCities();
         response_js_1.default.success(res, "city update succesfully", enrichedCity);
     }
@@ -237,7 +237,7 @@ const deleteCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         }
         // Supprimer la ville
         const city = yield prisma_client_js_1.default.city.delete({ where: { id } });
-        // 🚀 CACHE: Invalider le cache des villes après suppression
+        // Invalider le cache des villes après suppression
         cache_service_js_1.cacheService.invalidateCities();
         response_js_1.default.success(res, "city Delete succesfully", city);
     }

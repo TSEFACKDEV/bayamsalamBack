@@ -38,7 +38,7 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
       updatedAt: city.updatedAt.toISOString(),
     };
 
-    // 🚀 CACHE: Invalider le cache des villes après création
+    // Invalider le cache des villes après création
     cacheService.invalidateCities();
 
     ResponseApi.success(res, "City create succesfully", enrichedCity);
@@ -55,7 +55,7 @@ export const getAllCities = async (
   res: Response
 ): Promise<any> => {
   try {
-    // 🚀 CACHE: Vérifier d'abord si les données sont en cache
+    // Vérifier d'abord si les données sont en cache
     const cachedCities = cacheService.getCities();
     if (cachedCities) {
       return ResponseApi.success(
@@ -106,7 +106,7 @@ export const getAllCities = async (
       })
     );
 
-    // 🚀 CACHE: Mettre en cache les données enrichies
+    // Mettre en cache les données enrichies
     cacheService.setCities(enrichedCities);
 
     ResponseApi.success(res, "Cities retrieved successfully", enrichedCities);
@@ -225,7 +225,7 @@ export const updateCity = async (req: Request, res: Response): Promise<any> => {
       updatedAt: updatedCity.updatedAt.toISOString(),
     };
 
-    // 🚀 CACHE: Invalider le cache des villes après mise à jour
+    // Invalider le cache des villes après mise à jour
     cacheService.invalidateCities();
 
     ResponseApi.success(res, "city update succesfully", enrichedCity);
@@ -262,7 +262,7 @@ export const deleteCity = async (req: Request, res: Response): Promise<any> => {
     // Supprimer la ville
     const city = await prisma.city.delete({ where: { id } });
 
-    // 🚀 CACHE: Invalider le cache des villes après suppression
+    // Invalider le cache des villes après suppression
     cacheService.invalidateCities();
 
     ResponseApi.success(res, "city Delete succesfully", city);

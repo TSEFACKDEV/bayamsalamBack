@@ -4,6 +4,7 @@ import ResponseApi from "../helper/response.js";
 import { createNotification } from "../services/notification.service.js";
 import { initiateFuturaPayment } from "../services/futurapay.service.js";
 import config from "../config/config.js";
+import { cacheService } from "../services/cache.service.js";
 
 /**
  * Activation d'un forfait sur un produit par l'administrateur
@@ -75,6 +76,9 @@ export const activateForfait = async (
         }
       );
     }
+
+    // Invalider le cache après activation forfait
+    cacheService.invalidateHomepageProducts();
 
     ResponseApi.success(
       res,
@@ -148,6 +152,9 @@ export const deactivateForfait = async (
       );
     }
 
+    // Invalider le cache après désactivation forfait
+    cacheService.invalidateHomepageProducts();
+
     ResponseApi.success(
       res,
       `Forfait ${forfaitType} retiré du produit avec succès`,
@@ -163,9 +170,6 @@ export const deactivateForfait = async (
   }
 };
 
-//desacttivation de forfait
-
-// Nouvel endpoint : initier le paiement pour un forfait (frontend affiche iframe avec l'URL)
 export const initiateForfaitPayment = async (
   req: Request,
   res: Response
@@ -268,13 +272,15 @@ export const confirmForfaitPayment = async (
         );
       }
 
+      // Invalider le cache après confirmation paiement forfait
+      cacheService.invalidateHomepageProducts();
+
       return ResponseApi.success(res, "Paiement confirmé et forfait activé", {
         productForfaitId: productForfait.id,
       });
     }
 
-    // Paiement non réussi
-    // Optionnel : supprimer la réservation si échec
+    // Paiement non réussi - supprimer la réservation
     await prisma.productForfait.delete({ where: { id: productForfait.id } });
     return ResponseApi.error(res, "Paiement échoué ou annulé", null, 400);
   } catch (error: any) {

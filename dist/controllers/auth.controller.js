@@ -4,7 +4,7 @@
  *
  * Ce module gère l'authentification et l'autorisation des utilisateurs.
  *
- * 🎯 FONCTIONNALITÉS PRINCIPALES:
+ * FONCTIONNALITÉS PRINCIPALES:
  * - Inscription et vérification OTP
  * - Connexion locale et Google OAuth
  * - Gestion des tokens JWT (Access + Refresh)
@@ -105,7 +105,7 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             where: { email },
         });
         if (existingUser) {
-            // ✅ PERMETTRE LA RÉINSCRIPTION SI COMPTE NON VÉRIFIÉ
+            // Permettre la réinscription si compte non vérifié
             if (!existingUser.isVerified) {
                 // Supprimer l'ancien compte non vérifié et ses relations
                 yield prisma_client_js_1.default.userRole.deleteMany({
@@ -114,7 +114,7 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 yield prisma_client_js_1.default.user.delete({
                     where: { id: existingUser.id },
                 });
-                console.log(`🔄 Compte non vérifié supprimé pour réinscription: ${email}`);
+                console.log(`Compte non vérifié supprimé pour réinscription: ${email}`);
             }
             else {
                 // Compte déjà vérifié, impossible de se réinscrire

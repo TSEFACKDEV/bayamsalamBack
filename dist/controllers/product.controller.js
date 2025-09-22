@@ -173,13 +173,13 @@ const getProductViewStats = (req, res) => __awaiter(void 0, void 0, void 0, func
 });
 exports.getProductViewStats = getProductViewStats;
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
-// ✅ UPDATED: Ajout du support du filtrage par status
+// Endpoint avec support du filtrage par status
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.page, 1, 1, 1000);
     const limit = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.limit, 10, 1, 100);
     const offset = (page - 1) * limit;
     const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
-    const status = req.query.status; // ✅ Récupérer le paramètre status
+    const status = req.query.status;
     // 🔐 Logging de sécurité si des paramètres ont été nettoyés
     if (req.query.search && req.query.search !== search) {
         yield (0, securityMonitor_js_1.logSecurityEvent)({
@@ -199,7 +199,7 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
             // MODIFIÉ: Supprimé mode "insensitive" car non supporté par MySQL - utilise contains simple
             where.name = { contains: search };
         }
-        // ✅ Ajouter le filtre par status si fourni
+        // Ajouter le filtre par status si fourni
         if (status && ["PENDING", "VALIDATED", "REJECTED"].includes(status)) {
             where.status = status;
         }
@@ -225,7 +225,7 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 },
             },
         });
-        // 🚀 OPTIMISATION N+1: Récupération groupée des reviews (85% réduction requêtes)
+        // Optimisation N+1: Récupération groupée des reviews
         const userIds = products.map((p) => p.userId);
         const reviewsAggregation = yield prisma_client_js_1.default.review.groupBy({
             by: ["userId"],
@@ -312,7 +312,7 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             blocked: false,
         }, req);
     }
-    // ✅ NOUVEAUX FILTRES - Prix et État (sécurisés)
+    // Filtres par prix et état
     const priceMin = req.query.priceMin
         ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMin, 0, 0, 10000000)
         : undefined;
@@ -323,7 +323,7 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     try {
         // Construction des filtres avec le helper
         const where = buildValidatedProductFilters(search, categoryId, cityId, priceMin, priceMax, etat);
-        // ✅ CORRECTION : Récupérer TOUS les produits correspondants AVANT pagination
+        // Récupérer tous les produits correspondants avant pagination
         const allMatchingProducts = yield prisma_client_js_1.default.product.findMany({
             // ❌ SUPPRIMÉ : skip et take pour récupérer TOUS les produits
             orderBy: { createdAt: "desc" },
@@ -352,7 +352,7 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             const priorities = p.productForfaits.map((pf) => { var _a, _b; return (_b = forfaitPriority[(_a = pf.forfait) === null || _a === void 0 ? void 0 : _a.type]) !== null && _b !== void 0 ? _b : Number.MAX_SAFE_INTEGER; });
             return Math.min(...priorities);
         };
-        // ✅ CORRECTION : TRI COMPLET AVANT pagination
+        // Tri complet avant pagination
         const sortedByForfait = allMatchingProducts.sort((a, b) => {
             const pa = getPriority(a);
             const pb = getPriority(b);
@@ -361,9 +361,9 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             // Si même priorité, trier par date décroissante
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
-        // ✅ CORRECTION : Pagination APRÈS tri complet
+        // Pagination après tri complet
         const paginatedProducts = sortedByForfait.slice(offset, offset + limit);
-        // ✅ CORRECTION : Total basé sur TOUS les produits correspondants
+        // Total basé sur tous les produits correspondants
         const total = allMatchingProducts.length;
         const productsWithImageUrls = productTransformer_js_1.default.transformProductsWithForfaits(req, paginatedProducts);
         const links = calculatePagination(page, limit, total);
@@ -391,7 +391,7 @@ const getPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.getPendingProducts = getPendingProducts;
-// ✅ NOUVEAU: Endpoint pour que les utilisateurs récupèrent leurs propres produits en attente
+// Endpoint pour que les utilisateurs récupèrent leurs propres produits en attente
 const getUserPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
@@ -428,7 +428,7 @@ const getUserPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, f
                 },
             },
         });
-        // ✅ CORRECTION: Transformation des images en URLs complètes comme dans les autres endpoints
+        // Transformation des images en URLs complètes
         const userPendingProductsWithImageUrls = productTransformer_js_1.default.transformProducts(req, userPendingProducts);
         response_js_1.default.success(res, "User pending products retrieved successfully", {
             products: userPendingProductsWithImageUrls,
@@ -443,7 +443,6 @@ const getUserPendingProducts = (req, res) => __awaiter(void 0, void 0, void 0, f
 });
 exports.getUserPendingProducts = getUserPendingProducts;
 const getProductById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    ``;
     const id = req.params.id;
     try {
         if (!id) {
@@ -479,15 +478,6 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         }
         const userId = (_b = req.authUser) === null || _b === void 0 ? void 0 : _b.id;
         // Validation basique
-        if (!name ||
-            !price ||
-            !quantity ||
-            !description ||
-            !categoryId ||
-            !cityId ||
-            !etat) {
-            return response_js_1.default.error(res, "Tous les champs sont requis", null, 400);
-        }
         if (!name ||
             !price ||
             !quantity ||
@@ -564,7 +554,7 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             });
         }
         const productResponse = productTransformer_js_1.default.transformProduct(req, product);
-        // 🚀 CACHE: Invalider le cache après création d'un produit
+        // Invalider le cache après création d'un produit
         cache_service_js_1.cacheService.invalidateHomepageProducts();
         response_js_1.default.success(res, "Produit créé avec succès", productResponse, 201);
     }
@@ -650,7 +640,7 @@ const updateProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             }
         }
         const productWithImageUrls = productTransformer_js_1.default.transformProduct(req, updatedProduct);
-        // 🚀 CACHE: Invalider le cache après mise à jour d'un produit
+        // Invalider le cache après mise à jour d'un produit
         cache_service_js_1.cacheService.invalidateHomepageProducts();
         response_js_1.default.success(res, "Produit mis à jour avec succès", productWithImageUrls);
     }
@@ -669,20 +659,38 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         if (!product) {
             return response_js_1.default.notFound(res, "Product not found", 404);
         }
-        // Supprimer les images associées
-        if (product.images && Array.isArray(product.images)) {
-            for (const img of product.images) {
-                if (typeof img === "string") {
-                    yield utils_js_1.default.deleteFile(img);
+        // 🧹 NETTOYAGE COMPLET : Utiliser une transaction pour la suppression complète
+        // ℹ️  NOTE: Les notifications ne sont PAS supprimées ici car :
+        //    - Elles sont automatiquement nettoyées après 5 jours
+        //    - Cela évite les conflits avec les notifications de rejet qui viennent d'être envoyées
+        //    - Les liens cassés dans les notifications sont gérés côté frontend
+        yield prisma_client_js_1.default.$transaction((tx) => __awaiter(void 0, void 0, void 0, function* () {
+            // 1. Supprimer les images associées du système de fichiers
+            if (product.images && Array.isArray(product.images)) {
+                for (const img of product.images) {
+                    if (typeof img === "string") {
+                        yield utils_js_1.default.deleteFile(img);
+                    }
                 }
             }
-        }
-        // Suppression du produit et de ses dépendances (cascade automatique)
-        // seront automatiquement supprimés
-        const result = yield prisma_client_js_1.default.product.delete({
-            where: { id },
+            // 2. Supprimer le produit (cascade automatique pour : favorites, vues, forfaits)
+            yield tx.product.delete({
+                where: { id },
+            });
+        }));
+        // Invalider le cache après suppression complète
+        cache_service_js_1.cacheService.invalidateAllProducts();
+        response_js_1.default.success(res, "Product and all related data deleted successfully", {
+            productId: id,
+            deletedData: {
+                product: true,
+                images: true,
+                favorites: true, // Supprimé par cascade
+                views: true, // Supprimé par cascade
+                forfaits: true, // Supprimé par cascade
+            },
+            note: "Notifications conservées - nettoyage automatique après 5 jours",
         });
-        response_js_1.default.success(res, "Product deleted successfully", result);
     }
     catch (error) {
         response_js_1.default.error(res, "Failed to delete product", error.message);
@@ -693,7 +701,7 @@ const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     const { id } = req.params;
     const { action } = req.body;
     try {
-        // ✅ 1. Validation et récupération des données en parallèle
+        // Validation et récupération des données en parallèle
         const [product] = yield Promise.all([
             prisma_client_js_1.default.product.findUnique({
                 where: { id },
@@ -704,60 +712,99 @@ const reviewProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         if (!product) {
             return response_js_1.default.notFound(res, "Product not found", 404);
         }
-        // ✅ 2. Préparation des données (synchrone - très rapide)
-        let newStatus = null;
+        // Préparation des données
         let subject = "";
         let message = "";
+        let isReject = false;
         if (action === "validate") {
-            newStatus = "VALIDATED";
-            subject = "Votre produit a été validé";
+            subject = "Votre annonce a été validée";
             message =
-                "Félicitations ! Votre produit a été validé et est désormais visible sur la plateforme.";
+                "Félicitations ! Votre annonce a été validée et est désormais visible sur la plateforme.";
         }
         else if (action === "reject") {
-            newStatus = "REJECTED";
-            subject = "Votre produit a été rejeté";
+            isReject = true;
+            subject =
+                "Votre annonce a été refusée - Non-conformité aux conditions d'utilisation";
             message =
-                "Nous sommes désolés, votre produit a été rejeté. Veuillez vérifier les informations et réessayer.";
+                "Votre annonce ne respecte pas nos conditions d'utilisation et a été supprimée. Elle pourrait contenir du contenu inapproprié, des informations incorrectes ou ne pas respecter nos standards de qualité. Nous vous invitons à consulter nos conditions d'utilisation et à soumettre une nouvelle annonce conforme.";
         }
         else {
             return response_js_1.default.error(res, "Invalid action", null, 400);
         }
-        // ✅ 3. Mise à jour du produit (opération critique - doit être synchrone)
-        yield prisma_client_js_1.default.product.update({
-            where: { id },
-            data: { status: newStatus },
-        });
-        // ✅ 4. RÉPONSE IMMÉDIATE au client (performance critique)
-        const response = response_js_1.default.success(res, `Product ${newStatus === "VALIDATED" ? "validated" : "rejected"} successfully`, null);
-        // ✅ 5. Tâches d'arrière-plan APRÈS la réponse (non-bloquantes)
-        // Utilisation de setImmediate/process.nextTick pour éviter de bloquer la réponse
+        let responseMessage = "";
+        let responseData = {};
+        if (isReject) {
+            // 🗑️ REJET = SUPPRESSION DIRECTE avec nettoyage complet
+            // ℹ️  NOTE: Les notifications ne sont PAS supprimées ici car :
+            //    - Elles sont automatiquement nettoyées après 5 jours
+            //    - Cela évite de supprimer la notification de rejet qui vient d'être envoyée
+            //    - Les liens cassés dans les notifications sont gérés côté frontend
+            yield prisma_client_js_1.default.$transaction((tx) => __awaiter(void 0, void 0, void 0, function* () {
+                // 1. Supprimer les images associées du système de fichiers
+                if (product.images && Array.isArray(product.images)) {
+                    for (const img of product.images) {
+                        if (typeof img === "string") {
+                            yield utils_js_1.default.deleteFile(img);
+                        }
+                    }
+                }
+                // 2. Supprimer le produit (cascade automatique pour : favorites, vues, forfaits)
+                yield tx.product.delete({
+                    where: { id },
+                });
+            }));
+            responseMessage = "Product rejected and deleted successfully";
+            responseData = {
+                action: "rejected_and_deleted",
+                productId: id,
+                productName: product.name,
+                reason: "Non-conformité aux conditions d'utilisation",
+                note: "Notifications conservées - nettoyage automatique après 5 jours",
+            };
+        }
+        else {
+            // ✅ VALIDATION = Mise à jour du statut seulement
+            yield prisma_client_js_1.default.product.update({
+                where: { id },
+                data: { status: "VALIDATED" },
+            });
+            responseMessage = "Product validated successfully";
+            responseData = {
+                action: "validated",
+                productId: id,
+                productName: product.name,
+            };
+        }
+        // Invalider le cache après validation/rejet
+        cache_service_js_1.cacheService.invalidateAllProducts();
+        // Réponse immédiate au client
+        const response = response_js_1.default.success(res, responseMessage, responseData);
+        // Tâches d'arrière-plan après la réponse (non-bloquantes)
         setImmediate(() => __awaiter(void 0, void 0, void 0, function* () {
             var _a, _b;
             try {
                 const backgroundTasks = [];
                 // Création notification (en parallèle)
                 if ((_a = product.user) === null || _a === void 0 ? void 0 : _a.id) {
-                    const notifTitle = newStatus === "VALIDATED" ? "Produit validé" : "Produit rejeté";
-                    const notifMessage = newStatus === "VALIDATED"
-                        ? `Votre produit "${product.name}" a été validé.`
-                        : `Votre produit "${product.name}" a été rejeté.`;
-                    backgroundTasks.push((0, notification_service_js_1.createNotification)(product.user.id, notifTitle, notifMessage, {
-                        type: "PRODUCT",
-                        link: `/product/${id}`,
-                    }));
+                    const notifTitle = isReject
+                        ? "Annonce refusée et supprimée"
+                        : "Annonce validée";
+                    const notifMessage = isReject
+                        ? `Votre annonce "${product.name}" a été refusée car elle ne respecte pas nos conditions d'utilisation et a été supprimée.`
+                        : `Votre annonce "${product.name}" a été validée et est maintenant visible.`;
+                    backgroundTasks.push((0, notification_service_js_1.createNotification)(product.user.id, notifTitle, notifMessage, Object.assign({ type: "PRODUCT" }, (isReject ? {} : { link: `/product/${id}` }))));
                 }
                 // Envoi email (en parallèle)
                 if ((_b = product.user) === null || _b === void 0 ? void 0 : _b.email) {
                     const html = (0, reviewProductTemplate_js_1.reviewProductTemplate)({
                         userName: product.user.firstName || "Utilisateur",
                         productName: product.name,
-                        status: newStatus,
+                        status: isReject ? "REJECTED" : "VALIDATED",
                         message,
                     });
                     backgroundTasks.push((0, mailer_js_1.sendEmail)(product.user.email, subject, message, html));
                 }
-                // ✅ Exécution parallèle des tâches d'arrière-plan
+                // Exécution parallèle des tâches d'arrière-plan
                 yield Promise.allSettled(backgroundTasks);
             }
             catch (bgError) {
@@ -791,32 +838,49 @@ const deleteProductOfSuspendedUser = (req, res) => __awaiter(void 0, void 0, voi
         if (user.status !== "SUSPENDED") {
             return response_js_1.default.error(res, "Cette action n'est possible que pour les utilisateurs suspendus", null, 400);
         }
-        // Récupérer d'abord tous les produits pour supprimer les images
+        // Récupérer d'abord tous les produits pour supprimer les images et notifications
         const products = yield prisma_client_js_1.default.product.findMany({
             where: { userId },
-            select: { id: true, images: true },
+            select: { id: true, images: true, name: true },
         });
         if (products.length === 0) {
             return response_js_1.default.success(res, "Aucun produit trouvé pour cet utilisateur suspendu", { count: 0 });
         }
-        // Supprimer les images associées
-        const imagePromises = products.flatMap((product) => {
-            const images = product.images;
-            return images.map((img) => utils_js_1.default.deleteFile(img));
-        });
-        // Attendre que toutes les suppressions d'images soient terminées
-        yield Promise.allSettled(imagePromises);
-        // Supprimer tous les produits
-        const result = yield prisma_client_js_1.default.product.deleteMany({
-            where: { userId },
-        });
-        // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+        // 🧹 NETTOYAGE COMPLET : Utiliser une transaction pour la suppression complète
+        // ℹ️  NOTE: Les notifications ne sont PAS supprimées ici car :
+        //    - Elles sont automatiquement nettoyées après 5 jours
+        //    - Cela évite les conflits avec les notifications de rejet qui viennent d'être envoyées
+        //    - Les liens cassés dans les notifications sont gérés côté frontend
+        const result = yield prisma_client_js_1.default.$transaction((tx) => __awaiter(void 0, void 0, void 0, function* () {
+            // 1. Supprimer les images associées du système de fichiers
+            const imagePromises = products.flatMap((product) => {
+                const images = product.images;
+                return images.map((img) => utils_js_1.default.deleteFile(img));
+            });
+            // Attendre que toutes les suppressions d'images soient terminées
+            yield Promise.allSettled(imagePromises);
+            // 2. Supprimer tous les produits (cascade automatique pour : favorites, vues, forfaits)
+            return yield tx.product.deleteMany({
+                where: { userId },
+            });
+        }));
+        // Invalider le cache après suppression
         cache_service_js_1.cacheService.invalidateAllProducts();
-        console.log(`🗑️ [MANUAL CLEANUP] Cache produits invalidé après suppression manuelle de ${result.count} produits`);
         const userName = user.firstName && user.lastName
             ? `${user.firstName} ${user.lastName}`
             : "l'utilisateur suspendu";
-        return response_js_1.default.success(res, `${result.count} produits de ${userName} ont été supprimés avec succès`, { count: result.count });
+        return response_js_1.default.success(res, `${result.count} produits de ${userName} et toutes leurs données associées ont été supprimés avec succès`, {
+            count: result.count,
+            deletedData: {
+                products: result.count,
+                images: true,
+                favorites: true, // Supprimé par cascade
+                views: true, // Supprimé par cascade
+                forfaits: true, // Supprimé par cascade
+            },
+            productNames: products.map((p) => p.name),
+            note: "Notifications conservées - nettoyage automatique après 5 jours",
+        });
     }
     catch (error) {
         return response_js_1.default.error(res, "Échec de la suppression des produits de l'utilisateur suspendu", error.message);
@@ -834,7 +898,7 @@ const getHomePageProduct = (req, res) => __awaiter(void 0, void 0, void 0, funct
     };
     const limit = parseInt(req.query.limit) || 10;
     try {
-        // 🚀 CACHE: Vérifier d'abord si les données sont en cache
+        // Vérifier d'abord si les données sont en cache
         const cachedData = cache_service_js_1.cacheService.getHomepageProducts(limit);
         if (cachedData) {
             return response_js_1.default.success(res, "Produits homepage récupérés avec succès (cache)", cachedData);
@@ -903,7 +967,7 @@ const getHomePageProduct = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 sansForfait: allProducts.filter((p) => getProductPriority(p) === Number.MAX_SAFE_INTEGER).length,
             },
         };
-        // 🚀 CACHE: Mettre en cache le résultat
+        // Mettre en cache le résultat
         cache_service_js_1.cacheService.setHomepageProducts(limit, responseData);
         response_js_1.default.success(res, "Produits homepage récupérés avec succès", responseData);
     }
@@ -912,7 +976,7 @@ const getHomePageProduct = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.getHomePageProduct = getHomePageProduct;
-// ✅ NOUVEAU: Récupérer les produits validés d'un vendeur spécifique
+// Récupérer les produits validés d'un vendeur spécifique
 const getSellerProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const sellerId = req.params.sellerId;
     const { page, limit } = getPaginationParams(req.query);
@@ -981,7 +1045,7 @@ const getSellerProducts = (req, res) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.getSellerProducts = getSellerProducts;
-// ✅ NOUVEAU: Récupérer les produits validés d'un utilisateur spécifique (pour profil public)
+// Récupérer les produits validés d'un utilisateur spécifique (pour profil public)
 const getUserProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const userId = req.params.userId;
     const { page, limit } = getPaginationParams(req.query);
@@ -1040,7 +1104,7 @@ const getUserProducts = (req, res) => __awaiter(void 0, void 0, void 0, function
     }
 });
 exports.getUserProducts = getUserProducts;
-// ✅ NOUVEAU: Récupérer les produits validés d'une catégorie spécifique
+// Récupérer les produits validés d'une catégorie spécifique
 const getCategoryProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const categoryId = req.params.categoryId;
     const { page, limit } = getPaginationParams(req.query);

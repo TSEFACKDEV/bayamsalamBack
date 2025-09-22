@@ -17,6 +17,7 @@ const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"))
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const notification_service_js_1 = require("../services/notification.service.js");
 const futurapay_service_js_1 = require("../services/futurapay.service.js");
+const cache_service_js_1 = require("../services/cache.service.js");
 /**
  * Activation d'un forfait sur un produit par l'administrateur
  */
@@ -69,6 +70,8 @@ const activateForfait = (req, res) => __awaiter(void 0, void 0, void 0, function
                 link: `/annonce/${productId}`,
             });
         }
+        // Invalider le cache après activation forfait
+        cache_service_js_1.cacheService.invalidateHomepageProducts();
         response_js_1.default.success(res, `Forfait ${forfaitType} activé sur le produit avec succès`, null);
     }
     catch (error) {
@@ -118,6 +121,8 @@ const deactivateForfait = (req, res) => __awaiter(void 0, void 0, void 0, functi
                 link: `/annonce/${productId}`,
             });
         }
+        // Invalider le cache après désactivation forfait
+        cache_service_js_1.cacheService.invalidateHomepageProducts();
         response_js_1.default.success(res, `Forfait ${forfaitType} retiré du produit avec succès`, null);
     }
     catch (error) {
@@ -126,8 +131,6 @@ const deactivateForfait = (req, res) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.deactivateForfait = deactivateForfait;
-//desacttivation de forfait
-// Nouvel endpoint : initier le paiement pour un forfait (frontend affiche iframe avec l'URL)
 const initiateForfaitPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
     const { productId, forfaitType } = req.body;
@@ -208,12 +211,13 @@ const confirmForfaitPayment = (req, res) => __awaiter(void 0, void 0, void 0, fu
                     link: `/annonce/${productForfait.productId}`,
                 });
             }
+            // Invalider le cache après confirmation paiement forfait
+            cache_service_js_1.cacheService.invalidateHomepageProducts();
             return response_js_1.default.success(res, "Paiement confirmé et forfait activé", {
                 productForfaitId: productForfait.id,
             });
         }
-        // Paiement non réussi
-        // Optionnel : supprimer la réservation si échec
+        // Paiement non réussi - supprimer la réservation
         yield prisma_client_js_1.default.productForfait.delete({ where: { id: productForfait.id } });
         return response_js_1.default.error(res, "Paiement échoué ou annulé", null, 400);
     }

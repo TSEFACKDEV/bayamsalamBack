@@ -2,15 +2,19 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reviewProductTemplate = reviewProductTemplate;
 function reviewProductTemplate({ userName, productName, status, message, }) {
-    const statusColor = status === 'VALIDATED' ? '#28a745' : '#dc3545';
-    const statusText = status === 'VALIDATED' ? 'Validé' : 'Rejeté';
+    const statusColor = status === "VALIDATED" ? "#28a745" : "#dc3545";
+    const statusText = status === "VALIDATED" ? "Validée" : "Refusée et Supprimée";
+    const statusIcon = status === "VALIDATED" ? "✅" : "❌";
+    const headerGradient = status === "VALIDATED"
+        ? "linear-gradient(135deg, #28a745 0%, #34ce57 100%)"
+        : "linear-gradient(135deg, #dc3545 0%, #ff4757 100%)";
     return `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Statut de votre produit - BuyAndSale</title>
+  <title>Statut de votre annonce - BuyAndSale</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -28,7 +32,7 @@ function reviewProductTemplate({ userName, productName, status, message, }) {
       overflow: hidden;
     }
     .header {
-      background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+      background: ${headerGradient};
       color: white;
       padding: 32px 24px;
       text-align: center;
@@ -78,13 +82,22 @@ function reviewProductTemplate({ userName, productName, status, message, }) {
       letter-spacing: 1px;
     }
     .message-box {
-      background: #f7fafc;
-      border-left: 4px solid #ff6b35;
+      background: ${status === "VALIDATED" ? "#f0f9ff" : "#fef2f2"};
+      border-left: 4px solid ${status === "VALIDATED" ? "#0ea5e9" : "#ef4444"};
       padding: 18px;
       border-radius: 0 10px 10px 0;
       margin-bottom: 22px;
       color: #2d3748;
       font-size: 16px;
+    }
+    .warning-box {
+      background: #fefce8;
+      border: 1px solid #facc15;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 20px;
+      font-size: 14px;
+      color: #713f12;
     }
     .footer {
       background: #f7fafc;
@@ -105,8 +118,8 @@ function reviewProductTemplate({ userName, productName, status, message, }) {
 <body>
   <div class="email-container">
     <div class="header">
-      <span class="header-icon">🛒</span>
-      <h1>Statut de votre produit</h1>
+      <span class="header-icon">${statusIcon}</span>
+      <h1>${status === "VALIDATED" ? "Annonce Validée" : "Annonce Refusée"}</h1>
       <p>BuyAndSale Administration</p>
     </div>
     <div class="content">
@@ -115,8 +128,8 @@ function reviewProductTemplate({ userName, productName, status, message, }) {
         ${message}
       </div>
       <div class="info-row">
-        <div class="info-label">Produit :</div>
-        <div class="info-value"><strong>${productName !== null && productName !== void 0 ? productName : 'Non spécifié'}</strong></div>
+        <div class="info-label">Annonce :</div>
+        <div class="info-value"><strong>${productName !== null && productName !== void 0 ? productName : "Non spécifiée"}</strong></div>
       </div>
       <div class="info-row">
         <div class="info-label">Statut :</div>
@@ -124,12 +137,20 @@ function reviewProductTemplate({ userName, productName, status, message, }) {
           <span class="status-badge">${statusText}</span>
         </div>
       </div>
+      ${status === "REJECTED"
+        ? `
+      <div class="warning-box">
+        <strong>⚠️ Information importante :</strong><br>
+        Votre annonce a été supprimée définitivement de notre plateforme car elle ne respectait pas nos conditions d'utilisation. Pour éviter cela à l'avenir, nous vous recommandons de consulter attentivement nos <strong>conditions d'utilisation</strong> avant de publier une nouvelle annonce.
+      </div>
+      `
+        : ""}
       <br>
       <div style="font-size:15px;color:#4a5568;">Merci d'utiliser <strong>BuyAndSale</strong> !</div>
     </div>
     <div class="footer">
       <p><strong>BuyAndSale</strong> - Système de notification automatique</p>
-      <p>Cet email a été généré automatiquement suite à la validation de produit</p>
+      <p>Cet email a été généré automatiquement suite à la ${status === "VALIDATED" ? "validation" : "modération"} de votre annonce</p>
       <p>Cameroun | Administration BuyAndSale</p>
     </div>
   </div>

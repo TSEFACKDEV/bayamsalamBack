@@ -223,7 +223,7 @@ export const getProductViewStats = async (
   }
 };
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
-// ✅ UPDATED: Ajout du support du filtrage par status
+// Endpoint avec support du filtrage par status
 export const getAllProducts = async (
   req: Request,
   res: Response
@@ -232,7 +232,7 @@ export const getAllProducts = async (
   const limit = sanitizeNumericParam(req.query.limit, 10, 1, 100);
   const offset = (page - 1) * limit;
   const search = sanitizeSearchParam(req.query.search);
-  const status = req.query.status as string; // ✅ Récupérer le paramètre status
+  const status = req.query.status as string;
 
   // 🔐 Logging de sécurité si des paramètres ont été nettoyés
   if (req.query.search && req.query.search !== search) {
@@ -258,7 +258,7 @@ export const getAllProducts = async (
       where.name = { contains: search };
     }
 
-    // ✅ Ajouter le filtre par status si fourni
+    // Ajouter le filtre par status si fourni
     if (status && ["PENDING", "VALIDATED", "REJECTED"].includes(status)) {
       where.status = status;
     }
@@ -286,7 +286,7 @@ export const getAllProducts = async (
       },
     });
 
-    // 🚀 OPTIMISATION N+1: Récupération groupée des reviews (85% réduction requêtes)
+    // Optimisation N+1: Récupération groupée des reviews
     const userIds = products.map((p) => p.userId);
     const reviewsAggregation = await prisma.review.groupBy({
       by: ["userId"],
@@ -396,7 +396,7 @@ export const getValidatedProducts = async (
     );
   }
 
-  // ✅ NOUVEAUX FILTRES - Prix et État (sécurisés)
+  // Filtres par prix et état
   const priceMin = req.query.priceMin
     ? sanitizeNumericParam(req.query.priceMin, 0, 0, 10000000)
     : undefined;
@@ -421,7 +421,7 @@ export const getValidatedProducts = async (
       etat
     );
 
-    // ✅ CORRECTION : Récupérer TOUS les produits correspondants AVANT pagination
+    // Récupérer tous les produits correspondants avant pagination
     const allMatchingProducts = await prisma.product.findMany({
       // ❌ SUPPRIMÉ : skip et take pour récupérer TOUS les produits
       orderBy: { createdAt: "desc" },
@@ -457,7 +457,7 @@ export const getValidatedProducts = async (
       return Math.min(...priorities);
     };
 
-    // ✅ CORRECTION : TRI COMPLET AVANT pagination
+    // Tri complet avant pagination
     const sortedByForfait = allMatchingProducts.sort((a: any, b: any) => {
       const pa = getPriority(a);
       const pb = getPriority(b);
@@ -466,10 +466,10 @@ export const getValidatedProducts = async (
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    // ✅ CORRECTION : Pagination APRÈS tri complet
+    // Pagination après tri complet
     const paginatedProducts = sortedByForfait.slice(offset, offset + limit);
 
-    // ✅ CORRECTION : Total basé sur TOUS les produits correspondants
+    // Total basé sur tous les produits correspondants
     const total = allMatchingProducts.length;
 
     const productsWithImageUrls =
@@ -510,7 +510,7 @@ export const getPendingProducts = async (
   }
 };
 
-// ✅ NOUVEAU: Endpoint pour que les utilisateurs récupèrent leurs propres produits en attente
+// Endpoint pour que les utilisateurs récupèrent leurs propres produits en attente
 export const getUserPendingProducts = async (
   req: Request,
   res: Response
@@ -552,7 +552,7 @@ export const getUserPendingProducts = async (
       },
     });
 
-    // ✅ CORRECTION: Transformation des images en URLs complètes comme dans les autres endpoints
+    // Transformation des images en URLs complètes
     const userPendingProductsWithImageUrls =
       ProductTransformer.transformProducts(req, userPendingProducts);
 
@@ -575,7 +575,6 @@ export const getProductById = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  ``;
   const id = req.params.id;
   try {
     if (!id) {
@@ -634,18 +633,6 @@ export const createProduct = async (
     const userId = req.authUser?.id;
 
     // Validation basique
-    if (
-      !name ||
-      !price ||
-      !quantity ||
-      !description ||
-      !categoryId ||
-      !cityId ||
-      !etat
-    ) {
-      return ResponseApi.error(res, "Tous les champs sont requis", null, 400);
-    }
-
     if (
       !name ||
       !price ||
@@ -752,7 +739,7 @@ export const createProduct = async (
     }
     const productResponse = ProductTransformer.transformProduct(req, product);
 
-    // 🚀 CACHE: Invalider le cache après création d'un produit
+    // Invalider le cache après création d'un produit
     cacheService.invalidateHomepageProducts();
 
     ResponseApi.success(res, "Produit créé avec succès", productResponse, 201);
@@ -867,7 +854,7 @@ export const updateProduct = async (
       updatedProduct
     );
 
-    // 🚀 CACHE: Invalider le cache après mise à jour d'un produit
+    // Invalider le cache après mise à jour d'un produit
     cacheService.invalidateHomepageProducts();
 
     ResponseApi.success(
@@ -893,26 +880,51 @@ export const deleteProduct = async (
     if (!id) {
       return ResponseApi.notFound(res, "id is not found", 422);
     }
+
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) {
       return ResponseApi.notFound(res, "Product not found", 404);
     }
 
-    // Supprimer les images associées
-    if (product.images && Array.isArray(product.images)) {
-      for (const img of product.images) {
-        if (typeof img === "string") {
-          await Utils.deleteFile(img);
+    // 🧹 NETTOYAGE COMPLET : Utiliser une transaction pour la suppression complète
+    // ℹ️  NOTE: Les notifications ne sont PAS supprimées ici car :
+    //    - Elles sont automatiquement nettoyées après 5 jours
+    //    - Cela évite les conflits avec les notifications de rejet qui viennent d'être envoyées
+    //    - Les liens cassés dans les notifications sont gérés côté frontend
+    await prisma.$transaction(async (tx) => {
+      // 1. Supprimer les images associées du système de fichiers
+      if (product.images && Array.isArray(product.images)) {
+        for (const img of product.images) {
+          if (typeof img === "string") {
+            await Utils.deleteFile(img);
+          }
         }
       }
-    }
 
-    // Suppression du produit et de ses dépendances (cascade automatique)
-    // seront automatiquement supprimés
-    const result = await prisma.product.delete({
-      where: { id },
+      // 2. Supprimer le produit (cascade automatique pour : favorites, vues, forfaits)
+      await tx.product.delete({
+        where: { id },
+      });
     });
-    ResponseApi.success(res, "Product deleted successfully", result);
+
+    // Invalider le cache après suppression complète
+    cacheService.invalidateAllProducts();
+
+    ResponseApi.success(
+      res,
+      "Product and all related data deleted successfully",
+      {
+        productId: id,
+        deletedData: {
+          product: true,
+          images: true,
+          favorites: true, // Supprimé par cascade
+          views: true, // Supprimé par cascade
+          forfaits: true, // Supprimé par cascade
+        },
+        note: "Notifications conservées - nettoyage automatique après 5 jours",
+      }
+    );
   } catch (error: any) {
     ResponseApi.error(res, "Failed to delete product", error.message);
   }
@@ -926,7 +938,7 @@ export const reviewProduct = async (
   const { action } = req.body;
 
   try {
-    // ✅ 1. Validation et récupération des données en parallèle
+    // Validation et récupération des données en parallèle
     const [product] = await Promise.all([
       prisma.product.findUnique({
         where: { id },
@@ -939,59 +951,97 @@ export const reviewProduct = async (
       return ResponseApi.notFound(res, "Product not found", 404);
     }
 
-    // ✅ 2. Préparation des données (synchrone - très rapide)
-    let newStatus: "VALIDATED" | "REJECTED" | null = null;
+    // Préparation des données
     let subject = "";
     let message = "";
+    let isReject = false;
 
     if (action === "validate") {
-      newStatus = "VALIDATED";
-      subject = "Votre produit a été validé";
+      subject = "Votre annonce a été validée";
       message =
-        "Félicitations ! Votre produit a été validé et est désormais visible sur la plateforme.";
+        "Félicitations ! Votre annonce a été validée et est désormais visible sur la plateforme.";
     } else if (action === "reject") {
-      newStatus = "REJECTED";
-      subject = "Votre produit a été rejeté";
+      isReject = true;
+      subject =
+        "Votre annonce a été refusée - Non-conformité aux conditions d'utilisation";
       message =
-        "Nous sommes désolés, votre produit a été rejeté. Veuillez vérifier les informations et réessayer.";
+        "Votre annonce ne respecte pas nos conditions d'utilisation et a été supprimée. Elle pourrait contenir du contenu inapproprié, des informations incorrectes ou ne pas respecter nos standards de qualité. Nous vous invitons à consulter nos conditions d'utilisation et à soumettre une nouvelle annonce conforme.";
     } else {
       return ResponseApi.error(res, "Invalid action", null, 400);
     }
 
-    // ✅ 3. Mise à jour du produit (opération critique - doit être synchrone)
-    await prisma.product.update({
-      where: { id },
-      data: { status: newStatus },
-    });
+    let responseMessage = "";
+    let responseData = {};
 
-    // ✅ 4. RÉPONSE IMMÉDIATE au client (performance critique)
-    const response = ResponseApi.success(
-      res,
-      `Product ${
-        newStatus === "VALIDATED" ? "validated" : "rejected"
-      } successfully`,
-      null
-    );
+    if (isReject) {
+      // 🗑️ REJET = SUPPRESSION DIRECTE avec nettoyage complet
+      // ℹ️  NOTE: Les notifications ne sont PAS supprimées ici car :
+      //    - Elles sont automatiquement nettoyées après 5 jours
+      //    - Cela évite de supprimer la notification de rejet qui vient d'être envoyée
+      //    - Les liens cassés dans les notifications sont gérés côté frontend
+      await prisma.$transaction(async (tx) => {
+        // 1. Supprimer les images associées du système de fichiers
+        if (product.images && Array.isArray(product.images)) {
+          for (const img of product.images) {
+            if (typeof img === "string") {
+              await Utils.deleteFile(img);
+            }
+          }
+        }
 
-    // ✅ 5. Tâches d'arrière-plan APRÈS la réponse (non-bloquantes)
-    // Utilisation de setImmediate/process.nextTick pour éviter de bloquer la réponse
+        // 2. Supprimer le produit (cascade automatique pour : favorites, vues, forfaits)
+        await tx.product.delete({
+          where: { id },
+        });
+      });
+
+      responseMessage = "Product rejected and deleted successfully";
+      responseData = {
+        action: "rejected_and_deleted",
+        productId: id,
+        productName: product.name,
+        reason: "Non-conformité aux conditions d'utilisation",
+        note: "Notifications conservées - nettoyage automatique après 5 jours",
+      };
+    } else {
+      // ✅ VALIDATION = Mise à jour du statut seulement
+      await prisma.product.update({
+        where: { id },
+        data: { status: "VALIDATED" },
+      });
+
+      responseMessage = "Product validated successfully";
+      responseData = {
+        action: "validated",
+        productId: id,
+        productName: product.name,
+      };
+    }
+
+    // Invalider le cache après validation/rejet
+    cacheService.invalidateAllProducts();
+
+    // Réponse immédiate au client
+    const response = ResponseApi.success(res, responseMessage, responseData);
+
+    // Tâches d'arrière-plan après la réponse (non-bloquantes)
     setImmediate(async () => {
       try {
         const backgroundTasks = [];
 
         // Création notification (en parallèle)
         if (product.user?.id) {
-          const notifTitle =
-            newStatus === "VALIDATED" ? "Produit validé" : "Produit rejeté";
-          const notifMessage =
-            newStatus === "VALIDATED"
-              ? `Votre produit "${product.name}" a été validé.`
-              : `Votre produit "${product.name}" a été rejeté.`;
+          const notifTitle = isReject
+            ? "Annonce refusée et supprimée"
+            : "Annonce validée";
+          const notifMessage = isReject
+            ? `Votre annonce "${product.name}" a été refusée car elle ne respecte pas nos conditions d'utilisation et a été supprimée.`
+            : `Votre annonce "${product.name}" a été validée et est maintenant visible.`;
 
           backgroundTasks.push(
             createNotification(product.user.id, notifTitle, notifMessage, {
               type: "PRODUCT",
-              link: `/product/${id}`,
+              ...(isReject ? {} : { link: `/product/${id}` }), // Pas de lien si supprimé
             })
           );
         }
@@ -1001,7 +1051,7 @@ export const reviewProduct = async (
           const html = reviewProductTemplate({
             userName: product.user.firstName || "Utilisateur",
             productName: product.name,
-            status: newStatus,
+            status: isReject ? "REJECTED" : "VALIDATED",
             message,
           });
 
@@ -1010,7 +1060,7 @@ export const reviewProduct = async (
           );
         }
 
-        // ✅ Exécution parallèle des tâches d'arrière-plan
+        // Exécution parallèle des tâches d'arrière-plan
         await Promise.allSettled(backgroundTasks);
       } catch (bgError) {
         // Log l'erreur mais ne pas faire échouer la requête principale
@@ -1056,10 +1106,10 @@ export const deleteProductOfSuspendedUser = async (
       );
     }
 
-    // Récupérer d'abord tous les produits pour supprimer les images
+    // Récupérer d'abord tous les produits pour supprimer les images et notifications
     const products = await prisma.product.findMany({
       where: { userId },
-      select: { id: true, images: true },
+      select: { id: true, images: true, name: true },
     });
 
     if (products.length === 0) {
@@ -1070,25 +1120,29 @@ export const deleteProductOfSuspendedUser = async (
       );
     }
 
-    // Supprimer les images associées
-    const imagePromises = products.flatMap((product) => {
-      const images = product.images as string[];
-      return images.map((img) => Utils.deleteFile(img));
+    // 🧹 NETTOYAGE COMPLET : Utiliser une transaction pour la suppression complète
+    // ℹ️  NOTE: Les notifications ne sont PAS supprimées ici car :
+    //    - Elles sont automatiquement nettoyées après 5 jours
+    //    - Cela évite les conflits avec les notifications de rejet qui viennent d'être envoyées
+    //    - Les liens cassés dans les notifications sont gérés côté frontend
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Supprimer les images associées du système de fichiers
+      const imagePromises = products.flatMap((product) => {
+        const images = product.images as string[];
+        return images.map((img) => Utils.deleteFile(img));
+      });
+
+      // Attendre que toutes les suppressions d'images soient terminées
+      await Promise.allSettled(imagePromises);
+
+      // 2. Supprimer tous les produits (cascade automatique pour : favorites, vues, forfaits)
+      return await tx.product.deleteMany({
+        where: { userId },
+      });
     });
 
-    // Attendre que toutes les suppressions d'images soient terminées
-    await Promise.allSettled(imagePromises);
-
-    // Supprimer tous les produits
-    const result = await prisma.product.deleteMany({
-      where: { userId },
-    });
-
-    // ✅ INVALIDATION COMPLÈTE DU CACHE DES PRODUITS après suppression
+    // Invalider le cache après suppression
     cacheService.invalidateAllProducts();
-    console.log(
-      `🗑️ [MANUAL CLEANUP] Cache produits invalidé après suppression manuelle de ${result.count} produits`
-    );
 
     const userName =
       user.firstName && user.lastName
@@ -1096,8 +1150,19 @@ export const deleteProductOfSuspendedUser = async (
         : "l'utilisateur suspendu";
     return ResponseApi.success(
       res,
-      `${result.count} produits de ${userName} ont été supprimés avec succès`,
-      { count: result.count }
+      `${result.count} produits de ${userName} et toutes leurs données associées ont été supprimés avec succès`,
+      {
+        count: result.count,
+        deletedData: {
+          products: result.count,
+          images: true,
+          favorites: true, // Supprimé par cascade
+          views: true, // Supprimé par cascade
+          forfaits: true, // Supprimé par cascade
+        },
+        productNames: products.map((p) => p.name),
+        note: "Notifications conservées - nettoyage automatique après 5 jours",
+      }
     );
   } catch (error: any) {
     return ResponseApi.error(
@@ -1124,7 +1189,7 @@ export const getHomePageProduct = async (
   const limit = parseInt(req.query.limit as string) || 10;
 
   try {
-    // 🚀 CACHE: Vérifier d'abord si les données sont en cache
+    // Vérifier d'abord si les données sont en cache
     const cachedData = cacheService.getHomepageProducts(limit);
     if (cachedData) {
       return ResponseApi.success(
@@ -1214,7 +1279,7 @@ export const getHomePageProduct = async (
       },
     };
 
-    // 🚀 CACHE: Mettre en cache le résultat
+    // Mettre en cache le résultat
     cacheService.setHomepageProducts(limit, responseData);
 
     ResponseApi.success(
@@ -1231,7 +1296,7 @@ export const getHomePageProduct = async (
   }
 };
 
-// ✅ NOUVEAU: Récupérer les produits validés d'un vendeur spécifique
+// Récupérer les produits validés d'un vendeur spécifique
 export const getSellerProducts = async (
   req: Request,
   res: Response
@@ -1324,7 +1389,7 @@ export const getSellerProducts = async (
   }
 };
 
-// ✅ NOUVEAU: Récupérer les produits validés d'un utilisateur spécifique (pour profil public)
+// Récupérer les produits validés d'un utilisateur spécifique (pour profil public)
 export const getUserProducts = async (
   req: Request,
   res: Response
@@ -1403,7 +1468,7 @@ export const getUserProducts = async (
   }
 };
 
-// ✅ NOUVEAU: Récupérer les produits validés d'une catégorie spécifique
+// Récupérer les produits validés d'une catégorie spécifique
 export const getCategoryProducts = async (
   req: Request,
   res: Response

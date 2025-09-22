@@ -187,7 +187,7 @@ const processReport = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             let userAction = null;
             let deletedProductsInfo = null;
             if (action === "suspend") {
-                // ✅ AUTOMATIQUE : Supprimer les produits avant suspension
+                // Supprimer les produits avant suspension
                 const userProducts = yield tx.product.findMany({
                     where: { userId: report.reportedUserId },
                     select: { id: true, images: true, name: true },

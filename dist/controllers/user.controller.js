@@ -104,10 +104,25 @@ const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         });
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
-        response_js_1.default.error(res, "Failed to get all users", error.message);
+        console.error("🚨 Error retrieving users:", {
+            error: error.message,
+            stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+            timestamp: new Date().toISOString(),
+            params: { page, limit, search },
+        });
+        // Gestion d'erreurs spécifiques
+        if (error.code === "P2025") {
+            return response_js_1.default.error(res, "Users not found", "No users match the search criteria", 404);
+        }
+        if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+            return response_js_1.default.error(res, "User service temporarily unavailable", "Database connection error", 503);
+        }
+        if (error.name === "PrismaClientValidationError") {
+            return response_js_1.default.error(res, "Invalid user query parameters", "Query validation failed", 400);
+        }
+        return response_js_1.default.error(res, "Échec de récupération des utilisateurs", process.env.NODE_ENV === "development"
+            ? error.message
+            : "Erreur serveur interne", 500);
     }
 });
 exports.getAllUsers = getAllUsers;
@@ -127,10 +142,22 @@ const getUserById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         response_js_1.default.success(res, "user retrieved succesfully", result);
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
-        response_js_1.default.error(res, "failled to get user", error.message);
+        console.error("🚨 Error retrieving user by ID:", {
+            error: error.message,
+            stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+            timestamp: new Date().toISOString(),
+            userId: id,
+        });
+        // Gestion d'erreurs spécifiques
+        if (error.code === "P2025") {
+            return response_js_1.default.notFound(res, `User with ID ${id} not found`, 404);
+        }
+        if (error.name === "PrismaClientValidationError") {
+            return response_js_1.default.error(res, "Invalid user ID format", "User ID validation failed", 400);
+        }
+        return response_js_1.default.error(res, "Échec de récupération de l'utilisateur", process.env.NODE_ENV === "development"
+            ? error.message
+            : "Erreur serveur interne", 500);
     }
 });
 exports.getUserById = getUserById;
@@ -204,10 +231,30 @@ const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         }
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
-        response_js_1.default.error(res, "Failed to create user", error.message);
+        console.error("🚨 Error creating user:", {
+            error: error.message,
+            stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+            timestamp: new Date().toISOString(),
+            email: req.body.email,
+        });
+        // Gestion d'erreurs spécifiques
+        if (error.code === "P2002") {
+            // Contrainte unique violée (email probablement)
+            return response_js_1.default.error(res, "Échec de création utilisateur - email en double", "Un utilisateur avec cet email existe déjà", 409);
+        }
+        if (error.code === "P2003") {
+            // Contrainte de clé étrangère (roleId invalide)
+            return response_js_1.default.error(res, "Attribution de rôle invalide", "Le rôle spécifié n'existe pas", 400);
+        }
+        if (error.name === "ValidationError") {
+            return response_js_1.default.error(res, "Échec de validation des données utilisateur", error.message, 400);
+        }
+        if (error.message.includes("File upload")) {
+            return response_js_1.default.error(res, "Échec du téléchargement de l'avatar", "Erreur lors du téléchargement du fichier", 413);
+        }
+        return response_js_1.default.error(res, "Échec de création d'utilisateur", process.env.NODE_ENV === "development"
+            ? error.message
+            : "Erreur serveur interne", 500);
     }
 });
 exports.createUser = createUser;

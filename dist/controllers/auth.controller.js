@@ -428,8 +428,29 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         });
     }
     catch (error) {
-        console.error("Erreur lors de la connexion:", error);
-        return response_js_1.default.error(res, "Une erreur est survenue lors de la connexion", error.message, 500);
+        // 🚨 GESTION D'ERREURS DÉTAILLÉE
+        console.error("❌ Erreur lors de la connexion:", {
+            error: error.message,
+            stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+            timestamp: new Date().toISOString(),
+            userAgent: req.get("User-Agent"),
+            ip: req.ip || req.connection.remoteAddress,
+        });
+        // Gestion d'erreurs spécifiques
+        if (error.code === "P2002") {
+            // Erreur de contrainte unique Prisma
+            return response_js_1.default.error(res, "Conflit de données lors de la connexion", "Un problème de données a été détecté", 409);
+        }
+        if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+            // Erreur de base de données
+            return response_js_1.default.error(res, "Service temporairement indisponible", "Problème de connexion à la base de données", 503);
+        }
+        if (error.name === "ValidationError") {
+            // Erreur de validation
+            return response_js_1.default.error(res, "Données invalides", error.message, 400);
+        }
+        // Erreur générique
+        return response_js_1.default.error(res, "Une erreur interne est survenue lors de la connexion", process.env.NODE_ENV === "development" ? error.message : "Erreur serveur", 500);
     }
 });
 exports.login = login;

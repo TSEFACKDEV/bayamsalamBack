@@ -558,11 +558,46 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       user: userData,
     });
   } catch (error: any) {
-    console.error("Erreur lors de la connexion:", error);
+    // 🚨 GESTION D'ERREURS DÉTAILLÉE
+    console.error("❌ Erreur lors de la connexion:", {
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+      userAgent: req.get("User-Agent"),
+      ip: req.ip || req.connection.remoteAddress,
+    });
+
+    // Gestion d'erreurs spécifiques
+    if (error.code === "P2002") {
+      // Erreur de contrainte unique Prisma
+      return ResponseApi.error(
+        res,
+        "Conflit de données lors de la connexion",
+        "Un problème de données a été détecté",
+        409
+      );
+    }
+
+    if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+      // Erreur de base de données
+      return ResponseApi.error(
+        res,
+        "Service temporairement indisponible",
+        "Problème de connexion à la base de données",
+        503
+      );
+    }
+
+    if (error.name === "ValidationError") {
+      // Erreur de validation
+      return ResponseApi.error(res, "Données invalides", error.message, 400);
+    }
+
+    // Erreur générique
     return ResponseApi.error(
       res,
-      "Une erreur est survenue lors de la connexion",
-      error.message,
+      "Une erreur interne est survenue lors de la connexion",
+      process.env.NODE_ENV === "development" ? error.message : "Erreur serveur",
       500
     );
   }

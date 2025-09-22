@@ -168,18 +168,24 @@ function createRateLimiter(customConfig) {
                     },
                     blocked: true,
                 }, req);
-                return res.status(429).json({
-                    error: "Rate limit exceeded",
-                    message: config.message || "Too many requests. Please try again later.",
-                    retryAfter: retryAfterSeconds,
-                    type: endpointType,
-                    details: {
-                        limit: config.maxRequests,
-                        windowSeconds: config.windowMs / 1000,
-                        remaining: 0,
-                        resetAt: new Date(store.resetTime).toISOString(),
+                const responseBody = {
+                    meta: {
+                        status: 429,
+                        message: config.message || "Trop de requêtes. Veuillez patienter.",
                     },
-                });
+                    error: {
+                        type: "RATE_LIMIT_EXCEEDED",
+                        retryAfter: retryAfterSeconds,
+                        details: {
+                            limit: config.maxRequests,
+                            windowSeconds: config.windowMs / 1000,
+                            remaining: 0,
+                            resetAt: new Date(store.resetTime).toISOString(),
+                            waitTime: `${Math.ceil(retryAfterSeconds / 60)} minute(s)`,
+                        },
+                    },
+                };
+                return res.status(429).json(responseBody);
             }
             // ⚠️ WARNING À 80% DE LA LIMITE
             if (store.requests >= config.maxRequests * 0.8) {
@@ -200,7 +206,7 @@ function createRateLimiter(customConfig) {
 exports.authRateLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
     maxRequests: 5,
-    message: "Trop de tentatives de connexion. Réessayez dans 15 minutes.",
+    message: "Trop de tentatives de connexion (5 max par 15 min). Veuillez patienter 15 minutes avant de réessayer.",
 });
 exports.uploadRateLimiter = createRateLimiter({
     windowMs: 60 * 1000, // 1 minute

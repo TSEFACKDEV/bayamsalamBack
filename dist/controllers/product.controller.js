@@ -491,8 +491,15 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         if (!req.files || !req.files.images) {
             return response_js_1.default.error(res, "Au moins une image est requise", null, 400);
         }
-        // Utilisation du système d'upload sécurisé
-        const savedImages = yield (0, upload_js_1.uploadProductImages)(req);
+        // Utilisation du système d'upload sécurisé avec gestion d'erreur améliorée
+        let savedImages;
+        try {
+            savedImages = yield (0, upload_js_1.uploadProductImages)(req);
+        }
+        catch (uploadError) {
+            // 🚨 Erreur spécifique d'upload (taille, format, etc.)
+            return response_js_1.default.error(res, "Erreur lors de l'upload des images", uploadError.message || "Format ou taille d'image non valide", 400);
+        }
         // Création du produit
         const productCreateData = {
             name,
@@ -659,11 +666,6 @@ const deleteProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         if (!product) {
             return response_js_1.default.notFound(res, "Product not found", 404);
         }
-        // 🧹 NETTOYAGE COMPLET : Utiliser une transaction pour la suppression complète
-        // ℹ️  NOTE: Les notifications ne sont PAS supprimées ici car :
-        //    - Elles sont automatiquement nettoyées après 5 jours
-        //    - Cela évite les conflits avec les notifications de rejet qui viennent d'être envoyées
-        //    - Les liens cassés dans les notifications sont gérés côté frontend
         yield prisma_client_js_1.default.$transaction((tx) => __awaiter(void 0, void 0, void 0, function* () {
             // 1. Supprimer les images associées du système de fichiers
             if (product.images && Array.isArray(product.images)) {

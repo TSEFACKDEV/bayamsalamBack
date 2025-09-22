@@ -26,13 +26,14 @@ const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"))
  * 📈 STATISTIQUES GÉNÉRALES DE SÉCURITÉ
  */
 const getSecurityStatistics = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         // Statistiques en temps réel
         const realtimeStats = (0, securityMonitor_js_1.getSecurityStats)();
         // Statistiques de base de données (dernières 24h)
         const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const dbStats = yield prisma_client_js_1.default.connectionLog.groupBy({
-            by: ['ipAddress'],
+            by: ["ipAddress"],
             where: {
                 createdAt: {
                     gte: yesterday,
@@ -43,7 +44,7 @@ const getSecurityStatistics = (req, res) => __awaiter(void 0, void 0, void 0, fu
             },
             orderBy: {
                 _count: {
-                    ipAddress: 'desc',
+                    ipAddress: "desc",
                 },
             },
             take: 10,
@@ -70,11 +71,28 @@ const getSecurityStatistics = (req, res) => __awaiter(void 0, void 0, void 0, fu
                 recommendations: generateSecurityRecommendations(realtimeStats),
             },
         };
-        return response_js_1.default.success(res, 'Security statistics retrieved successfully', response);
+        return response_js_1.default.success(res, "Security statistics retrieved successfully", response);
     }
     catch (error) {
-        console.error('Error fetching security statistics:', error);
-        return response_js_1.default.error(res, 'Failed to retrieve security statistics', null, 500);
+        console.error("🚨 Error fetching security statistics:", {
+            error: error.message,
+            stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+            timestamp: new Date().toISOString(),
+            user: (_a = req.user) === null || _a === void 0 ? void 0 : _a.id,
+        });
+        // Gestion d'erreurs spécifiques
+        if (error.code === "P2002") {
+            return response_js_1.default.error(res, "Conflit dans la récupération des données de sécurité", "Violation de contrainte de données dupliquées", 409);
+        }
+        if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+            return response_js_1.default.error(res, "Service de surveillance de sécurité indisponible", "Erreur de connexion à la base de données", 503);
+        }
+        if (error.name === "PrismaClientKnownRequestError") {
+            return response_js_1.default.error(res, "Security data access error", "Database query failed", 422);
+        }
+        return response_js_1.default.error(res, "Échec de récupération des statistiques de sécurité", process.env.NODE_ENV === "development"
+            ? error.message
+            : "Erreur serveur interne", 500);
     }
 });
 exports.getSecurityStatistics = getSecurityStatistics;
@@ -82,19 +100,19 @@ exports.getSecurityStatistics = getSecurityStatistics;
  * 📋 ÉVÉNEMENTS DE SÉCURITÉ RÉCENTS
  */
 const getRecentSecurityEvents = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
     try {
-        const limit = parseInt(req.query.limit) || 50;
-        const offset = parseInt(req.query.offset) || 0;
         // Récupérer les logs de sécurité depuis ConnectionLog
         // (on filtre ceux qui contiennent des types d'événements de sécurité)
         const events = yield prisma_client_js_1.default.connectionLog.findMany({
             where: {
                 userAgent: {
-                    contains: '[',
+                    contains: "[",
                 },
             },
             orderBy: {
-                createdAt: 'desc',
+                createdAt: "desc",
             },
             take: limit,
             skip: offset,
@@ -102,18 +120,18 @@ const getRecentSecurityEvents = (req, res) => __awaiter(void 0, void 0, void 0, 
         const parsedEvents = events.map((event) => {
             // Parser le userAgent pour extraire le type d'événement
             const match = event.userAgent.match(/\[([^\]]+)\]/);
-            const eventType = match ? match[1] : 'UNKNOWN';
+            const eventType = match ? match[1] : "UNKNOWN";
             return {
                 id: event.id,
                 type: eventType,
                 timestamp: event.createdAt,
                 ip: event.ipAddress,
                 userId: event.userId,
-                userAgent: event.userAgent.replace(/\[[^\]]+\]\s*/, ''),
+                userAgent: event.userAgent.replace(/\[[^\]]+\]\s*/, ""),
                 severity: determineSeverityFromType(eventType),
             };
         });
-        return response_js_1.default.success(res, 'Recent security events retrieved successfully', {
+        return response_js_1.default.success(res, "Recent security events retrieved successfully", {
             events: parsedEvents,
             pagination: {
                 limit,
@@ -123,8 +141,22 @@ const getRecentSecurityEvents = (req, res) => __awaiter(void 0, void 0, void 0, 
         });
     }
     catch (error) {
-        console.error('Error fetching security events:', error);
-        return response_js_1.default.error(res, 'Failed to retrieve security events', null, 500);
+        console.error("🚨 Error fetching security events:", {
+            error: error.message,
+            stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+            timestamp: new Date().toISOString(),
+            params: { limit, offset },
+        });
+        // Gestion d'erreurs spécifiques
+        if (error.code === "P2025") {
+            return response_js_1.default.error(res, "Security events not found", "No security events match the criteria", 404);
+        }
+        if (error.name === "PrismaClientValidationError") {
+            return response_js_1.default.error(res, "Invalid security events query parameters", "Query validation failed", 400);
+        }
+        return response_js_1.default.error(res, "Failed to retrieve security events", process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error", 500);
     }
 });
 exports.getRecentSecurityEvents = getRecentSecurityEvents;
@@ -133,10 +165,10 @@ exports.getRecentSecurityEvents = getRecentSecurityEvents;
  */
 const analyzeIP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
+    const { ip } = req.params;
     try {
-        const { ip } = req.params;
         if (!ip) {
-            return response_js_1.default.error(res, 'IP address is required', null, 400);
+            return response_js_1.default.error(res, "IP address is required", null, 400);
         }
         // Historique de cette IP
         const ipHistory = yield prisma_client_js_1.default.connectionLog.findMany({
@@ -144,7 +176,7 @@ const analyzeIP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 ipAddress: ip,
             },
             orderBy: {
-                createdAt: 'desc',
+                createdAt: "desc",
             },
             take: 100,
         });
@@ -154,13 +186,13 @@ const analyzeIP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             firstSeen: (_a = ipHistory[ipHistory.length - 1]) === null || _a === void 0 ? void 0 : _a.createdAt,
             lastSeen: (_b = ipHistory[0]) === null || _b === void 0 ? void 0 : _b.createdAt,
             uniqueUserAgents: [...new Set(ipHistory.map((h) => h.userAgent))].length,
-            securityEvents: ipHistory.filter((h) => h.userAgent.includes('[')).length,
+            securityEvents: ipHistory.filter((h) => h.userAgent.includes("[")).length,
             users: [...new Set(ipHistory.map((h) => h.userId))],
             timeline: ipHistory.slice(0, 20), // 20 événements les plus récents
         };
         // Score de risque
         const riskScore = calculateIPRiskScore(analysis);
-        return response_js_1.default.success(res, 'IP analysis completed successfully', {
+        return response_js_1.default.success(res, "IP analysis completed successfully", {
             ip,
             analysis,
             riskScore,
@@ -168,8 +200,25 @@ const analyzeIP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         });
     }
     catch (error) {
-        console.error('Error analyzing IP:', error);
-        return response_js_1.default.error(res, 'Failed to analyze IP', null, 500);
+        console.error("🚨 Error analyzing IP:", {
+            error: error.message,
+            stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+            timestamp: new Date().toISOString(),
+            ip: ip,
+        });
+        // Gestion d'erreurs spécifiques
+        if (error.code === "P2025") {
+            return response_js_1.default.error(res, "IP analysis data not found", `No connection logs found for IP: ${ip}`, 404);
+        }
+        if (error.name === "PrismaClientValidationError") {
+            return response_js_1.default.error(res, "Invalid IP analysis parameters", "IP address format validation failed", 400);
+        }
+        if (error.message.includes("timeout")) {
+            return response_js_1.default.error(res, "IP analysis timeout", "Analysis took too long - try again later", 408);
+        }
+        return response_js_1.default.error(res, "Failed to analyze IP", process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error", 500);
     }
 });
 exports.analyzeIP = analyzeIP;
@@ -182,7 +231,7 @@ function calculateSecurityScore(stats) {
     score -= Math.min(stats.totalAttacks * 2, 50);
     score -= Math.min(stats.uniqueIPs * 1, 30);
     // Bonus pour l'absence d'attaques critiques
-    const criticalAttacks = stats.topAttackTypes.filter((t) => t.type === 'SQL_INJECTION' || t.type === 'XSS_ATTEMPT').length;
+    const criticalAttacks = stats.topAttackTypes.filter((t) => t.type === "SQL_INJECTION" || t.type === "XSS_ATTEMPT").length;
     if (criticalAttacks === 0)
         score += 10;
     return Math.max(0, Math.min(100, score));
@@ -192,12 +241,12 @@ function calculateSecurityScore(stats) {
  */
 function determineThreatLevel(stats) {
     if (stats.totalAttacks === 0)
-        return 'LOW';
+        return "LOW";
     if (stats.totalAttacks < 10)
-        return 'MEDIUM';
+        return "MEDIUM";
     if (stats.totalAttacks < 50)
-        return 'HIGH';
-    return 'CRITICAL';
+        return "HIGH";
+    return "CRITICAL";
 }
 /**
  * 💡 GÉNÉRATION DE RECOMMANDATIONS
@@ -205,21 +254,21 @@ function determineThreatLevel(stats) {
 function generateSecurityRecommendations(stats) {
     const recommendations = [];
     if (stats.totalAttacks > 0) {
-        recommendations.push('Surveiller les IPs suspectes et envisager un blocage temporaire');
+        recommendations.push("Surveiller les IPs suspectes et envisager un blocage temporaire");
     }
     if (stats.uniqueIPs > 10) {
         recommendations.push("Considérer l'activation de CAPTCHA pour les endpoints sensibles");
     }
-    const hasXSS = stats.topAttackTypes.some((t) => t.type === 'XSS_ATTEMPT');
+    const hasXSS = stats.topAttackTypes.some((t) => t.type === "XSS_ATTEMPT");
     if (hasXSS) {
-        recommendations.push('Renforcer la validation des entrées utilisateur');
+        recommendations.push("Renforcer la validation des entrées utilisateur");
     }
-    const hasSQL = stats.topAttackTypes.some((t) => t.type === 'SQL_INJECTION');
+    const hasSQL = stats.topAttackTypes.some((t) => t.type === "SQL_INJECTION");
     if (hasSQL) {
-        recommendations.push('Vérifier toutes les requêtes de base de données');
+        recommendations.push("Vérifier toutes les requêtes de base de données");
     }
     if (recommendations.length === 0) {
-        recommendations.push('Niveau de sécurité satisfaisant - maintenir la vigilance');
+        recommendations.push("Niveau de sécurité satisfaisant - maintenir la vigilance");
     }
     return recommendations;
 }
@@ -228,16 +277,16 @@ function generateSecurityRecommendations(stats) {
  */
 function determineSeverityFromType(eventType) {
     switch (eventType) {
-        case 'SQL_INJECTION':
-            return 'CRITICAL';
-        case 'XSS_ATTEMPT':
-        case 'NOSQL_INJECTION':
-            return 'HIGH';
-        case 'RATE_LIMIT_EXCEEDED':
-        case 'PARAMETER_POLLUTION':
-            return 'MEDIUM';
+        case "SQL_INJECTION":
+            return "CRITICAL";
+        case "XSS_ATTEMPT":
+        case "NOSQL_INJECTION":
+            return "HIGH";
+        case "RATE_LIMIT_EXCEEDED":
+        case "PARAMETER_POLLUTION":
+            return "MEDIUM";
         default:
-            return 'LOW';
+            return "LOW";
     }
 }
 /**
@@ -264,10 +313,10 @@ function getRiskRecommendation(riskScore) {
     if (riskScore < 20)
         return "IP normale - pas d'action requise";
     if (riskScore < 50)
-        return 'IP suspecte - surveiller de près';
+        return "IP suspecte - surveiller de près";
     if (riskScore < 80)
-        return 'IP à risque - envisager des restrictions';
-    return 'IP dangereuse - blocage recommandé';
+        return "IP à risque - envisager des restrictions";
+    return "IP dangereuse - blocage recommandé";
 }
 exports.default = {
     getSecurityStatistics: exports.getSecurityStatistics,

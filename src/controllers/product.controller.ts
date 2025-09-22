@@ -655,8 +655,19 @@ export const createProduct = async (
       );
     }
 
-    // Utilisation du système d'upload sécurisé
-    const savedImages = await uploadProductImages(req);
+    // Utilisation du système d'upload sécurisé avec gestion d'erreur améliorée
+    let savedImages: string[];
+    try {
+      savedImages = await uploadProductImages(req);
+    } catch (uploadError: any) {
+      // 🚨 Erreur spécifique d'upload (taille, format, etc.)
+      return ResponseApi.error(
+        res,
+        "Erreur lors de l'upload des images",
+        uploadError.message || "Format ou taille d'image non valide",
+        400
+      );
+    }
 
     // Création du produit
     const productCreateData = {
@@ -886,11 +897,6 @@ export const deleteProduct = async (
       return ResponseApi.notFound(res, "Product not found", 404);
     }
 
-    // 🧹 NETTOYAGE COMPLET : Utiliser une transaction pour la suppression complète
-    // ℹ️  NOTE: Les notifications ne sont PAS supprimées ici car :
-    //    - Elles sont automatiquement nettoyées après 5 jours
-    //    - Cela évite les conflits avec les notifications de rejet qui viennent d'être envoyées
-    //    - Les liens cassés dans les notifications sont gérés côté frontend
     await prisma.$transaction(async (tx) => {
       // 1. Supprimer les images associées du système de fichiers
       if (product.images && Array.isArray(product.images)) {

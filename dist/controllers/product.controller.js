@@ -323,9 +323,9 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     try {
         // Construction des filtres avec le helper
         const where = buildValidatedProductFilters(search, categoryId, cityId, priceMin, priceMax, etat);
-        const products = yield prisma_client_js_1.default.product.findMany({
-            skip: offset,
-            take: limit,
+        // ✅ CORRECTION : Récupérer TOUS les produits correspondants AVANT pagination
+        const allMatchingProducts = yield prisma_client_js_1.default.product.findMany({
+            // ❌ SUPPRIMÉ : skip et take pour récupérer TOUS les produits
             orderBy: { createdAt: "desc" },
             where,
             include: {
@@ -339,8 +339,6 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 },
             },
         });
-        // ✅ MISE À JOUR - Tri optimisé côté serveur par priorité des forfaits pour page produits
-        // Ordre: PREMIUM > TOP_ANNONCE > A_LA_UNE > URGENT > Produits sans forfait
         const forfaitPriority = {
             PREMIUM: 1, // 1. Premium (regroupe tous les forfaits)
             TOP_ANNONCE: 2, // 2. Top (en tête de liste)
@@ -354,7 +352,8 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             const priorities = p.productForfaits.map((pf) => { var _a, _b; return (_b = forfaitPriority[(_a = pf.forfait) === null || _a === void 0 ? void 0 : _a.type]) !== null && _b !== void 0 ? _b : Number.MAX_SAFE_INTEGER; });
             return Math.min(...priorities);
         };
-        const sortedByForfait = products.slice().sort((a, b) => {
+        // ✅ CORRECTION : TRI COMPLET AVANT pagination
+        const sortedByForfait = allMatchingProducts.sort((a, b) => {
             const pa = getPriority(a);
             const pb = getPriority(b);
             if (pa !== pb)
@@ -362,8 +361,11 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             // Si même priorité, trier par date décroissante
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
-        const total = yield prisma_client_js_1.default.product.count({ where });
-        const productsWithImageUrls = productTransformer_js_1.default.transformProductsWithForfaits(req, sortedByForfait);
+        // ✅ CORRECTION : Pagination APRÈS tri complet
+        const paginatedProducts = sortedByForfait.slice(offset, offset + limit);
+        // ✅ CORRECTION : Total basé sur TOUS les produits correspondants
+        const total = allMatchingProducts.length;
+        const productsWithImageUrls = productTransformer_js_1.default.transformProductsWithForfaits(req, paginatedProducts);
         const links = calculatePagination(page, limit, total);
         response_js_1.default.success(res, "Validated products retrieved successfully!", {
             products: productsWithImageUrls,

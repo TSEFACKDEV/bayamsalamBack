@@ -421,9 +421,9 @@ export const getValidatedProducts = async (
       etat
     );
 
-    const products = await prisma.product.findMany({
-      skip: offset,
-      take: limit,
+    // ✅ CORRECTION : Récupérer TOUS les produits correspondants AVANT pagination
+    const allMatchingProducts = await prisma.product.findMany({
+      // ❌ SUPPRIMÉ : skip et take pour récupérer TOUS les produits
       orderBy: { createdAt: "desc" },
       where,
       include: {
@@ -438,8 +438,6 @@ export const getValidatedProducts = async (
       },
     });
 
-    // ✅ MISE À JOUR - Tri optimisé côté serveur par priorité des forfaits pour page produits
-    // Ordre: PREMIUM > TOP_ANNONCE > A_LA_UNE > URGENT > Produits sans forfait
     const forfaitPriority: Record<string, number> = {
       PREMIUM: 1, // 1. Premium (regroupe tous les forfaits)
       TOP_ANNONCE: 2, // 2. Top (en tête de liste)
@@ -459,7 +457,8 @@ export const getValidatedProducts = async (
       return Math.min(...priorities);
     };
 
-    const sortedByForfait = products.slice().sort((a: any, b: any) => {
+    // ✅ CORRECTION : TRI COMPLET AVANT pagination
+    const sortedByForfait = allMatchingProducts.sort((a: any, b: any) => {
       const pa = getPriority(a);
       const pb = getPriority(b);
       if (pa !== pb) return pa - pb; // priorité ascendante (1 = premium first)
@@ -467,10 +466,14 @@ export const getValidatedProducts = async (
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    const total = await prisma.product.count({ where });
+    // ✅ CORRECTION : Pagination APRÈS tri complet
+    const paginatedProducts = sortedByForfait.slice(offset, offset + limit);
+
+    // ✅ CORRECTION : Total basé sur TOUS les produits correspondants
+    const total = allMatchingProducts.length;
 
     const productsWithImageUrls =
-      ProductTransformer.transformProductsWithForfaits(req, sortedByForfait);
+      ProductTransformer.transformProductsWithForfaits(req, paginatedProducts);
 
     const links = calculatePagination(page, limit, total);
 

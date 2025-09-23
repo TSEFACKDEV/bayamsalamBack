@@ -13,15 +13,46 @@ export const getAllReports = async (
   const offset = (page - 1) * limit;
   const status = req.query.status as string; // pending, reviewed, resolved
   const reason = req.query.reason as string; // fraud, spam, abuse, other
+  const search = (req.query.search as string) || ""; // 🆕 SUPPORT RECHERCHE TEXTUELLE
 
   try {
-    // Construire les filtres
+    // 🆕 Construction des filtres combinés (recherche + status + reason)
     const whereClause: any = {};
+
+    // Filtre par statut
     if (status) {
       whereClause.status = status;
     }
+
+    // Filtre par raison
     if (reason) {
       whereClause.reason = reason;
+    }
+
+    // 🆕 Filtre de recherche textuelle (nom, email de l'utilisateur signalé + détails du signalement)
+    if (search) {
+      whereClause.OR = [
+        {
+          reportedUser: {
+            OR: [
+              { firstName: { contains: search } },
+              { lastName: { contains: search } },
+              { email: { contains: search } },
+            ],
+          },
+        },
+        {
+          reportingUser: {
+            OR: [
+              { firstName: { contains: search } },
+              { lastName: { contains: search } },
+              { email: { contains: search } },
+            ],
+          },
+        },
+        { details: { contains: search } },
+        { reason: { contains: search } },
+      ];
     }
 
     // Récupérer les signalements avec pagination

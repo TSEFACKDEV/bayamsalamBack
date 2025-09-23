@@ -25,7 +25,7 @@ const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             where: { name: { equals: name } },
         });
         if (existingCity) {
-            return response_js_1.default.notFound(res, "City Already exist");
+            return response_js_1.default.error(res, "City Already exist", null, 409);
         }
         //creer la ville
         const city = yield prisma_client_js_1.default.city.create({
@@ -33,17 +33,12 @@ const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
                 name,
             },
         });
-        // Enrichir les données comme dans getAllCities pour maintenir la cohérence
+        // Enrichir les données pour maintenir la cohérence
         const enrichedCity = {
             id: city.id,
             name: city.name,
-            region: null,
-            country: "Cameroun",
-            latitude: null,
-            longitude: null,
             userCount: 0, // Nouvelle ville = 0 utilisateurs
             productCount: 0, // Nouvelle ville = 0 produits
-            isActive: true,
             createdAt: city.createdAt.toISOString(),
             updatedAt: city.updatedAt.toISOString(),
         };
@@ -59,14 +54,32 @@ const createCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 exports.createCity = createCity;
 //obtenir toutes les villes
 const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const search = req.query.search || "";
     try {
-        // Vérifier d'abord si les données sont en cache
-        const cachedCities = cache_service_js_1.cacheService.getCities();
-        if (cachedCities) {
-            return response_js_1.default.success(res, "Cities retrieved successfully (cache)", cachedCities);
+        // 🔧 VALIDATION: Vérifier que le terme de recherche n'est pas trop court
+        if (search && search.trim().length < 1) {
+            return response_js_1.default.error(res, "Terme de recherche trop court", null, 400);
+        }
+        // 🆕 SUPPORT RECHERCHE : Si recherche, ne pas utiliser le cache pour avoir des résultats à jour
+        if (!search) {
+            // Vérifier d'abord si les données sont en cache (uniquement pour requêtes sans recherche)
+            const cachedCities = cache_service_js_1.cacheService.getCities();
+            if (cachedCities) {
+                return response_js_1.default.success(res, "Cities retrieved successfully (cache)", cachedCities);
+            }
+        }
+        // Construction des filtres de recherche
+        const whereClause = {};
+        // Filtre de recherche par nom
+        if (search && search.trim()) {
+            const searchTerm = search.trim();
+            whereClause.name = {
+                contains: searchTerm,
+            };
         }
         const cities = yield prisma_client_js_1.default.city.findMany({
             orderBy: { name: "asc" },
+            where: Object.keys(whereClause).length > 0 ? whereClause : undefined, // 🆕 UTILISE LES FILTRES
             include: {
                 _count: {
                     select: {
@@ -90,24 +103,33 @@ const getAllCities = (req, res) => __awaiter(void 0, void 0, void 0, function* (
             return {
                 id: city.id,
                 name: city.name,
-                region: null, // Pas encore défini dans le schéma
-                country: "Cameroun", // Valeur par défaut
-                latitude: null,
-                longitude: null,
                 userCount,
                 productCount: city._count.products,
-                isActive: true, // Valeur par défaut
                 createdAt: city.createdAt.toISOString(),
                 updatedAt: city.updatedAt.toISOString(),
             };
         })));
-        // Mettre en cache les données enrichies
-        cache_service_js_1.cacheService.setCities(enrichedCities);
+        // 🆕 Mettre en cache seulement les requêtes sans recherche pour éviter la pollution du cache
+        if (!search) {
+            // Mettre en cache les données enrichies
+            cache_service_js_1.cacheService.setCities(enrichedCities);
+        }
         response_js_1.default.success(res, "Cities retrieved successfully", enrichedCities);
     }
     catch (error) {
-        console.log(error);
-        response_js_1.default.error(res, "Failled to fect all cities", error);
+        console.error("❌ Erreur dans getAllCities:", error);
+        // 🔧 Gestion d'erreur améliorée avec plus de détails
+        if (error instanceof Error) {
+            if (error.message.includes("Prisma")) {
+                response_js_1.default.error(res, "Erreur de base de données lors de la récupération des villes", error.message, 500);
+            }
+            else {
+                response_js_1.default.error(res, "Erreur lors de la récupération des villes", error.message, 500);
+            }
+        }
+        else {
+            response_js_1.default.error(res, "Erreur inconnue lors de la récupération des villes", "Une erreur inattendue s'est produite", 500);
+        }
     }
 });
 exports.getAllCities = getAllCities;
@@ -197,13 +219,8 @@ const updateCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         const enrichedCity = {
             id: updatedCity.id,
             name: updatedCity.name,
-            region: null,
-            country: "Cameroun",
-            latitude: null,
-            longitude: null,
             userCount,
             productCount,
-            isActive: true,
             createdAt: updatedCity.createdAt.toISOString(),
             updatedAt: updatedCity.updatedAt.toISOString(),
         };
@@ -233,7 +250,7 @@ const deleteCity = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             where: { cityId: id },
         });
         if (productsCount > 0) {
-            return response_js_1.default.notFound(res, "impossible to Delete ville  who have a product");
+            return response_js_1.default.error(res, "Impossible to delete city that contains products", `This city has ${productsCount} product(s)`, 409);
         }
         // Supprimer la ville
         const city = yield prisma_client_js_1.default.city.delete({ where: { id } });

@@ -1,27 +1,6 @@
 "use strict";
 /**
  * 🔐 CONTRÔLEUR D'AUTHENTIFICATION - BuyAndSale
- *
- * Ce module gère l'authentification et l'autorisation des utilisateurs.
- *
- * FONCTIONNALITÉS PRINCIPALES:
- * - Inscription et vérification OTP
- * - Connexion locale et Google OAuth
- * - Gestion des tokens JWT (Access + Refresh)
- * - Support multi-device (sessions simultanées)
- * - Réinitialisation de mot de passe
- * - Gestion sécurisée des erreurs
- *
- * 🔒 STRATÉGIE DE SÉCURITÉ:
- * - Validation stricte des entrées utilisateur
- * - Hachage sécurisé des mots de passe
- * - Rotation automatique des refresh tokens
- * - Gestion permissive pour sessions multiples
- * - Logs détaillés pour monitoring
- *
- * 📱 SUPPORT MULTI-DEVICE:
- * Les utilisateurs peuvent se connecter depuis plusieurs appareils simultanément.
- * Les anciens refresh tokens restent valides pour éviter les déconnexions forcées.
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -564,16 +543,6 @@ const refreshToken = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     }
 });
 exports.refreshToken = refreshToken;
-/**
- * 🚪 DÉCONNEXION SÉCURISÉE DE L'UTILISATEUR
- *
- * Cette fonction gère la déconnexion en révoquant le refresh token
- * et en nettoyant les cookies de session.
- *
- * 📱 IMPACT MULTI-DEVICE:
- * La déconnexion révoque le refresh token principal, ce qui peut affecter
- * les autres sessions actives. C'est un comportement volontaire pour la sécurité.
- */
 const logout = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { jwt } = req.cookies;
@@ -657,9 +626,6 @@ const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
             savedTokenStart: ((_b = savedUser === null || savedUser === void 0 ? void 0 : savedUser.resetToken) === null || _b === void 0 ? void 0 : _b.substring(0, 50)) + "...",
             expiresAt: savedUser === null || savedUser === void 0 ? void 0 : savedUser.resetExpires,
         });
-        // 🔧 CORRECTION : Génération du lien de réinitialisation
-        // PROBLÈME : Avant, le lien pointait vers l'accueil avec ?token=xxx
-        // SOLUTION : Maintenant, le lien pointe vers la page spécifique de reset password
         const resetUrl = `${config_js_1.default.frontendUrl}/auth/reset-password?token=${resetToken}`;
         const emailSent = yield (0, mailer_js_1.sendEmail)(email, "Réinitialisation de votre mot de passe", `Cliquez sur ce lien pour réinitialiser votre mot de passe: ${resetUrl}`, `<p>Cliquez <a href="${resetUrl}">ici</a> pour réinitialiser votre mot de passe.</p>`);
         if (!emailSent) {
@@ -873,9 +839,6 @@ const googleCallback = (req, res) => __awaiter(void 0, void 0, void 0, function*
             where: { id: user.id },
             select: { refreshToken: true },
         });
-        // 🎯 STRATÉGIE MULTI-DEVICE SIMPLIFIÉE:
-        // - Si aucun refresh token existant → utiliser le nouveau
-        // - Si refresh token existant → le conserver pour permettre les sessions multiples
         const finalRefreshToken = (currentUser === null || currentUser === void 0 ? void 0 : currentUser.refreshToken) || newRefreshToken;
         const shouldUpdateToken = !(currentUser === null || currentUser === void 0 ? void 0 : currentUser.refreshToken);
         // 📝 MISE À JOUR EN BASE: Seulement si nécessaire

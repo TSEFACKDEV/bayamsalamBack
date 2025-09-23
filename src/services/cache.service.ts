@@ -14,13 +14,8 @@ interface CacheStats {
 interface City {
   id: string;
   name: string;
-  region: string | null;
-  country: string;
-  latitude: number | null;
-  longitude: number | null;
   userCount: number;
   productCount: number;
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }

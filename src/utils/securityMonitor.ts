@@ -272,9 +272,9 @@ function updateAttackStatistics(
   stats.lastSeen = now;
   stats.types.add(eventType);
 
-  // 🚨 DÉTECTION DE BRUTE FORCE (plus de 10 tentatives en 5 minutes)
+  // 🚨 DÉTECTION DE BRUTE FORCE (plus de 50 tentatives en 3 minutes)
   const timeDiff = now.getTime() - stats.firstSeen.getTime();
-  if (stats.count > 10 && timeDiff < 5 * 60 * 1000) {
+  if (stats.count > 50 && timeDiff < 3 * 60 * 1000) {
     console.error(
       `🚨 [BRUTE FORCE DETECTED] IP ${ip} - ${
         stats.count

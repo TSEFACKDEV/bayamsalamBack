@@ -173,13 +173,14 @@ const getProductViewStats = (req, res) => __awaiter(void 0, void 0, void 0, func
 });
 exports.getProductViewStats = getProductViewStats;
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
-// Endpoint avec support du filtrage par status
+// Endpoint avec support du filtrage par status et categoryId
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = (0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.page, 1, 1, 1000);
     const limit = (0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.limit, 10, 1, 100);
     const offset = (page - 1) * limit;
     const search = (0, sanitization_utils_js_1.sanitizeSearchParam)(req.query.search);
     const status = req.query.status;
+    const categoryId = req.query.categoryId;
     // 🔐 Logging de sécurité si des paramètres ont été nettoyés
     if (req.query.search && req.query.search !== search) {
         yield (0, securityMonitor_js_1.logSecurityEvent)({
@@ -202,6 +203,10 @@ const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
         // Ajouter le filtre par status si fourni
         if (status && ["PENDING", "VALIDATED", "REJECTED"].includes(status)) {
             where.status = status;
+        }
+        // Ajouter le filtre par categoryId si fourni
+        if (categoryId) {
+            where.categoryId = categoryId;
         }
         const products = yield prisma_client_js_1.default.product.findMany({
             skip: offset,

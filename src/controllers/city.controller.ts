@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import ResponseApi from "../helper/response.js";
 import prisma from "../model/prisma.client.js";
+import { Prisma } from "@prisma/client";
 import { cacheService } from "../services/cache.service.js";
 
 //creation de la ville
@@ -13,7 +14,7 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (existingCity) {
-      return ResponseApi.notFound(res, "City Already exist");
+      return ResponseApi.error(res, "City Already exist", null, 409);
     }
 
     //creer la ville
@@ -23,17 +24,12 @@ export const createCity = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    // Enrichir les données comme dans getAllCities pour maintenir la cohérence
+    // Enrichir les données pour maintenir la cohérence
     const enrichedCity = {
       id: city.id,
       name: city.name,
-      region: null,
-      country: "Cameroun",
-      latitude: null,
-      longitude: null,
       userCount: 0, // Nouvelle ville = 0 utilisateurs
       productCount: 0, // Nouvelle ville = 0 produits
-      isActive: true,
       createdAt: city.createdAt.toISOString(),
       updatedAt: city.updatedAt.toISOString(),
     };
@@ -54,19 +50,40 @@ export const getAllCities = async (
   req: Request,
   res: Response
 ): Promise<any> => {
+  const search = (req.query.search as string) || "";
+
   try {
-    // Vérifier d'abord si les données sont en cache
-    const cachedCities = cacheService.getCities();
-    if (cachedCities) {
-      return ResponseApi.success(
-        res,
-        "Cities retrieved successfully (cache)",
-        cachedCities
-      );
+    // 🔧 VALIDATION: Vérifier que le terme de recherche n'est pas trop court
+    if (search && search.trim().length < 1) {
+      return ResponseApi.error(res, "Terme de recherche trop court", null, 400);
     }
 
+    // 🆕 SUPPORT RECHERCHE : Si recherche, ne pas utiliser le cache pour avoir des résultats à jour
+    if (!search) {
+      // Vérifier d'abord si les données sont en cache (uniquement pour requêtes sans recherche)
+      const cachedCities = cacheService.getCities();
+      if (cachedCities) {
+        return ResponseApi.success(
+          res,
+          "Cities retrieved successfully (cache)",
+          cachedCities
+        );
+      }
+    }
+
+    // Construction des filtres de recherche
+    const whereClause: any = {};
+
+    // Filtre de recherche par nom
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      whereClause.name = {
+        contains: searchTerm,
+      };
+    }
     const cities = await prisma.city.findMany({
       orderBy: { name: "asc" },
+      where: Object.keys(whereClause).length > 0 ? whereClause : undefined, // 🆕 UTILISE LES FILTRES
       include: {
         _count: {
           select: {
@@ -93,26 +110,49 @@ export const getAllCities = async (
         return {
           id: city.id,
           name: city.name,
-          region: null, // Pas encore défini dans le schéma
-          country: "Cameroun", // Valeur par défaut
-          latitude: null,
-          longitude: null,
           userCount,
           productCount: city._count.products,
-          isActive: true, // Valeur par défaut
           createdAt: city.createdAt.toISOString(),
           updatedAt: city.updatedAt.toISOString(),
         };
       })
     );
 
-    // Mettre en cache les données enrichies
-    cacheService.setCities(enrichedCities);
+    // 🆕 Mettre en cache seulement les requêtes sans recherche pour éviter la pollution du cache
+    if (!search) {
+      // Mettre en cache les données enrichies
+      cacheService.setCities(enrichedCities);
+    }
 
     ResponseApi.success(res, "Cities retrieved successfully", enrichedCities);
   } catch (error) {
-    console.log(error);
-    ResponseApi.error(res, "Failled to fect all cities", error);
+    console.error("❌ Erreur dans getAllCities:", error);
+
+    // 🔧 Gestion d'erreur améliorée avec plus de détails
+    if (error instanceof Error) {
+      if (error.message.includes("Prisma")) {
+        ResponseApi.error(
+          res,
+          "Erreur de base de données lors de la récupération des villes",
+          error.message,
+          500
+        );
+      } else {
+        ResponseApi.error(
+          res,
+          "Erreur lors de la récupération des villes",
+          error.message,
+          500
+        );
+      }
+    } else {
+      ResponseApi.error(
+        res,
+        "Erreur inconnue lors de la récupération des villes",
+        "Une erreur inattendue s'est produite",
+        500
+      );
+    }
   }
 };
 
@@ -214,13 +254,8 @@ export const updateCity = async (req: Request, res: Response): Promise<any> => {
     const enrichedCity = {
       id: updatedCity.id,
       name: updatedCity.name,
-      region: null,
-      country: "Cameroun",
-      latitude: null,
-      longitude: null,
       userCount,
       productCount,
-      isActive: true,
       createdAt: updatedCity.createdAt.toISOString(),
       updatedAt: updatedCity.updatedAt.toISOString(),
     };
@@ -254,9 +289,11 @@ export const deleteCity = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (productsCount > 0) {
-      return ResponseApi.notFound(
+      return ResponseApi.error(
         res,
-        "impossible to Delete ville  who have a product"
+        "Impossible to delete city that contains products",
+        `This city has ${productsCount} product(s)`,
+        409
       );
     }
     // Supprimer la ville

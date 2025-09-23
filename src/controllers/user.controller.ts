@@ -14,18 +14,37 @@ export const getAllUsers = async (
   const limit = parseInt(req.query.limit as string) || 20;
   const offset = (page - 1) * limit;
   const search = (req.query.search as string) || "";
+  const status = req.query.status as string; // 🆕 SUPPORT FILTRAGE PAR STATUT
+  const role = req.query.role as string; // 🆕 SUPPORT FILTRAGE PAR RÔLE
 
   try {
-    // Construction des filtres de recherche
-    const whereClause = search
-      ? {
-          OR: [
-            { firstName: { contains: search } },
-            { lastName: { contains: search } },
-            { email: { contains: search } },
-          ],
-        }
-      : undefined;
+    // 🆕 Construction des filtres combinés (recherche + statut)
+    const whereClause: any = {};
+
+    // Filtre de recherche
+    if (search) {
+      whereClause.OR = [
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { email: { contains: search } },
+      ];
+    }
+
+    // 🆕 Filtre par statut
+    if (status && ["ACTIVE", "PENDING", "SUSPENDED"].includes(status)) {
+      whereClause.status = status;
+    }
+
+    // 🆕 Filtre par rôle
+    if (role && ["USER", "SUPER_ADMIN"].includes(role)) {
+      whereClause.roles = {
+        some: {
+          role: {
+            name: role,
+          },
+        },
+      };
+    }
 
     const params = {
       skip: offset,
@@ -33,7 +52,7 @@ export const getAllUsers = async (
       orderBy: {
         createdAt: "desc" as const,
       },
-      where: whereClause,
+      where: Object.keys(whereClause).length > 0 ? whereClause : undefined, // 🆕 UTILISE LES FILTRES COMBINÉS
       // 🔗 NOUVEAU : Inclusion des rôles ET comptage des produits
       include: {
         roles: {
@@ -52,8 +71,10 @@ export const getAllUsers = async (
     // Récupérer les utilisateurs
     const result = await prisma.user.findMany(params);
 
-    // Compter le total pour la pagination
-    const total = await prisma.user.count({ where: whereClause });
+    // 🆕 Compter le total avec les MÊMES filtres
+    const total = await prisma.user.count({
+      where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+    });
 
     // 📊 NOUVEAU : Calcul des statistiques avec cache
     let stats = cacheService.getUserStats();
@@ -109,7 +130,7 @@ export const getAllUsers = async (
       error: error.message,
       stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       timestamp: new Date().toISOString(),
-      params: { page, limit, search },
+      params: { page, limit, search, status, role },
     });
 
     // Gestion d'erreurs spécifiques

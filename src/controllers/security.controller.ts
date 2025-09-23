@@ -53,11 +53,26 @@ export const getSecurityStatistics = async (
       ORDER BY hour
     `;
 
+    // 🔧 CORRECTION: Convertir les BigInt en number pour éviter l'erreur de sérialisation JSON
+    const serializedDbStats = dbStats.map((stat) => ({
+      ...stat,
+      _count: {
+        ipAddress: Number(stat._count.ipAddress), // Convertir BigInt en number
+      },
+    }));
+
+    const serializedHourlyConnections = (hourlyConnections as any[]).map(
+      (item) => ({
+        hour: Number(item.hour),
+        connections: Number(item.connections), // Convertir BigInt en number
+      })
+    );
+
     const response = {
       realtime: realtimeStats,
       database: {
-        topIPs: dbStats,
-        hourlyActivity: hourlyConnections,
+        topIPs: serializedDbStats,
+        hourlyActivity: serializedHourlyConnections,
       },
       summary: {
         securityScore: calculateSecurityScore(realtimeStats),

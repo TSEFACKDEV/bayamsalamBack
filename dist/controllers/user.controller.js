@@ -23,24 +23,40 @@ const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
+    const status = req.query.status; // 🆕 SUPPORT FILTRAGE PAR STATUT
+    const role = req.query.role; // 🆕 SUPPORT FILTRAGE PAR RÔLE
     try {
-        // Construction des filtres de recherche
-        const whereClause = search
-            ? {
-                OR: [
-                    { firstName: { contains: search } },
-                    { lastName: { contains: search } },
-                    { email: { contains: search } },
-                ],
-            }
-            : undefined;
+        // 🆕 Construction des filtres combinés (recherche + statut)
+        const whereClause = {};
+        // Filtre de recherche
+        if (search) {
+            whereClause.OR = [
+                { firstName: { contains: search } },
+                { lastName: { contains: search } },
+                { email: { contains: search } },
+            ];
+        }
+        // 🆕 Filtre par statut
+        if (status && ["ACTIVE", "PENDING", "SUSPENDED"].includes(status)) {
+            whereClause.status = status;
+        }
+        // 🆕 Filtre par rôle
+        if (role && ["USER", "SUPER_ADMIN"].includes(role)) {
+            whereClause.roles = {
+                some: {
+                    role: {
+                        name: role,
+                    },
+                },
+            };
+        }
         const params = {
             skip: offset,
             take: limit,
             orderBy: {
                 createdAt: "desc",
             },
-            where: whereClause,
+            where: Object.keys(whereClause).length > 0 ? whereClause : undefined, // 🆕 UTILISE LES FILTRES COMBINÉS
             // 🔗 NOUVEAU : Inclusion des rôles ET comptage des produits
             include: {
                 roles: {
@@ -57,8 +73,10 @@ const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         };
         // Récupérer les utilisateurs
         const result = yield prisma_client_js_1.default.user.findMany(params);
-        // Compter le total pour la pagination
-        const total = yield prisma_client_js_1.default.user.count({ where: whereClause });
+        // 🆕 Compter le total avec les MÊMES filtres
+        const total = yield prisma_client_js_1.default.user.count({
+            where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+        });
         // 📊 NOUVEAU : Calcul des statistiques avec cache
         let stats = cache_service_js_1.cacheService.getUserStats();
         if (!stats) {
@@ -108,7 +126,7 @@ const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             error: error.message,
             stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
             timestamp: new Date().toISOString(),
-            params: { page, limit, search },
+            params: { page, limit, search, status, role },
         });
         // Gestion d'erreurs spécifiques
         if (error.code === "P2025") {

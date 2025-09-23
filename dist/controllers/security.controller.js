@@ -59,11 +59,19 @@ const getSecurityStatistics = (req, res) => __awaiter(void 0, void 0, void 0, fu
       GROUP BY HOUR(createdAt)
       ORDER BY hour
     `;
+        // 🔧 CORRECTION: Convertir les BigInt en number pour éviter l'erreur de sérialisation JSON
+        const serializedDbStats = dbStats.map((stat) => (Object.assign(Object.assign({}, stat), { _count: {
+                ipAddress: Number(stat._count.ipAddress), // Convertir BigInt en number
+            } })));
+        const serializedHourlyConnections = hourlyConnections.map((item) => ({
+            hour: Number(item.hour),
+            connections: Number(item.connections), // Convertir BigInt en number
+        }));
         const response = {
             realtime: realtimeStats,
             database: {
-                topIPs: dbStats,
-                hourlyActivity: hourlyConnections,
+                topIPs: serializedDbStats,
+                hourlyActivity: serializedHourlyConnections,
             },
             summary: {
                 securityScore: calculateSecurityScore(realtimeStats),

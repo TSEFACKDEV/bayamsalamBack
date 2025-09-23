@@ -1,26 +1,5 @@
 /**
  * 🔐 CONTRÔLEUR D'AUTHENTIFICATION - BuyAndSale
- *
- * Ce module gère l'authentification et l'autorisation des utilisateurs.
- *
- * FONCTIONNALITÉS PRINCIPALES:
- * - Inscription et vérification OTP
- * - Connexion locale et Google OAuth
- * - Gestion des tokens JWT (Access + Refresh)
- * - Support multi-device (sessions simultanées)
- * - Réinitialisation de mot de passe
- * - Gestion sécurisée des erreurs
- *
- * 🔒 STRATÉGIE DE SÉCURITÉ:
- * - Validation stricte des entrées utilisateur
- * - Hachage sécurisé des mots de passe
- * - Rotation automatique des refresh tokens
- * - Gestion permissive pour sessions multiples
- * - Logs détaillés pour monitoring
- *
- * 📱 SUPPORT MULTI-DEVICE:
- * Les utilisateurs peuvent se connecter depuis plusieurs appareils simultanément.
- * Les anciens refresh tokens restent valides pour éviter les déconnexions forcées.
  */
 
 import { NextFunction, Request, Response } from "express";
@@ -766,16 +745,6 @@ export const refreshToken = async (
   }
 };
 
-/**
- * 🚪 DÉCONNEXION SÉCURISÉE DE L'UTILISATEUR
- *
- * Cette fonction gère la déconnexion en révoquant le refresh token
- * et en nettoyant les cookies de session.
- *
- * 📱 IMPACT MULTI-DEVICE:
- * La déconnexion révoque le refresh token principal, ce qui peut affecter
- * les autres sessions actives. C'est un comportement volontaire pour la sécurité.
- */
 export const logout = async (
   req: Request,
   res: Response,
@@ -884,9 +853,6 @@ export const forgotPassword = async (
       expiresAt: savedUser?.resetExpires,
     });
 
-    // 🔧 CORRECTION : Génération du lien de réinitialisation
-    // PROBLÈME : Avant, le lien pointait vers l'accueil avec ?token=xxx
-    // SOLUTION : Maintenant, le lien pointe vers la page spécifique de reset password
     const resetUrl = `${env.frontendUrl}/auth/reset-password?token=${resetToken}`;
 
     const emailSent = await sendEmail(
@@ -1188,9 +1154,6 @@ export const googleCallback = async (
       select: { refreshToken: true },
     });
 
-    // 🎯 STRATÉGIE MULTI-DEVICE SIMPLIFIÉE:
-    // - Si aucun refresh token existant → utiliser le nouveau
-    // - Si refresh token existant → le conserver pour permettre les sessions multiples
     const finalRefreshToken = currentUser?.refreshToken || newRefreshToken;
     const shouldUpdateToken = !currentUser?.refreshToken;
 

@@ -23,7 +23,7 @@ const futurapay_service_js_1 = require("../services/futurapay.service.js");
 const upload_js_1 = require("../utilities/upload.js");
 const cache_service_js_1 = require("../services/cache.service.js");
 const productTransformer_js_1 = __importDefault(require("../utils/productTransformer.js"));
-const securityUtils_js_1 = require("../utils/securityUtils.js");
+const sanitization_utils_js_1 = require("../utils/sanitization.utils.js");
 const securityMonitor_js_1 = require("../utils/securityMonitor.js");
 // Helper pour construire les filtres de produits validés génériques
 const buildValidatedProductFilters = (search, categoryId, cityId, priceMin, priceMax, etat) => {
@@ -53,8 +53,8 @@ const buildProductFilters = (categoryId, search, cityId, priceMin, priceMax, eta
 };
 // Helper pour extraire et valider les paramètres de pagination
 const getPaginationParams = (query) => {
-    const page = (0, securityUtils_js_1.sanitizeNumericParam)(query.page, 1, 1, 1000);
-    const limit = (0, securityUtils_js_1.sanitizeNumericParam)(query.limit, 10, 1, 100);
+    const page = (0, sanitization_utils_js_1.sanitizeNumericParam)(query.page, 1, 1, 1000);
+    const limit = (0, sanitization_utils_js_1.sanitizeNumericParam)(query.limit, 10, 1, 100);
     return { page, limit };
 };
 // Helper pour calculer la pagination
@@ -175,10 +175,10 @@ exports.getProductViewStats = getProductViewStats;
 // pour recuperer tous les produits avec pagination  [ce ci sera pour les administrateurs]
 // Endpoint avec support du filtrage par status
 const getAllProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const page = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.page, 1, 1, 1000);
-    const limit = (0, securityUtils_js_1.sanitizeNumericParam)(req.query.limit, 10, 1, 100);
+    const page = (0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.page, 1, 1, 1000);
+    const limit = (0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.limit, 10, 1, 100);
     const offset = (page - 1) * limit;
-    const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
+    const search = (0, sanitization_utils_js_1.sanitizeSearchParam)(req.query.search);
     const status = req.query.status;
     // 🔐 Logging de sécurité si des paramètres ont été nettoyés
     if (req.query.search && req.query.search !== search) {
@@ -296,7 +296,7 @@ exports.getAllProductsWithoutPagination = getAllProductsWithoutPagination;
 const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { page, limit } = getPaginationParams(req.query);
     const offset = (page - 1) * limit;
-    const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
+    const search = (0, sanitization_utils_js_1.sanitizeSearchParam)(req.query.search);
     const categoryId = req.query.categoryId;
     const cityId = req.query.cityId;
     // 🔐 Logging de sécurité si des paramètres ont été nettoyés
@@ -314,10 +314,10 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
     }
     // Filtres par prix et état
     const priceMin = req.query.priceMin
-        ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMin, 0, 0, 10000000)
+        ? (0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.priceMin, 0, 0, 10000000)
         : undefined;
     const priceMax = req.query.priceMax
-        ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMax, Number.MAX_SAFE_INTEGER, 0, 10000000)
+        ? (0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.priceMax, Number.MAX_SAFE_INTEGER, 0, 10000000)
         : undefined;
     const etat = req.query.etat;
     try {
@@ -982,7 +982,7 @@ exports.getHomePageProduct = getHomePageProduct;
 const getSellerProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const sellerId = req.params.sellerId;
     const { page, limit } = getPaginationParams(req.query);
-    const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
+    const search = (0, sanitization_utils_js_1.sanitizeSearchParam)(req.query.search);
     const offset = (page - 1) * limit;
     try {
         // Vérifier que le vendeur existe
@@ -1111,14 +1111,14 @@ const getCategoryProducts = (req, res) => __awaiter(void 0, void 0, void 0, func
     const categoryId = req.params.categoryId;
     const { page, limit } = getPaginationParams(req.query);
     const offset = (page - 1) * limit;
-    const search = (0, securityUtils_js_1.sanitizeSearchParam)(req.query.search);
+    const search = (0, sanitization_utils_js_1.sanitizeSearchParam)(req.query.search);
     // Filtres additionnels
     const cityId = req.query.cityId;
     const priceMin = req.query.priceMin
-        ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMin, 0, 0, 10000000)
+        ? (0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.priceMin, 0, 0, 10000000)
         : undefined;
     const priceMax = req.query.priceMax
-        ? (0, securityUtils_js_1.sanitizeNumericParam)(req.query.priceMax, Number.MAX_SAFE_INTEGER, 0, 10000000)
+        ? (0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.priceMax, Number.MAX_SAFE_INTEGER, 0, 10000000)
         : undefined;
     const etat = req.query.etat;
     try {

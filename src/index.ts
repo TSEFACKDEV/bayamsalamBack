@@ -14,7 +14,7 @@ import path from "node:path";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { validateContentType } from "./middlewares/contentTypeValidator.js";
 import { generalRateLimiter } from "./middlewares/rateLimiter.js";
-import { SecurityUtils } from "./utilities/security.utils.js";
+import { SecurityUtils } from "./utilities/crypto.utils.js";
 import { initSockets } from "./utilities/socket.js";
 import Router from "./routes/index.js";
 import prisma from "./model/prisma.client.js";

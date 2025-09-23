@@ -1,14 +1,14 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 import {
   sanitizeSearchParam,
-  sanitizeNumericParam,
   sanitizeXSS,
-} from '../utils/securityUtils.js';
+  sanitizeNumericParam,
+} from "../utils/sanitization.utils.js";
 import {
   detectAttackPattern,
   logSecurityEvent,
   SecurityEventType,
-} from '../utils/securityMonitor.js';
+} from "../utils/securityMonitor.js";
 
 /**
  * 🔒 VALIDATION STRICTE DES PARAMÈTRES
@@ -55,9 +55,9 @@ export const strictValidator = (rules: ValidationRules = {}) => {
               severity: attackDetection.severity,
               details: {
                 original,
-                sanitized: '',
+                sanitized: "",
                 pattern: attackDetection.pattern,
-                reason: 'Attack pattern detected in search parameter',
+                reason: "Attack pattern detected in search parameter",
               },
               blocked: false,
             },
@@ -68,17 +68,17 @@ export const strictValidator = (rules: ValidationRules = {}) => {
         const sanitized = sanitizeSearchParam(original);
 
         if (original !== sanitized) {
-          sanitizationLog.push({ field: 'search', original, sanitized });
+          sanitizationLog.push({ field: "search", original, sanitized });
 
           // 🚨 LOG DE SÉCURITÉ POUR CHANGEMENTS
           await logSecurityEvent(
             {
               type: SecurityEventType.PARAMETER_POLLUTION,
-              severity: 'MEDIUM',
+              severity: "MEDIUM",
               details: {
                 original,
                 sanitized,
-                reason: 'Search parameter sanitized',
+                reason: "Search parameter sanitized",
               },
               blocked: false,
             },
@@ -97,7 +97,7 @@ export const strictValidator = (rules: ValidationRules = {}) => {
         );
 
         if (original !== sanitized) {
-          sanitizationLog.push({ field: 'page', original, sanitized });
+          sanitizationLog.push({ field: "page", original, sanitized });
           req.query.page = sanitized;
         }
       }
@@ -110,7 +110,7 @@ export const strictValidator = (rules: ValidationRules = {}) => {
         );
 
         if (original !== sanitized) {
-          sanitizationLog.push({ field: 'limit', original, sanitized });
+          sanitizationLog.push({ field: "limit", original, sanitized });
           req.query.limit = sanitized;
         }
       }
@@ -123,7 +123,7 @@ export const strictValidator = (rules: ValidationRules = {}) => {
         );
 
         if (original !== sanitized) {
-          sanitizationLog.push({ field: 'categoryId', original, sanitized });
+          sanitizationLog.push({ field: "categoryId", original, sanitized });
           req.query.categoryId = sanitized;
         }
       }
@@ -136,7 +136,7 @@ export const strictValidator = (rules: ValidationRules = {}) => {
         );
 
         if (original !== sanitized) {
-          sanitizationLog.push({ field: 'cityId', original, sanitized });
+          sanitizationLog.push({ field: "cityId", original, sanitized });
           req.query.cityId = sanitized;
         }
       }
@@ -147,11 +147,11 @@ export const strictValidator = (rules: ValidationRules = {}) => {
         await logSecurityEvent(
           {
             type: SecurityEventType.PARAMETER_POLLUTION,
-            severity: 'MEDIUM',
+            severity: "MEDIUM",
             details: {
               original: JSON.stringify(sanitizationLog),
               sanitized: `${sanitizationLog.length} fields processed`,
-              reason: 'Multiple parameters required sanitization',
+              reason: "Multiple parameters required sanitization",
             },
             blocked: false,
           },
@@ -159,14 +159,14 @@ export const strictValidator = (rules: ValidationRules = {}) => {
         );
 
         // 🎯 Ajouter les logs à la réponse en mode développement
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.NODE_ENV === "development") {
           res.locals.sanitizationLog = sanitizationLog;
         }
       }
 
       next();
     } catch (error) {
-      console.error('🚨 [STRICT_VALIDATOR] Erreur:', error);
+      console.error("🚨 [STRICT_VALIDATOR] Erreur:", error);
       next(error);
     }
   };
@@ -184,21 +184,21 @@ export const ultraStrictValidator = () => {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const search = String(req.query.search || '');
+      const search = String(req.query.search || "");
 
       // 🔍 DÉTECTION STRICTE
       const attackDetection = detectAttackPattern(search);
 
-      if (attackDetection.detected && attackDetection.severity === 'HIGH') {
+      if (attackDetection.detected && attackDetection.severity === "HIGH") {
         await logSecurityEvent(
           {
             type: attackDetection.type,
-            severity: 'HIGH',
+            severity: "HIGH",
             details: {
               original: search,
-              sanitized: '',
+              sanitized: "",
               pattern: attackDetection.pattern,
-              reason: 'High-risk attack pattern blocked',
+              reason: "High-risk attack pattern blocked",
             },
             blocked: true,
           },
@@ -207,14 +207,14 @@ export const ultraStrictValidator = () => {
 
         return res.status(400).json({
           status: 400,
-          message: 'Paramètre de recherche invalide',
-          code: 'INVALID_SEARCH_PARAM',
+          message: "Paramètre de recherche invalide",
+          code: "INVALID_SEARCH_PARAM",
         }) as any;
       }
 
       next();
     } catch (error) {
-      console.error('🚨 [ULTRA_STRICT_VALIDATOR] Erreur:', error);
+      console.error("🚨 [ULTRA_STRICT_VALIDATOR] Erreur:", error);
       next(error);
     }
   };

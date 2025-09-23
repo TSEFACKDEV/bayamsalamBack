@@ -12,8 +12,9 @@ import { cacheService } from "../services/cache.service.js";
 import ProductTransformer from "../utils/productTransformer.js";
 import {
   sanitizeSearchParam,
+  sanitizeXSS,
   sanitizeNumericParam,
-} from "../utils/securityUtils.js";
+} from "../utils/sanitization.utils.js";
 import {
   logSecurityEvent,
   SecurityEventType,

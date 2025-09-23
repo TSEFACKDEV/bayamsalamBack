@@ -13,7 +13,6 @@
  */
 
 import { Request } from "express";
-import { createNotification } from "../services/notification.service.js";
 import prisma from "../model/prisma.client.js";
 
 /**
@@ -244,10 +243,7 @@ export async function logSecurityEvent(
     }
     // Pour les anonymes, seul le logging console est suffisant
 
-    // 🔔 NOTIFICATION ADMINS POUR ÉVÉNEMENTS CRITIQUES
-    if (fullEvent.severity === "CRITICAL" || fullEvent.severity === "HIGH") {
-      await notifySecurityTeam(fullEvent);
-    }
+    // � Monitoring silencieux : logs uniquement, pas de notifications automatiques
   } catch (error) {
     console.error("❌ Failed to save security event:", error);
   }
@@ -288,48 +284,7 @@ function updateAttackStatistics(
 }
 
 /**
- * 🔔 NOTIFICATION ÉQUIPE SÉCURITÉ
- */
-async function notifySecurityTeam(event: SecurityEvent): Promise<void> {
-  try {
-    // Notifier tous les super admins
-    const admins = await prisma.user.findMany({
-      where: {
-        roles: {
-          some: {
-            role: {
-              name: "SUPER_ADMIN",
-            },
-          },
-        },
-      },
-      select: { id: true, firstName: true, lastName: true },
-    });
-
-    for (const admin of admins) {
-      await createNotification(
-        admin.id,
-        `🚨 Alerte Sécurité ${event.severity}`,
-        `Tentative ${event.type} détectée depuis ${event.ip} sur ${event.endpoint}`,
-        {
-          type: "SECURITY_ALERT",
-          data: {
-            eventType: event.type,
-            severity: event.severity,
-            ip: event.ip,
-            endpoint: event.endpoint,
-          },
-          link: "/admin/security",
-        }
-      );
-    }
-  } catch (error) {
-    console.error("❌ Failed to notify security team:", error);
-  }
-}
-
-/**
- * 📈 STATISTIQUES DE SÉCURITÉ
+ *  STATISTIQUES DE SÉCURITÉ
  */
 export function getSecurityStats(): {
   totalAttacks: number;

@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateValidator = exports.createValidator = exports.readValidator = exports.ultraStrictValidator = exports.strictValidator = void 0;
-const securityUtils_js_1 = require("../utils/securityUtils.js");
+const sanitization_utils_js_1 = require("../utils/sanitization.utils.js");
 const securityMonitor_js_1 = require("../utils/securityMonitor.js");
 const strictValidator = (rules = {}) => {
     return (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -28,24 +28,24 @@ const strictValidator = (rules = {}) => {
                         severity: attackDetection.severity,
                         details: {
                             original,
-                            sanitized: '',
+                            sanitized: "",
                             pattern: attackDetection.pattern,
-                            reason: 'Attack pattern detected in search parameter',
+                            reason: "Attack pattern detected in search parameter",
                         },
                         blocked: false,
                     }, req);
                 }
-                const sanitized = (0, securityUtils_js_1.sanitizeSearchParam)(original);
+                const sanitized = (0, sanitization_utils_js_1.sanitizeSearchParam)(original);
                 if (original !== sanitized) {
-                    sanitizationLog.push({ field: 'search', original, sanitized });
+                    sanitizationLog.push({ field: "search", original, sanitized });
                     // 🚨 LOG DE SÉCURITÉ POUR CHANGEMENTS
                     yield (0, securityMonitor_js_1.logSecurityEvent)({
                         type: securityMonitor_js_1.SecurityEventType.PARAMETER_POLLUTION,
-                        severity: 'MEDIUM',
+                        severity: "MEDIUM",
                         details: {
                             original,
                             sanitized,
-                            reason: 'Search parameter sanitized',
+                            reason: "Search parameter sanitized",
                         },
                         blocked: false,
                     }, req);
@@ -55,36 +55,36 @@ const strictValidator = (rules = {}) => {
             // Page parameter
             if (req.query.page !== undefined && rules.page) {
                 const original = String(req.query.page);
-                const sanitized = String((0, securityUtils_js_1.sanitizeNumericParam)(req.query.page, 1, 1, 1000));
+                const sanitized = String((0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.page, 1, 1, 1000));
                 if (original !== sanitized) {
-                    sanitizationLog.push({ field: 'page', original, sanitized });
+                    sanitizationLog.push({ field: "page", original, sanitized });
                     req.query.page = sanitized;
                 }
             }
             // Limit parameter
             if (req.query.limit !== undefined && rules.limit) {
                 const original = String(req.query.limit);
-                const sanitized = String((0, securityUtils_js_1.sanitizeNumericParam)(req.query.limit, 10, 1, 100));
+                const sanitized = String((0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.limit, 10, 1, 100));
                 if (original !== sanitized) {
-                    sanitizationLog.push({ field: 'limit', original, sanitized });
+                    sanitizationLog.push({ field: "limit", original, sanitized });
                     req.query.limit = sanitized;
                 }
             }
             // CategoryId parameter
             if (req.query.categoryId !== undefined && rules.categoryId) {
                 const original = String(req.query.categoryId);
-                const sanitized = String((0, securityUtils_js_1.sanitizeNumericParam)(req.query.categoryId, 0, 1, 999999));
+                const sanitized = String((0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.categoryId, 0, 1, 999999));
                 if (original !== sanitized) {
-                    sanitizationLog.push({ field: 'categoryId', original, sanitized });
+                    sanitizationLog.push({ field: "categoryId", original, sanitized });
                     req.query.categoryId = sanitized;
                 }
             }
             // CityId parameter
             if (req.query.cityId !== undefined && rules.cityId) {
                 const original = String(req.query.cityId);
-                const sanitized = String((0, securityUtils_js_1.sanitizeNumericParam)(req.query.cityId, 0, 1, 999999));
+                const sanitized = String((0, sanitization_utils_js_1.sanitizeNumericParam)(req.query.cityId, 0, 1, 999999));
                 if (original !== sanitized) {
-                    sanitizationLog.push({ field: 'cityId', original, sanitized });
+                    sanitizationLog.push({ field: "cityId", original, sanitized });
                     req.query.cityId = sanitized;
                 }
             }
@@ -93,23 +93,23 @@ const strictValidator = (rules = {}) => {
                 // 🔥 LOG AVANCÉ UNIFIÉ (remplace les deux anciens logs)
                 yield (0, securityMonitor_js_1.logSecurityEvent)({
                     type: securityMonitor_js_1.SecurityEventType.PARAMETER_POLLUTION,
-                    severity: 'MEDIUM',
+                    severity: "MEDIUM",
                     details: {
                         original: JSON.stringify(sanitizationLog),
                         sanitized: `${sanitizationLog.length} fields processed`,
-                        reason: 'Multiple parameters required sanitization',
+                        reason: "Multiple parameters required sanitization",
                     },
                     blocked: false,
                 }, req);
                 // 🎯 Ajouter les logs à la réponse en mode développement
-                if (process.env.NODE_ENV === 'development') {
+                if (process.env.NODE_ENV === "development") {
                     res.locals.sanitizationLog = sanitizationLog;
                 }
             }
             next();
         }
         catch (error) {
-            console.error('🚨 [STRICT_VALIDATOR] Erreur:', error);
+            console.error("🚨 [STRICT_VALIDATOR] Erreur:", error);
             next(error);
         }
     });
@@ -123,31 +123,31 @@ exports.strictValidator = strictValidator;
 const ultraStrictValidator = () => {
     return (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
         try {
-            const search = String(req.query.search || '');
+            const search = String(req.query.search || "");
             // 🔍 DÉTECTION STRICTE
             const attackDetection = (0, securityMonitor_js_1.detectAttackPattern)(search);
-            if (attackDetection.detected && attackDetection.severity === 'HIGH') {
+            if (attackDetection.detected && attackDetection.severity === "HIGH") {
                 yield (0, securityMonitor_js_1.logSecurityEvent)({
                     type: attackDetection.type,
-                    severity: 'HIGH',
+                    severity: "HIGH",
                     details: {
                         original: search,
-                        sanitized: '',
+                        sanitized: "",
                         pattern: attackDetection.pattern,
-                        reason: 'High-risk attack pattern blocked',
+                        reason: "High-risk attack pattern blocked",
                     },
                     blocked: true,
                 }, req);
                 return res.status(400).json({
                     status: 400,
-                    message: 'Paramètre de recherche invalide',
-                    code: 'INVALID_SEARCH_PARAM',
+                    message: "Paramètre de recherche invalide",
+                    code: "INVALID_SEARCH_PARAM",
                 });
             }
             next();
         }
         catch (error) {
-            console.error('🚨 [ULTRA_STRICT_VALIDATOR] Erreur:', error);
+            console.error("🚨 [ULTRA_STRICT_VALIDATOR] Erreur:", error);
             next(error);
         }
     });

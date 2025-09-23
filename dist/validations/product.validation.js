@@ -35,22 +35,22 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reviewProductSchema = exports.createProductSchema = void 0;
 const yup = __importStar(require("yup"));
-const securityUtils_js_1 = require("../utils/securityUtils.js");
+const sanitization_utils_js_1 = require("../utils/sanitization.utils.js");
 // 🔐 Validateurs personnalisés avec sanitization intelligente
 const sanitizedStringValidator = (fieldName, maxLength = 500) => yup
     .string()
-    .transform((value) => (0, securityUtils_js_1.sanitizeXSS)(value))
+    .transform((value) => (0, sanitization_utils_js_1.sanitizeXSS)(value))
     .max(maxLength, `${fieldName} ne peut pas dépasser ${maxLength} caractères`)
     .required(`${fieldName} est requis`);
 const sanitizedProductNameValidator = () => yup
     .string()
-    .transform((value) => (0, securityUtils_js_1.sanitizeProductName)(value))
+    .transform((value) => (0, sanitization_utils_js_1.sanitizeProductName)(value))
     .min(2, "Le nom doit contenir au moins 2 caractères")
     .max(100, "Le nom ne peut pas dépasser 100 caractères")
     .required("Le nom est requis");
 const sanitizedDescriptionValidator = () => yup
     .string()
-    .transform((value) => (0, securityUtils_js_1.sanitizeDescription)(value))
+    .transform((value) => (0, sanitization_utils_js_1.sanitizeDescription)(value))
     .min(10, "La description doit contenir au moins 10 caractères")
     .max(2000, "La description ne peut pas dépasser 2000 caractères")
     .required("La description est requise");

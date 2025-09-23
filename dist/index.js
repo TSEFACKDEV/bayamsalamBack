@@ -17,12 +17,12 @@ const node_path_1 = __importDefault(require("node:path"));
 const errorHandler_js_1 = require("./middlewares/errorHandler.js");
 const contentTypeValidator_js_1 = require("./middlewares/contentTypeValidator.js");
 const rateLimiter_js_1 = require("./middlewares/rateLimiter.js");
-const security_utils_js_1 = require("./utilities/security.utils.js");
+const crypto_utils_js_1 = require("./utilities/crypto.utils.js");
 const socket_js_1 = require("./utilities/socket.js");
 const index_js_1 = __importDefault(require("./routes/index.js"));
 const forfaitScheduler_service_js_1 = require("./services/forfaitScheduler.service.js");
 require("./config/passport.config.js");
-security_utils_js_1.SecurityUtils.runSecurityAudit();
+crypto_utils_js_1.SecurityUtils.runSecurityAudit();
 const app = (0, express_1.default)();
 // Security headers with Helmet
 app.use((0, helmet_1.default)({

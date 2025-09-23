@@ -30,7 +30,6 @@ exports.detectAttackPattern = detectAttackPattern;
 exports.logSecurityEvent = logSecurityEvent;
 exports.getSecurityStats = getSecurityStats;
 exports.cleanupOldStatistics = cleanupOldStatistics;
-const notification_service_js_1 = require("../services/notification.service.js");
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
 /**
  * 🎯 TYPES D'ÉVÉNEMENTS DE SÉCURITÉ
@@ -203,10 +202,7 @@ function logSecurityEvent(event, req) {
                 });
             }
             // Pour les anonymes, seul le logging console est suffisant
-            // 🔔 NOTIFICATION ADMINS POUR ÉVÉNEMENTS CRITIQUES
-            if (fullEvent.severity === "CRITICAL" || fullEvent.severity === "HIGH") {
-                yield notifySecurityTeam(fullEvent);
-            }
+            // � Monitoring silencieux : logs uniquement, pas de notifications automatiques
         }
         catch (error) {
             console.error("❌ Failed to save security event:", error);
@@ -237,44 +233,7 @@ function updateAttackStatistics(ip, eventType) {
     }
 }
 /**
- * 🔔 NOTIFICATION ÉQUIPE SÉCURITÉ
- */
-function notifySecurityTeam(event) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            // Notifier tous les super admins
-            const admins = yield prisma_client_js_1.default.user.findMany({
-                where: {
-                    roles: {
-                        some: {
-                            role: {
-                                name: "SUPER_ADMIN",
-                            },
-                        },
-                    },
-                },
-                select: { id: true, firstName: true, lastName: true },
-            });
-            for (const admin of admins) {
-                yield (0, notification_service_js_1.createNotification)(admin.id, `🚨 Alerte Sécurité ${event.severity}`, `Tentative ${event.type} détectée depuis ${event.ip} sur ${event.endpoint}`, {
-                    type: "SECURITY_ALERT",
-                    data: {
-                        eventType: event.type,
-                        severity: event.severity,
-                        ip: event.ip,
-                        endpoint: event.endpoint,
-                    },
-                    link: "/admin/security",
-                });
-            }
-        }
-        catch (error) {
-            console.error("❌ Failed to notify security team:", error);
-        }
-    });
-}
-/**
- * 📈 STATISTIQUES DE SÉCURITÉ
+ *  STATISTIQUES DE SÉCURITÉ
  */
 function getSecurityStats() {
     const totalAttacks = Array.from(attackCounters.values()).reduce((sum, stats) => sum + stats.count, 0);

@@ -3,7 +3,7 @@ import {
   sanitizeProductName,
   sanitizeDescription,
   sanitizeXSS,
-} from "../utils/securityUtils.js";
+} from "../utils/sanitization.utils.js";
 
 // 🔐 Validateurs personnalisés avec sanitization intelligente
 const sanitizedStringValidator = (fieldName: string, maxLength: number = 500) =>

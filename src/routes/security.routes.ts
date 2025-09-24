@@ -5,21 +5,22 @@
  * Accès réservé aux super administrateurs uniquement
  */
 
-import { Router } from 'express';
+import { Router } from "express";
 import {
   getSecurityStatistics,
   getRecentSecurityEvents,
   analyzeIP,
-} from '../controllers/security.controller.js';
-import { isAdmin } from '../middlewares/auth.middleware.js';
-import { generalRateLimiter } from '../middlewares/rateLimiter.js';
+} from "../controllers/security.controller.js";
+import { isAdmin } from "../middlewares/auth.middleware.js";
+import { generalRateLimiter } from "../middlewares/rateLimiter.js";
 
 const router = Router();
 
 /**
  * 📊 STATISTIQUES GÉNÉRALES DE SÉCURITÉ
  *
- * GET /api/bayamsalam/security/stats
+ /**
+ * GET /api/buyandsale/security/stats
  *
  * Retourne un aperçu complet de la sécurité :
  * - Nombre total d'attaques détectées
@@ -29,7 +30,7 @@ const router = Router();
  * - Recommandations
  */
 router.get(
-  '/stats',
+  "/stats",
   generalRateLimiter,
   isAdmin, // 🔒 Super Admin uniquement
   getSecurityStatistics
@@ -38,7 +39,7 @@ router.get(
 /**
  * 📋 ÉVÉNEMENTS DE SÉCURITÉ RÉCENTS
  *
- * GET /api/bayamsalam/security/events
+ * GET /api/buyandsale/security/events
  *
  * Query parameters:
  * - limit: nombre d'événements à retourner (défaut: 50)
@@ -53,7 +54,7 @@ router.get(
  * - Détails de l'attaque
  */
 router.get(
-  '/events',
+  "/events",
   generalRateLimiter,
   isAdmin, // 🔒 Super Admin uniquement
   getRecentSecurityEvents
@@ -62,7 +63,7 @@ router.get(
 /**
  * 🎯 ANALYSE D'UNE IP SPÉCIFIQUE
  *
- * GET /api/bayamsalam/security/ip/:ip
+ * GET /api/buyandsale/security/ip/:ip
  *
  * Analyse détaillée d'une adresse IP :
  * - Historique des requêtes
@@ -72,7 +73,7 @@ router.get(
  * - Timeline des activités
  */
 router.get(
-  '/ip/:ip',
+  "/ip/:ip",
   generalRateLimiter,
   isAdmin, // 🔒 Super Admin uniquement
   analyzeIP

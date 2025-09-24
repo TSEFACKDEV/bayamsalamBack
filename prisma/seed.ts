@@ -244,11 +244,11 @@ async function main() {
   if (!superAdmin) {
     superAdmin = await prisma.user.create({
       data: {
-        firstName: "NANA MBEZOU",
+        firstName: "Super admin",
         lastName: "Armand",
         email: superAdminEmail,
         password: await hash("Buy&sale237", 10),
-        phone: "+237 690984805",
+        phone: "690984805",
         status: "ACTIVE",
         isVerified: true,
       },

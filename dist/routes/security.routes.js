@@ -14,7 +14,8 @@ const router = (0, express_1.Router)();
 /**
  * 📊 STATISTIQUES GÉNÉRALES DE SÉCURITÉ
  *
- * GET /api/bayamsalam/security/stats
+ /**
+ * GET /api/buyandsale/security/stats
  *
  * Retourne un aperçu complet de la sécurité :
  * - Nombre total d'attaques détectées
@@ -23,12 +24,12 @@ const router = (0, express_1.Router)();
  * - Score de sécurité global
  * - Recommandations
  */
-router.get('/stats', rateLimiter_js_1.generalRateLimiter, auth_middleware_js_1.isAdmin, // 🔒 Super Admin uniquement
+router.get("/stats", rateLimiter_js_1.generalRateLimiter, auth_middleware_js_1.isAdmin, // 🔒 Super Admin uniquement
 security_controller_js_1.getSecurityStatistics);
 /**
  * 📋 ÉVÉNEMENTS DE SÉCURITÉ RÉCENTS
  *
- * GET /api/bayamsalam/security/events
+ * GET /api/buyandsale/security/events
  *
  * Query parameters:
  * - limit: nombre d'événements à retourner (défaut: 50)
@@ -42,12 +43,12 @@ security_controller_js_1.getSecurityStatistics);
  * - Sévérité
  * - Détails de l'attaque
  */
-router.get('/events', rateLimiter_js_1.generalRateLimiter, auth_middleware_js_1.isAdmin, // 🔒 Super Admin uniquement
+router.get("/events", rateLimiter_js_1.generalRateLimiter, auth_middleware_js_1.isAdmin, // 🔒 Super Admin uniquement
 security_controller_js_1.getRecentSecurityEvents);
 /**
  * 🎯 ANALYSE D'UNE IP SPÉCIFIQUE
  *
- * GET /api/bayamsalam/security/ip/:ip
+ * GET /api/buyandsale/security/ip/:ip
  *
  * Analyse détaillée d'une adresse IP :
  * - Historique des requêtes
@@ -56,6 +57,6 @@ security_controller_js_1.getRecentSecurityEvents);
  * - Recommandations d'action
  * - Timeline des activités
  */
-router.get('/ip/:ip', rateLimiter_js_1.generalRateLimiter, auth_middleware_js_1.isAdmin, // 🔒 Super Admin uniquement
+router.get("/ip/:ip", rateLimiter_js_1.generalRateLimiter, auth_middleware_js_1.isAdmin, // 🔒 Super Admin uniquement
 security_controller_js_1.analyzeIP);
 exports.default = router;

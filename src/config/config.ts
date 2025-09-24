@@ -59,7 +59,7 @@ const env: Env = {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
   GOOGLE_CALLBACK_URL:
     process.env.GOOGLE_CALLBACK_URL ||
-    `http://127.0.0.1:3001/api/bayamsalam/auth/google/callback`,
+    `http://127.0.0.1:3001/api/buyandsale/auth/google/callback`,
 
   // Champs pour Futura Pay
   FUTURA_PAY_API_KEY: process.env.FUTURA_PAY_API_KEY || '',

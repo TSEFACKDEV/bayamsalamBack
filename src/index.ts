@@ -105,15 +105,15 @@ app.use(
 );
 
 app.use("/public", express.static(path.join(__dirname, "../public")));
-app.use("/api/bayamsalam", generalRateLimiter);
+app.use("/api/buyandsale", generalRateLimiter);
 
 // Routes
 app.use(passport.initialize());
 app.use(passport.session());
-app.use("/api/bayamsalam", Router);
+app.use("/api/buyandsale", Router);
 
 // Health check
-app.get("/api/bayamsalam", (req, res) => {
+app.get("/api/buyandsale", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date() });
 });
 

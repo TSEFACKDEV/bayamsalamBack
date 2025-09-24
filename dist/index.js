@@ -89,13 +89,13 @@ app.use((0, express_fileupload_1.default)({
     abortOnLimit: true,
 }));
 app.use("/public", express_1.default.static(node_path_1.default.join(__dirname, "../public")));
-app.use("/api/bayamsalam", rateLimiter_js_1.generalRateLimiter);
+app.use("/api/buyandsale", rateLimiter_js_1.generalRateLimiter);
 // Routes
 app.use(passport_1.default.initialize());
 app.use(passport_1.default.session());
-app.use("/api/bayamsalam", index_js_1.default);
+app.use("/api/buyandsale", index_js_1.default);
 // Health check
-app.get("/api/bayamsalam", (req, res) => {
+app.get("/api/buyandsale", (req, res) => {
     res.status(200).json({ status: "OK", timestamp: new Date() });
 });
 app.use(errorHandler_js_1.errorHandler);

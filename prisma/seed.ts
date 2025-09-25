@@ -216,19 +216,19 @@ async function main() {
       },
       {
         type: "TOP_ANNONCE",
-        price: 200,
+        price: 100,
         duration: 7, // 7 jours pour tous les forfaits
         description: "Annonce en tête de page",
       },
       {
         type: "PREMIUM",
-        price: 500,
+        price: 100,
         duration: 7, // 7 jours pour tous les forfaits
         description: "Regroupe tous les autres forfaits",
       },
       {
         type: "A_LA_UNE",
-        price: 300,
+        price: 100,
         duration: 7, // 7 jours pour tous les forfaits
         description: "S'affiche toujours en page d'accueil",
       },

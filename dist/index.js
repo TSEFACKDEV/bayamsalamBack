@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -20,7 +29,9 @@ const rateLimiter_js_1 = require("./middlewares/rateLimiter.js");
 const crypto_utils_js_1 = require("./utilities/crypto.utils.js");
 const socket_js_1 = require("./utilities/socket.js");
 const index_js_1 = __importDefault(require("./routes/index.js"));
+const prisma_client_js_1 = __importDefault(require("./model/prisma.client.js"));
 const forfaitScheduler_service_js_1 = require("./services/forfaitScheduler.service.js");
+const payment_checker_service_js_1 = require("./services/payment-checker.service.js");
 require("./config/passport.config.js");
 crypto_utils_js_1.SecurityUtils.runSecurityAudit();
 const app = (0, express_1.default)();
@@ -101,8 +112,28 @@ app.get("/api/buyandsale", (req, res) => {
 app.use(errorHandler_js_1.errorHandler);
 const server = http_1.default.createServer(app);
 (0, socket_js_1.initSockets)(server);
-server.listen(config_js_1.default.port, () => {
+server.listen(config_js_1.default.port, () => __awaiter(void 0, void 0, void 0, function* () {
     console.log(`Server is running on http://${config_js_1.default.host}:${config_js_1.default.port}`);
-    // 🚀 Démarrage du service de surveillance des forfaits
-    forfaitScheduler_service_js_1.ForfaitSchedulerService.start();
-});
+    // 🔗 CONNEXION EXPLICITE À LA BASE DE DONNÉES
+    try {
+        yield prisma_client_js_1.default.$connect();
+        console.log('✅ Base de données connectée avec succès');
+        // 🚀 Démarrer les services APRÈS la connexion DB
+        forfaitScheduler_service_js_1.ForfaitSchedulerService.start();
+        // ✅ AUTOMATISATION : Démarrer la vérification automatique des paiements
+        if (process.env.NODE_ENV === 'production') {
+            payment_checker_service_js_1.paymentCheckerService.startPeriodicCheck(2);
+        }
+        else {
+            payment_checker_service_js_1.paymentCheckerService.startPeriodicCheck(0.5);
+        }
+        // Nettoyage quotidien des paiements expirés
+        setInterval(() => {
+            payment_checker_service_js_1.paymentCheckerService.cleanupExpiredPayments();
+        }, 24 * 60 * 60 * 1000);
+    }
+    catch (error) {
+        console.error('❌ Erreur de connexion à la base de données:', error);
+        process.exit(1);
+    }
+}));

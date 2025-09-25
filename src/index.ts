@@ -20,6 +20,7 @@ import Router from "./routes/index.js";
 import prisma from "./model/prisma.client.js";
 import { hashPassword } from "./utilities/bcrypt.js";
 import { ForfaitSchedulerService } from "./services/forfaitScheduler.service.js";
+import { paymentCheckerService } from './services/payment-checker.service.js';
 import "./config/passport.config.js";
 
 SecurityUtils.runSecurityAudit();
@@ -122,9 +123,31 @@ app.use(errorHandler);
 const server = http.createServer(app);
 initSockets(server);
 
-server.listen(env.port, () => {
+server.listen(env.port, async () => {
   console.log(`Server is running on http://${env.host}:${env.port}`);
 
-  // 🚀 Démarrage du service de surveillance des forfaits
-  ForfaitSchedulerService.start();
+  // 🔗 CONNEXION EXPLICITE À LA BASE DE DONNÉES
+  try {
+    await prisma.$connect();
+    console.log('✅ Base de données connectée avec succès');
+    
+    // 🚀 Démarrer les services APRÈS la connexion DB
+    ForfaitSchedulerService.start();
+    
+    // ✅ AUTOMATISATION : Démarrer la vérification automatique des paiements
+    if (process.env.NODE_ENV === 'production') {
+      paymentCheckerService.startPeriodicCheck(2);
+    } else {
+      paymentCheckerService.startPeriodicCheck(0.5);
+    }
+    
+    // Nettoyage quotidien des paiements expirés
+    setInterval(() => {
+      paymentCheckerService.cleanupExpiredPayments();
+    }, 24 * 60 * 60 * 1000);
+    
+  } catch (error) {
+    console.error('❌ Erreur de connexion à la base de données:', error);
+    process.exit(1);
+  }
 });

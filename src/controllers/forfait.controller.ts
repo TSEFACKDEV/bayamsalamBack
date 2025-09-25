@@ -2,9 +2,89 @@ import { Request, Response } from "express";
 import prisma from "../model/prisma.client.js";
 import ResponseApi from "../helper/response.js";
 import { createNotification } from "../services/notification.service.js";
-import { initiateFuturaPayment } from "../services/futurapay.service.js";
+
 import config from "../config/config.js";
 import { cacheService } from "../services/cache.service.js";
+
+/**
+ * Récupérer tous les forfaits disponibles
+ */
+export const getAllForfaits = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const forfaits = await prisma.forfait.findMany({
+      orderBy: { price: 'asc' },
+      select: {
+        id: true,
+        type: true,
+        price: true,
+        duration: true,
+        description: true,
+      }
+    });
+
+    ResponseApi.success(res, "Forfaits récupérés avec succès", forfaits);
+  } catch (error: any) {
+    console.error("Erreur lors de la récupération des forfaits:", error);
+    ResponseApi.error(
+      res,
+      "Erreur lors de la récupération des forfaits",
+      error.message
+    );
+  }
+};
+
+/**
+ * Récupérer les forfaits actifs d'un produit
+ */
+export const getProductForfaits = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const { productId } = req.params;
+  
+  try {
+    const productForfaits = await prisma.productForfait.findMany({
+      where: {
+        productId,
+        isActive: true,
+        expiresAt: { gt: new Date() }
+      },
+      include: {
+        forfait: {
+          select: {
+            id: true,
+            type: true,
+            price: true,
+            duration: true,
+            description: true,
+          }
+        }
+      },
+      orderBy: { activatedAt: 'desc' }
+    });
+
+    ResponseApi.success(res, "Forfaits du produit récupérés avec succès", {
+      productId,
+      forfaits: productForfaits.map(pf => ({
+        id: pf.id,
+        forfait: pf.forfait,
+        activatedAt: pf.activatedAt,
+        expiresAt: pf.expiresAt,
+        isActive: pf.isActive
+      }))
+    });
+  } catch (error: any) {
+    console.error("Erreur lors de la récupération des forfaits du produit:", error);
+    ResponseApi.error(
+      res,
+      "Erreur lors de la récupération des forfaits du produit",
+      error.message
+    );
+  }
+};
 
 /**
  * Activation d'un forfait sur un produit par l'administrateur
@@ -170,125 +250,4 @@ export const deactivateForfait = async (
   }
 };
 
-export const initiateForfaitPayment = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  const { productId, forfaitType } = req.body;
-  try {
-    const forfait = await prisma.forfait.findFirst({
-      where: { type: forfaitType },
-    });
-    if (!forfait) return ResponseApi.notFound(res, "Forfait non trouvé", 404);
 
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: { user: true },
-    });
-    if (!product) return ResponseApi.notFound(res, "Produit non trouvé", 404);
-
-    // Créer réservation temporaire du forfait (isActive=false) — on active seulement après paiement
-    const now = new Date();
-    const expiresAt = new Date(
-      now.getTime() + forfait.duration * 24 * 60 * 60 * 1000
-    );
-
-    const productForfait = await prisma.productForfait.create({
-      data: {
-        productId,
-        forfaitId: forfait.id,
-        activatedAt: now,
-        expiresAt,
-        isActive: false, // en attente de paiement
-      },
-    });
-
-    // Préparer les données de transaction — on passe productForfait.id comme customer_transaction_id
-    const transactionData = {
-      currency: "XAF",
-      amount: forfait.price,
-      customer_transaction_id: productForfait.id, // identifiant de la réservation
-      country_code: "CM",
-      customer_first_name: product.user?.firstName || "Client",
-      customer_last_name: product.user?.lastName || "",
-      customer_phone: product.telephone || "",
-      customer_email: product.user?.email || "",
-      // vous pouvez ajouter d'autres champs si le SDK le supporte
-    };
-
-    const securedUrl = initiateFuturaPayment(transactionData);
-
-    // Retourner l'URL sécurisé au frontend (iframe) ainsi que l'id de la réservation
-    return ResponseApi.success(res, "Payment initiated", {
-      url: securedUrl,
-      productForfaitId: productForfait.id,
-    });
-  } catch (error: any) {
-    console.error("Erreur initiation paiement forfait:", error);
-    return ResponseApi.error(res, "Erreur initiation paiement", error.message);
-  }
-};
-
-// Endpoint de confirmation (webhook ou appel frontend après paiement)
-// Attendre que FuturaPay envoie un webhook ou que frontend appelle cet endpoint avec le customer_transaction_id et status
-export const confirmForfaitPayment = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  const { customer_transaction_id, status } = req.body;
-  try {
-    if (!customer_transaction_id)
-      return ResponseApi.error(res, "Transaction id requis", null, 400);
-
-    const productForfait = await prisma.productForfait.findUnique({
-      where: { id: customer_transaction_id },
-      include: { product: true, forfait: true },
-    });
-    if (!productForfait)
-      return ResponseApi.notFound(
-        res,
-        "Réservation de forfait introuvable",
-        404
-      );
-
-    // Vérifier l'état retourné par FuturaPay (adapter selon votre webhook)
-    if (status === "SUCCESS" || status === "PAID") {
-      // Activer le forfait
-      await prisma.productForfait.update({
-        where: { id: productForfait.id },
-        data: { isActive: true, activatedAt: new Date() },
-      });
-
-      // Notification utilisateur
-      if (productForfait.product?.userId) {
-        await createNotification(
-          productForfait.product.userId,
-          `Forfait ${productForfait.forfait.type} activé`,
-          `Votre forfait pour l'annonce "${productForfait.product.name}" a été activé après paiement.`,
-          {
-            type: "PRODUCT_FORFAIT",
-            link: `/annonce/${productForfait.productId}`,
-          }
-        );
-      }
-
-      // Invalider le cache après confirmation paiement forfait
-      cacheService.invalidateHomepageProducts();
-
-      return ResponseApi.success(res, "Paiement confirmé et forfait activé", {
-        productForfaitId: productForfait.id,
-      });
-    }
-
-    // Paiement non réussi - supprimer la réservation
-    await prisma.productForfait.delete({ where: { id: productForfait.id } });
-    return ResponseApi.error(res, "Paiement échoué ou annulé", null, 400);
-  } catch (error: any) {
-    console.error("Erreur confirmation paiement forfait:", error);
-    return ResponseApi.error(
-      res,
-      "Erreur confirmation paiement",
-      error.message
-    );
-  }
-};

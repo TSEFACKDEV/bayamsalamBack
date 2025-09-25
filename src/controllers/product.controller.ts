@@ -5,7 +5,8 @@ import Utils from "../helper/utils.js";
 import { sendEmail } from "../utilities/mailer.js";
 import { reviewProductTemplate } from "../templates/reviewProductTemplate.js";
 import { createNotification } from "../services/notification.service.js";
-import { initiateFuturaPayment } from "../services/futurapay.service.js";
+import ForfaitService from "../services/forfait.service.js"; // ✅ Import du service unifié
+
 import { uploadProductImages } from "../utilities/upload.js";
 import { Prisma, ForfaitType } from "@prisma/client";
 import { cacheService } from "../services/cache.service.js";
@@ -19,6 +20,7 @@ import {
   logSecurityEvent,
   SecurityEventType,
 } from "../utils/securityMonitor.js";
+import { paymentService } from "../services/payment.service.js";
 
 // Helper pour construire les filtres de produits validés génériques
 const buildValidatedProductFilters = (
@@ -621,6 +623,11 @@ export const createProduct = async (
   res: Response
 ): Promise<any> => {
   try {
+    const userId = req.authUser?.id;
+    if (!userId) {
+      return ResponseApi.error(res, "Utilisateur non authentifié", null, 401);
+    }
+
     const {
       name,
       price,
@@ -631,13 +638,10 @@ export const createProduct = async (
       etat,
       quartier,
       telephone,
-      forfaitType,
+      forfaitType, // ✅ Récupérer le type de forfait
+      phoneNumber, // ✅ Numéro pour le paiement
+      paymentMethod // ✅ Méthode de paiement
     } = req.body;
-
-    if (!req.authUser?.id) {
-      return ResponseApi.error(res, "User not authenticated", null, 401);
-    }
-    const userId = req.authUser?.id;
 
     // Validation basique
     if (
@@ -692,81 +696,52 @@ export const createProduct = async (
       telephone,
     };
 
+    // Créer le produit d'abord
     const product = await prisma.product.create({
-      data: productCreateData,
-    }); // Si le frontend a demandé un forfait lors de la création
-    if (forfaitType) {
-      const forfait = await prisma.forfait.findFirst({
-        where: { type: forfaitType },
-      });
-      if (forfait) {
-        // Créer réservation (isActive=false)
-        const now = new Date();
-        const expiresAt = new Date(
-          now.getTime() + forfait.duration * 24 * 60 * 60 * 1000
-        );
-        const productForfait = await prisma.productForfait.create({
-          data: {
-            productId: product.id,
-            forfaitId: forfait.id,
-            activatedAt: now,
-            expiresAt,
-            isActive: false,
-          },
-        });
-
-        const transactionData = {
-          currency: "XAF",
-          amount: forfait.price,
-          customer_transaction_id: productForfait.id,
-          country_code: "CM",
-          customer_first_name: req.authUser?.firstName || "Client",
-          customer_last_name: req.authUser?.lastName || "",
-          customer_phone: req.body.telephone || product.telephone || "",
-          customer_email: req.authUser?.email || "",
-        };
-
-        const securedUrl = initiateFuturaPayment(transactionData);
-        const productResponse = ProductTransformer.transformProduct(
-          req,
-          product
-        );
-        return ResponseApi.success(
-          res,
-          "Produit créé - paiement forfait requis",
-          {
-            product: productResponse,
-            paymentUrl: securedUrl,
-            productForfaitId: productForfait.id,
-          },
-          201
-        );
-      }
-    }
-
-    if (userId) {
-      await createNotification(
+      data: {
+        name,
+        price: parseFloat(price),
+        quantity: parseInt(quantity),
+        description,
+        images: savedImages,
+        categoryId,
         userId,
-        "Annonce créée avec succès",
-        `Votre produit "${name}" a été créé avec succès et est en attente de validation par nos équipes...`,
-        {
-          type: "PRODUCT",
-          link: `/product/${product.id}`,
-        }
-      );
+        cityId,
+        status: "PENDING",
+        etat,
+        quartier,
+        telephone,
+      },
+    });
+
+    let paymentResponse = null;
+
+    // ✅ REFACTORISÉ - Utilisation du service unifié pour les forfaits
+    if (forfaitType && phoneNumber && paymentMethod) {
+      console.log('💳 Traitement du forfait demandé:', forfaitType);
+      
+      const forfaitResult = await ForfaitService.handleForfaitPayment({
+        productId: product.id,
+        userId,
+        forfaitType,
+        phoneNumber,
+        paymentMethod
+      });
+
+      paymentResponse = forfaitResult.success ? forfaitResult.payment : forfaitResult.error;
     }
-    const productResponse = ProductTransformer.transformProduct(req, product);
 
-    // Invalider le cache après création d'un produit
-    cacheService.invalidateHomepageProducts();
+    // Préparer la réponse
+    const responseData: any = { product };
+    if (paymentResponse) {
+      responseData.payment = paymentResponse;
+    }
 
-    ResponseApi.success(res, "Produit créé avec succès", productResponse, 201);
+    ResponseApi.success(res, "Produit créé avec succès", responseData, 201);
+
   } catch (error: any) {
-    ResponseApi.error(
-      res,
-      "Erreur lors de la création du produit",
-      error.message
-    );
+    console.error("Erreur lors de la création du produit:", error);
+    ResponseApi.error(res, "Erreur lors de la création du produit", error.message);
   }
 };
 
@@ -785,8 +760,18 @@ export const updateProduct = async (
       return ResponseApi.notFound(res, "Product not found", 404);
     }
 
-    const { name, price, quantity, description, categoryId, userId, cityId } =
-      req.body;
+    const { 
+      name, 
+      price, 
+      quantity, 
+      description, 
+      categoryId, 
+      userId, 
+      cityId,
+      forfaitType,
+      phoneNumber,
+      paymentMethod,
+    } = req.body;
 
     // Gestion des images (upload)
     let images = existingProduct.images as string[];
@@ -818,53 +803,21 @@ export const updateProduct = async (
       },
     });
 
-    // Si un forfait est demandé à la mise à jour
-    const { forfaitType } = req.body;
-    if (forfaitType) {
-      const forfait = await prisma.forfait.findFirst({
-        where: { type: forfaitType },
+    let paymentResponse = null;
+
+    // ✅ REFACTORISÉ - Utilisation du service unifié pour les forfaits lors de la mise à jour
+    if (forfaitType && phoneNumber && paymentMethod) {
+      console.log('💳 Traitement du forfait demandé lors de la mise à jour:', forfaitType);
+      
+      const forfaitResult = await ForfaitService.handleForfaitPayment({
+        productId: id,
+        userId: existingProduct.userId, // ✅ Utiliser le userId du produit existant
+        forfaitType,
+        phoneNumber,
+        paymentMethod
       });
-      if (forfait) {
-        const now = new Date();
-        const expiresAt = new Date(
-          now.getTime() + forfait.duration * 24 * 60 * 60 * 1000
-        );
-        const productForfait = await prisma.productForfait.create({
-          data: {
-            productId: updatedProduct.id,
-            forfaitId: forfait.id,
-            activatedAt: now,
-            expiresAt,
-            isActive: false,
-          },
-        });
 
-        const transactionData = {
-          currency: "XAF",
-          amount: forfait.price,
-          customer_transaction_id: productForfait.id,
-          country_code: "CM",
-          customer_first_name: req.authUser?.firstName || "Client",
-          customer_last_name: req.authUser?.lastName || "",
-          customer_phone: req.body.telephone || updatedProduct.telephone || "",
-          customer_email: req.authUser?.email || "",
-        };
-
-        const securedUrl = initiateFuturaPayment(transactionData);
-        const productWithImageUrls = ProductTransformer.transformProduct(
-          req,
-          updatedProduct
-        );
-        return ResponseApi.success(
-          res,
-          "Produit mis à jour - paiement forfait requis",
-          {
-            product: productWithImageUrls,
-            paymentUrl: securedUrl,
-            productForfaitId: productForfait.id,
-          }
-        );
-      }
+      paymentResponse = forfaitResult.success ? forfaitResult.payment : forfaitResult.error;
     }
 
     const productWithImageUrls = ProductTransformer.transformProduct(
@@ -878,7 +831,10 @@ export const updateProduct = async (
     ResponseApi.success(
       res,
       "Produit mis à jour avec succès",
-      productWithImageUrls
+      {
+        product: productWithImageUrls,
+        payment: paymentResponse,
+      }
     );
   } catch (error: any) {
     ResponseApi.error(

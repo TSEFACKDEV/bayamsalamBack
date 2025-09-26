@@ -8,6 +8,8 @@ const user_controller_js_1 = require("../controllers/user.controller.js");
 const auth_middleware_js_1 = require("../middlewares/auth.middleware.js");
 const checkPermission_js_1 = __importDefault(require("../middlewares/checkPermission.js"));
 const router = express_1.default.Router();
+// 🆕 Route publique pour les vendeurs (AVANT authenticate)
+router.get("/public-sellers", user_controller_js_1.getAllUsers);
 router.use(auth_middleware_js_1.authenticate);
 router.post("/", (0, checkPermission_js_1.default)("USER_CREATE"), user_controller_js_1.createUser);
 router.get("/", (0, checkPermission_js_1.default)("USER_GET_ALL"), user_controller_js_1.getAllUsers);

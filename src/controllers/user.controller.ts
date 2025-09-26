@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import ResponseApi from "../helper/response.js";
 import prisma from "../model/prisma.client.js";
+import { ProductStatus } from "@prisma/client";
 import { hashPassword } from "../utilities/bcrypt.js";
 import { UploadedFile } from "express-fileupload";
 import Utils from "../helper/utils.js";
@@ -11,102 +12,112 @@ export const getAllUsers = async (
   res: Response
 ): Promise<any> => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 20;
+  const limit = parseInt(req.query.limit as string) || 12; // 🎯 Limite pour page vendeurs
   const offset = (page - 1) * limit;
   const search = (req.query.search as string) || "";
-  const status = req.query.status as string; // 🆕 SUPPORT FILTRAGE PAR STATUT
-  const role = req.query.role as string; // 🆕 SUPPORT FILTRAGE PAR RÔLE
+  const status = req.query.status as string;
+  const role = req.query.role as string;
+
+  // Détection du mode public
+  const isPublicSellers = req.route?.path === "/public-sellers";
 
   try {
-    // 🆕 Construction des filtres combinés (recherche + statut)
+    // Construction simple de la clause WHERE
     const whereClause: any = {};
 
-    // Filtre de recherche
-    if (search) {
-      whereClause.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { email: { contains: search } },
-      ];
+    // Mode public : vendeurs actifs avec produits VALIDÉS uniquement
+    if (isPublicSellers) {
+      whereClause.status = "ACTIVE";
+      whereClause.products = { some: { status: ProductStatus.VALIDATED } };
+
+      // Recherche par nom de famille uniquement (selon vos exigences)
+      if (search) {
+        whereClause.lastName = { contains: search };
+      }
+    } else {
+      // Mode admin : recherche complète
+      if (search) {
+        whereClause.OR = [
+          { firstName: { contains: search } },
+          { lastName: { contains: search } },
+          { email: { contains: search } },
+        ];
+      }
+
+      // Filtres admin
+      if (status && ["ACTIVE", "PENDING", "SUSPENDED"].includes(status)) {
+        whereClause.status = status;
+      }
+
+      if (role && ["USER", "SUPER_ADMIN"].includes(role)) {
+        whereClause.roles = {
+          some: { role: { name: role } },
+        };
+      }
     }
 
-    // 🆕 Filtre par statut
-    if (status && ["ACTIVE", "PENDING", "SUSPENDED"].includes(status)) {
-      whereClause.status = status;
-    }
-
-    // 🆕 Filtre par rôle
-    if (role && ["USER", "SUPER_ADMIN"].includes(role)) {
-      whereClause.roles = {
-        some: {
-          role: {
-            name: role,
-          },
-        },
-      };
-    }
-
-    const params = {
-      skip: offset,
-      take: limit,
-      orderBy: {
-        createdAt: "desc" as const,
-      },
-      where: Object.keys(whereClause).length > 0 ? whereClause : undefined, // 🆕 UTILISE LES FILTRES COMBINÉS
-      // 🔗 NOUVEAU : Inclusion des rôles ET comptage des produits
-      include: {
-        roles: {
-          include: {
-            role: true,
-          },
-        },
-        _count: {
+    // 🔒 SÉCURITÉ : Récupération selon le mode (simplifié)
+    const result = isPublicSellers
+      ? await prisma.user.findMany({
+          skip: offset,
+          take: limit,
+          where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
           select: {
-            products: true, // Compter tous les produits de l'utilisateur
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            isVerified: true,
+            createdAt: true,
+            status: true,
+            roles: { include: { role: true } },
+            _count: {
+              select: {
+                products: { where: { status: ProductStatus.VALIDATED } },
+                reviewsReceived: true,
+              },
+            },
+            reviewsReceived: { select: { rating: true } },
+            products: {
+              take: 3,
+              where: { status: ProductStatus.VALIDATED },
+              orderBy: { createdAt: "desc" as const },
+              select: { id: true, name: true, images: true, price: true },
+            },
           },
-        },
-      },
-    };
+          orderBy: [
+            { reviewsReceived: { _count: "desc" } },
+            { createdAt: "desc" }, // ✅ Tri simplifié - date de création pour départager
+          ],
+        })
+      : await prisma.user.findMany({
+          skip: offset,
+          take: limit,
+          where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+          include: {
+            roles: { include: { role: true } },
+            _count: { select: { products: true, reviewsReceived: true } },
+            reviewsReceived: { select: { rating: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        });
 
-    // Récupérer les utilisateurs
-    const result = await prisma.user.findMany(params);
-
-    // 🆕 Compter le total avec les MÊMES filtres
+    // Compter le total
     const total = await prisma.user.count({
       where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
     });
 
-    // 📊 NOUVEAU : Calcul des statistiques avec cache
-    let stats = cacheService.getUserStats();
-
-    if (!stats) {
-      // Calculer les stats si pas en cache
-      const calculatedStats = {
-        total: await prisma.user.count(),
-        active: await prisma.user.count({ where: { status: "ACTIVE" } }),
-        pending: await prisma.user.count({ where: { status: "PENDING" } }),
-        suspended: await prisma.user.count({ where: { status: "SUSPENDED" } }),
-      };
-
-      // Convertir en Map pour le cache
-      const statsMap = new Map();
-      statsMap.set("total", calculatedStats.total);
-      statsMap.set("active", calculatedStats.active);
-      statsMap.set("pending", calculatedStats.pending);
-      statsMap.set("suspended", calculatedStats.suspended);
-
-      // Mettre en cache
-      cacheService.setUserStats(statsMap);
-      stats = statsMap;
-    }
-
-    // Extraire les stats du cache
-    const userStats = {
-      total: stats.get("total") || 0,
-      active: stats.get("active") || 0,
-      pending: stats.get("pending") || 0,
-      suspended: stats.get("suspended") || 0,
-    };
+    // Statistiques simplifiées
+    const userStats = isPublicSellers
+      ? { total, active: total, pending: 0, suspended: 0 }
+      : {
+          total: await prisma.user.count(),
+          active: await prisma.user.count({ where: { status: "ACTIVE" } }),
+          pending: await prisma.user.count({ where: { status: "PENDING" } }),
+          suspended: await prisma.user.count({
+            where: { status: "SUSPENDED" },
+          }),
+        };
 
     // Calcul de la pagination simplifié
     const totalPage = Math.ceil(total / limit);

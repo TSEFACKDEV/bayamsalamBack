@@ -11,6 +11,9 @@ import checkPermission from "../middlewares/checkPermission.js";
 
 const router = express.Router();
 
+// 🆕 Route publique pour les vendeurs (AVANT authenticate)
+router.get("/public-sellers", getAllUsers);
+
 router.use(authenticate);
 
 router.post("/", checkPermission("USER_CREATE"), createUser);

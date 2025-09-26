@@ -15,95 +15,111 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.reportUser = exports.updateUser = exports.createUser = exports.getUserById = exports.getAllUsers = void 0;
 const response_js_1 = __importDefault(require("../helper/response.js"));
 const prisma_client_js_1 = __importDefault(require("../model/prisma.client.js"));
+const client_1 = require("@prisma/client");
 const bcrypt_js_1 = require("../utilities/bcrypt.js");
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
 const cache_service_js_1 = require("../services/cache.service.js");
 const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = parseInt(req.query.limit) || 12; // 🎯 Limite pour page vendeurs
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
-    const status = req.query.status; // 🆕 SUPPORT FILTRAGE PAR STATUT
-    const role = req.query.role; // 🆕 SUPPORT FILTRAGE PAR RÔLE
+    const status = req.query.status;
+    const role = req.query.role;
+    // Détection du mode public
+    const isPublicSellers = ((_a = req.route) === null || _a === void 0 ? void 0 : _a.path) === "/public-sellers";
     try {
-        // 🆕 Construction des filtres combinés (recherche + statut)
+        // Construction simple de la clause WHERE
         const whereClause = {};
-        // Filtre de recherche
-        if (search) {
-            whereClause.OR = [
-                { firstName: { contains: search } },
-                { lastName: { contains: search } },
-                { email: { contains: search } },
-            ];
+        // Mode public : vendeurs actifs avec produits VALIDÉS uniquement
+        if (isPublicSellers) {
+            whereClause.status = "ACTIVE";
+            whereClause.products = { some: { status: client_1.ProductStatus.VALIDATED } };
+            // Recherche par nom de famille uniquement (selon vos exigences)
+            if (search) {
+                whereClause.lastName = { contains: search };
+            }
         }
-        // 🆕 Filtre par statut
-        if (status && ["ACTIVE", "PENDING", "SUSPENDED"].includes(status)) {
-            whereClause.status = status;
+        else {
+            // Mode admin : recherche complète
+            if (search) {
+                whereClause.OR = [
+                    { firstName: { contains: search } },
+                    { lastName: { contains: search } },
+                    { email: { contains: search } },
+                ];
+            }
+            // Filtres admin
+            if (status && ["ACTIVE", "PENDING", "SUSPENDED"].includes(status)) {
+                whereClause.status = status;
+            }
+            if (role && ["USER", "SUPER_ADMIN"].includes(role)) {
+                whereClause.roles = {
+                    some: { role: { name: role } },
+                };
+            }
         }
-        // 🆕 Filtre par rôle
-        if (role && ["USER", "SUPER_ADMIN"].includes(role)) {
-            whereClause.roles = {
-                some: {
-                    role: {
-                        name: role,
+        // 🔒 SÉCURITÉ : Récupération selon le mode (simplifié)
+        const result = isPublicSellers
+            ? yield prisma_client_js_1.default.user.findMany({
+                skip: offset,
+                take: limit,
+                where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    avatar: true,
+                    isVerified: true,
+                    createdAt: true,
+                    status: true,
+                    roles: { include: { role: true } },
+                    _count: {
+                        select: {
+                            products: { where: { status: client_1.ProductStatus.VALIDATED } },
+                            reviewsReceived: true,
+                        },
+                    },
+                    reviewsReceived: { select: { rating: true } },
+                    products: {
+                        take: 3,
+                        where: { status: client_1.ProductStatus.VALIDATED },
+                        orderBy: { createdAt: "desc" },
+                        select: { id: true, name: true, images: true, price: true },
                     },
                 },
-            };
-        }
-        const params = {
-            skip: offset,
-            take: limit,
-            orderBy: {
-                createdAt: "desc",
-            },
-            where: Object.keys(whereClause).length > 0 ? whereClause : undefined, // 🆕 UTILISE LES FILTRES COMBINÉS
-            // 🔗 NOUVEAU : Inclusion des rôles ET comptage des produits
-            include: {
-                roles: {
-                    include: {
-                        role: true,
-                    },
+                orderBy: [
+                    { reviewsReceived: { _count: "desc" } },
+                    { createdAt: "desc" }, // ✅ Tri simplifié - date de création pour départager
+                ],
+            })
+            : yield prisma_client_js_1.default.user.findMany({
+                skip: offset,
+                take: limit,
+                where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+                include: {
+                    roles: { include: { role: true } },
+                    _count: { select: { products: true, reviewsReceived: true } },
+                    reviewsReceived: { select: { rating: true } },
                 },
-                _count: {
-                    select: {
-                        products: true, // Compter tous les produits de l'utilisateur
-                    },
-                },
-            },
-        };
-        // Récupérer les utilisateurs
-        const result = yield prisma_client_js_1.default.user.findMany(params);
-        // 🆕 Compter le total avec les MÊMES filtres
+                orderBy: { createdAt: "desc" },
+            });
+        // Compter le total
         const total = yield prisma_client_js_1.default.user.count({
             where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
         });
-        // 📊 NOUVEAU : Calcul des statistiques avec cache
-        let stats = cache_service_js_1.cacheService.getUserStats();
-        if (!stats) {
-            // Calculer les stats si pas en cache
-            const calculatedStats = {
+        // Statistiques simplifiées
+        const userStats = isPublicSellers
+            ? { total, active: total, pending: 0, suspended: 0 }
+            : {
                 total: yield prisma_client_js_1.default.user.count(),
                 active: yield prisma_client_js_1.default.user.count({ where: { status: "ACTIVE" } }),
                 pending: yield prisma_client_js_1.default.user.count({ where: { status: "PENDING" } }),
-                suspended: yield prisma_client_js_1.default.user.count({ where: { status: "SUSPENDED" } }),
+                suspended: yield prisma_client_js_1.default.user.count({
+                    where: { status: "SUSPENDED" },
+                }),
             };
-            // Convertir en Map pour le cache
-            const statsMap = new Map();
-            statsMap.set("total", calculatedStats.total);
-            statsMap.set("active", calculatedStats.active);
-            statsMap.set("pending", calculatedStats.pending);
-            statsMap.set("suspended", calculatedStats.suspended);
-            // Mettre en cache
-            cache_service_js_1.cacheService.setUserStats(statsMap);
-            stats = statsMap;
-        }
-        // Extraire les stats du cache
-        const userStats = {
-            total: stats.get("total") || 0,
-            active: stats.get("active") || 0,
-            pending: stats.get("pending") || 0,
-            suspended: stats.get("suspended") || 0,
-        };
         // Calcul de la pagination simplifié
         const totalPage = Math.ceil(total / limit);
         const pagination = {

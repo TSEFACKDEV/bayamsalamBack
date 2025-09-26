@@ -19,144 +19,184 @@ const client_1 = require("@prisma/client");
 const bcrypt_js_1 = require("../utilities/bcrypt.js");
 const utils_js_1 = __importDefault(require("../helper/utils.js"));
 const cache_service_js_1 = require("../services/cache.service.js");
+// ✅ Helpers ultra-simplifiés
+const buildUserWhereClause = (search, status, role, isPublicSellers) => {
+    const where = {};
+    if (isPublicSellers) {
+        where.status = "ACTIVE";
+        where.products = { some: { status: client_1.ProductStatus.VALIDATED } };
+        if (search)
+            where.lastName = { contains: search };
+    }
+    else {
+        if (search) {
+            where.OR = [
+                { firstName: { contains: search } },
+                { lastName: { contains: search } },
+                { email: { contains: search } },
+            ];
+        }
+        if (status && ["ACTIVE", "PENDING", "SUSPENDED"].includes(status)) {
+            where.status = status;
+        }
+        if (role && ["USER", "SUPER_ADMIN"].includes(role)) {
+            where.roles = { some: { role: { name: role } } };
+        }
+    }
+    return Object.keys(where).length > 0 ? where : undefined;
+};
+const getUserSelectFields = (isPublicSellers) => isPublicSellers
+    ? {
+        id: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        isVerified: true,
+        createdAt: true,
+        status: true,
+        roles: { include: { role: true } },
+        _count: {
+            select: {
+                products: { where: { status: client_1.ProductStatus.VALIDATED } },
+                reviewsReceived: true,
+            },
+        },
+        reviewsReceived: { select: { rating: true } },
+        products: {
+            take: 3,
+            where: { status: client_1.ProductStatus.VALIDATED },
+            orderBy: { createdAt: "desc" },
+            select: { id: true, name: true, images: true, price: true },
+        },
+    }
+    : {
+        roles: { include: { role: true } },
+        _count: { select: { products: true, reviewsReceived: true } },
+        reviewsReceived: { select: { rating: true } },
+    };
+const getUserStats = () => __awaiter(void 0, void 0, void 0, function* () {
+    const [total, active, pending, suspended] = yield Promise.all([
+        prisma_client_js_1.default.user.count(),
+        prisma_client_js_1.default.user.count({ where: { status: "ACTIVE" } }),
+        prisma_client_js_1.default.user.count({ where: { status: "PENDING" } }),
+        prisma_client_js_1.default.user.count({ where: { status: "SUSPENDED" } }),
+    ]);
+    return { total, active, pending, suspended };
+});
+const handleUserError = (res, error, context) => {
+    console.error(`🚨 ${context}:`, {
+        error: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+    });
+    if (error.code === "P2025") {
+        return response_js_1.default.notFound(res, "User not found", 404);
+    }
+    if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+        return response_js_1.default.error(res, "Service temporarily unavailable", "Database connection error", 503);
+    }
+    if (error.name === "PrismaClientValidationError") {
+        return response_js_1.default.error(res, "Invalid query parameters", "Validation failed", 400);
+    }
+    return response_js_1.default.error(res, context, process.env.NODE_ENV === "development"
+        ? error.message
+        : "Internal server error", 500);
+};
+const buildUserUpdateData = (req, existingUser, fields) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const data = Object.assign({}, fields);
+    // Gestion avatar
+    if ((_a = req.files) === null || _a === void 0 ? void 0 : _a.avatar) {
+        if (existingUser.avatar)
+            yield utils_js_1.default.deleteFile(existingUser.avatar);
+        data.avatar = yield utils_js_1.default.saveFile(req.files.avatar, "users");
+    }
+    // Hash password si fourni
+    if (fields.password) {
+        data.password = yield (0, bcrypt_js_1.hashPassword)(fields.password);
+    }
+    return data;
+});
+const handleUserSuspension = (userId, status) => __awaiter(void 0, void 0, void 0, function* () {
+    if (status !== "SUSPENDED" && status !== "BANNED")
+        return null;
+    const userProducts = yield prisma_client_js_1.default.product.findMany({
+        where: { userId },
+        select: { id: true, images: true, name: true },
+    });
+    if (userProducts.length === 0)
+        return null;
+    // Supprimer images en parallèle
+    const imagePromises = userProducts.flatMap((product) => product.images.map((img) => utils_js_1.default.deleteFile(img)));
+    yield Promise.allSettled(imagePromises);
+    // Supprimer produits
+    const deleteResult = yield prisma_client_js_1.default.product.deleteMany({ where: { userId } });
+    cache_service_js_1.cacheService.invalidateAllProducts();
+    return {
+        count: deleteResult.count,
+        products: userProducts.map((p) => p.name),
+    };
+});
+const updateUserRole = (userId, roleId) => __awaiter(void 0, void 0, void 0, function* () {
+    yield prisma_client_js_1.default.userRole.deleteMany({ where: { userId } });
+    return prisma_client_js_1.default.userRole.create({ data: { userId, roleId } });
+});
 const getAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
+    // ✅ Paramètres unifiés
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12; // 🎯 Limite pour page vendeurs
-    const offset = (page - 1) * limit;
+    const limit = parseInt(req.query.limit) || 12;
     const search = req.query.search || "";
-    const status = req.query.status;
-    const role = req.query.role;
-    // Détection du mode public
+    const { status, role } = req.query;
     const isPublicSellers = ((_a = req.route) === null || _a === void 0 ? void 0 : _a.path) === "/public-sellers";
     try {
-        // Construction simple de la clause WHERE
-        const whereClause = {};
-        // Mode public : vendeurs actifs avec produits VALIDÉS uniquement
-        if (isPublicSellers) {
-            whereClause.status = "ACTIVE";
-            whereClause.products = { some: { status: client_1.ProductStatus.VALIDATED } };
-            // Recherche par nom de famille uniquement (selon vos exigences)
-            if (search) {
-                whereClause.lastName = { contains: search };
-            }
-        }
-        else {
-            // Mode admin : recherche complète
-            if (search) {
-                whereClause.OR = [
-                    { firstName: { contains: search } },
-                    { lastName: { contains: search } },
-                    { email: { contains: search } },
-                ];
-            }
-            // Filtres admin
-            if (status && ["ACTIVE", "PENDING", "SUSPENDED"].includes(status)) {
-                whereClause.status = status;
-            }
-            if (role && ["USER", "SUPER_ADMIN"].includes(role)) {
-                whereClause.roles = {
-                    some: { role: { name: role } },
-                };
-            }
-        }
-        // 🔒 SÉCURITÉ : Récupération selon le mode (simplifié)
-        const result = isPublicSellers
-            ? yield prisma_client_js_1.default.user.findMany({
-                skip: offset,
-                take: limit,
-                where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
-                select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    avatar: true,
-                    isVerified: true,
-                    createdAt: true,
-                    status: true,
-                    roles: { include: { role: true } },
-                    _count: {
-                        select: {
-                            products: { where: { status: client_1.ProductStatus.VALIDATED } },
-                            reviewsReceived: true,
-                        },
-                    },
-                    reviewsReceived: { select: { rating: true } },
-                    products: {
-                        take: 3,
-                        where: { status: client_1.ProductStatus.VALIDATED },
-                        orderBy: { createdAt: "desc" },
-                        select: { id: true, name: true, images: true, price: true },
-                    },
-                },
-                orderBy: [
-                    { reviewsReceived: { _count: "desc" } },
-                    { createdAt: "desc" }, // ✅ Tri simplifié - date de création pour départager
-                ],
-            })
-            : yield prisma_client_js_1.default.user.findMany({
-                skip: offset,
-                take: limit,
-                where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
-                include: {
-                    roles: { include: { role: true } },
-                    _count: { select: { products: true, reviewsReceived: true } },
-                    reviewsReceived: { select: { rating: true } },
-                },
-                orderBy: { createdAt: "desc" },
-            });
-        // Compter le total
-        const total = yield prisma_client_js_1.default.user.count({
-            where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
-        });
-        // Statistiques simplifiées
+        // ✅ Construction WHERE ultra-simplifiée
+        const whereClause = buildUserWhereClause(search, status, role, isPublicSellers);
+        const offset = (page - 1) * limit;
+        // ✅ Requête unifiée ultra-simplifiée
+        const [users, total] = yield Promise.all([
+            isPublicSellers
+                ? prisma_client_js_1.default.user.findMany({
+                    skip: offset,
+                    take: limit,
+                    where: whereClause,
+                    select: getUserSelectFields(true),
+                    orderBy: [
+                        { reviewsReceived: { _count: "desc" } },
+                        { createdAt: "desc" },
+                    ],
+                })
+                : prisma_client_js_1.default.user.findMany({
+                    skip: offset,
+                    take: limit,
+                    where: whereClause,
+                    include: getUserSelectFields(false),
+                    orderBy: { createdAt: "desc" },
+                }),
+            prisma_client_js_1.default.user.count({ where: whereClause }),
+        ]);
+        // ✅ Stats ultra-simplifiées
         const userStats = isPublicSellers
             ? { total, active: total, pending: 0, suspended: 0 }
-            : {
-                total: yield prisma_client_js_1.default.user.count(),
-                active: yield prisma_client_js_1.default.user.count({ where: { status: "ACTIVE" } }),
-                pending: yield prisma_client_js_1.default.user.count({ where: { status: "PENDING" } }),
-                suspended: yield prisma_client_js_1.default.user.count({
-                    where: { status: "SUSPENDED" },
-                }),
-            };
-        // Calcul de la pagination simplifié
-        const totalPage = Math.ceil(total / limit);
+            : yield getUserStats();
+        // ✅ Pagination compacte
+        const totalPages = Math.ceil(total / limit);
         const pagination = {
             perpage: limit,
             prevPage: page > 1 ? page - 1 : null,
             currentPage: page,
-            nextPage: page < totalPage ? page + 1 : null,
-            totalPage,
+            nextPage: page < totalPages ? page + 1 : null,
+            totalPage: totalPages,
             total,
         };
-        // Réponse enrichie avec users, pagination et stats
         response_js_1.default.success(res, "Users retrieved successfully!", {
-            users: result,
+            users,
             pagination,
             stats: userStats,
         });
     }
     catch (error) {
-        console.error("🚨 Error retrieving users:", {
-            error: error.message,
-            stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-            timestamp: new Date().toISOString(),
-            params: { page, limit, search, status, role },
-        });
-        // Gestion d'erreurs spécifiques
-        if (error.code === "P2025") {
-            return response_js_1.default.error(res, "Users not found", "No users match the search criteria", 404);
-        }
-        if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
-            return response_js_1.default.error(res, "User service temporarily unavailable", "Database connection error", 503);
-        }
-        if (error.name === "PrismaClientValidationError") {
-            return response_js_1.default.error(res, "Invalid user query parameters", "Query validation failed", 400);
-        }
-        return response_js_1.default.error(res, "Échec de récupération des utilisateurs", process.env.NODE_ENV === "development"
-            ? error.message
-            : "Erreur serveur interne", 500);
+        return handleUserError(res, error, "Failed to retrieve users");
     }
 });
 exports.getAllUsers = getAllUsers;
@@ -293,118 +333,54 @@ const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 });
 exports.createUser = createUser;
 const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const id = req.params.id;
-    if (!id) {
-        return response_js_1.default.notFound(res, "id is not found", 422);
-    }
+    const { id } = req.params;
+    if (!id)
+        return response_js_1.default.notFound(res, "ID is required", 422);
     try {
-        // 🔧 NOUVEAU : Support des nouveaux champs pour l'admin
-        const { firstName, lastName, email, password, phone, roleId, status } = req.body;
-        const data = { firstName, lastName, email, phone };
-        // 🔍 AMÉLIORATION : Récupération avec les rôles existants
+        // ✅ Validation et récupération utilisateur
         const existingUser = yield prisma_client_js_1.default.user.findUnique({
             where: { id },
-            include: {
-                roles: true,
-            },
+            include: { roles: true },
         });
-        if (!existingUser) {
+        if (!existingUser)
             return response_js_1.default.notFound(res, "User not found", 404);
-        }
-        // Gestion de l'avatar
-        if (req.files && req.files.avatar) {
-            // Supprimer l'ancien avatar si présent
-            if (existingUser.avatar) {
-                yield utils_js_1.default.deleteFile(existingUser.avatar);
-            }
-            const avatarFile = req.files.avatar;
-            data.avatar = yield utils_js_1.default.saveFile(avatarFile, "users");
-        }
-        // Mettre à jour le mot de passe si fourni
-        if (password) {
-            data.password = yield (0, bcrypt_js_1.hashPassword)(password);
-        }
-        // Support de la modification du statut utilisateur avec gestion automatique des produits
-        let deletedProductsInfo = null;
-        if (status) {
-            data.status = status;
-            // Supprimer tous les produits si l'utilisateur est suspendu ou banni
-            if (status === "SUSPENDED" || status === "BANNED") {
-                // Récupérer d'abord tous les produits pour supprimer les images
-                const userProducts = yield prisma_client_js_1.default.product.findMany({
-                    where: { userId: id },
-                    select: { id: true, images: true, name: true },
-                });
-                if (userProducts.length > 0) {
-                    // Supprimer les images associées aux produits
-                    const imagePromises = userProducts.flatMap((product) => {
-                        const images = product.images;
-                        return images.map((img) => utils_js_1.default.deleteFile(img));
-                    });
-                    // Attendre que toutes les suppressions d'images soient terminées
-                    yield Promise.allSettled(imagePromises);
-                    // Supprimer tous les produits de l'utilisateur
-                    const deleteResult = yield prisma_client_js_1.default.product.deleteMany({
-                        where: { userId: id },
-                    });
-                    deletedProductsInfo = {
-                        count: deleteResult.count,
-                        products: userProducts.map((p) => p.name),
-                    };
-                    // Invalider le cache après suppression des produits
-                    cache_service_js_1.cacheService.invalidateAllProducts();
-                }
-            }
-        }
-        // Mettre à jour l'utilisateur
-        const updatedUser = yield prisma_client_js_1.default.user.update({
-            where: { id },
-            data,
+        // ✅ Préparation des données ultra-simplifiée
+        const { firstName, lastName, email, password, phone, roleId, status } = req.body;
+        const updateData = yield buildUserUpdateData(req, existingUser, {
+            firstName,
+            lastName,
+            email,
+            password,
+            phone,
+            status,
         });
-        // 👤 NOUVEAU : Gestion complète des rôles (remplacement)
-        if (roleId) {
-            // Supprimer tous les anciens rôles
-            yield prisma_client_js_1.default.userRole.deleteMany({
-                where: { userId: id },
-            });
-            // Ajouter le nouveau rôle
-            yield prisma_client_js_1.default.userRole.create({
-                data: {
-                    userId: id,
-                    roleId: roleId,
-                },
-            });
-        }
-        // 🔗 AMÉLIORATION : Récupération avec les rôles pour la réponse
+        // ✅ Gestion suspension/suppression produits
+        const deletedProductsInfo = yield handleUserSuspension(id, status);
+        // ✅ Mise à jour en parallèle
+        const [updatedUser] = yield Promise.all([
+            prisma_client_js_1.default.user.update({ where: { id }, data: updateData }),
+            roleId ? updateUserRole(id, roleId) : Promise.resolve(),
+        ]);
+        // ✅ Récupération finale avec rôles
         const userWithRoles = yield prisma_client_js_1.default.user.findUnique({
             where: { id },
-            include: {
-                roles: {
-                    include: {
-                        role: true,
-                    },
-                },
-            },
+            include: { roles: { include: { role: true } } },
         });
-        // Invalider le cache des stats utilisateurs après mise à jour
         cache_service_js_1.cacheService.invalidateUserStats();
-        // Inclure les informations sur les produits supprimés si applicable
+        // ✅ Réponse ultra-simplifiée
         const responseMessage = deletedProductsInfo
-            ? `Utilisateur mis à jour avec succès. ${deletedProductsInfo.count} produit(s) supprimé(s) automatiquement.`
+            ? `User updated successfully. ${deletedProductsInfo.count} product(s) deleted automatically.`
             : "User updated successfully!";
         const responseData = Object.assign({ user: userWithRoles }, (deletedProductsInfo && {
             deletedProducts: {
                 count: deletedProductsInfo.count,
-                message: `${deletedProductsInfo.count} produit(s) supprimé(s) suite à la suspension/bannissement`,
+                message: `${deletedProductsInfo.count} product(s) deleted due to suspension`,
             },
         }));
         response_js_1.default.success(res, responseMessage, responseData);
     }
     catch (error) {
-        console.log("====================================");
-        console.log(error);
-        console.log("====================================");
-        response_js_1.default.error(res, "Failed to update user", error.message);
+        return handleUserError(res, error, "Failed to update user");
     }
 });
 exports.updateUser = updateUser;

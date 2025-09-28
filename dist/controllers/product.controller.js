@@ -25,9 +25,10 @@ const cache_service_js_1 = require("../services/cache.service.js");
 const productTransformer_js_1 = __importDefault(require("../utils/productTransformer.js"));
 const sanitization_utils_js_1 = require("../utils/sanitization.utils.js");
 const securityMonitor_js_1 = require("../utils/securityMonitor.js");
-// Helper pour construire les filtres de produits validés génériques
-const buildValidatedProductFilters = (search, categoryId, cityId, priceMin, priceMax, etat) => {
-    const where = Object.assign(Object.assign(Object.assign(Object.assign({ status: "VALIDATED" }, (search && { name: { contains: search } })), (categoryId && { categoryId })), (cityId && { cityId })), (etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat) && { etat }));
+// Helper unifié pour construire les filtres de produits
+const buildProductFilters = (options) => {
+    const { search, categoryId, cityId, priceMin, priceMax, etat, status = "VALIDATED", } = options;
+    const where = Object.assign(Object.assign(Object.assign(Object.assign({ status }, (search && { name: { contains: search } })), (categoryId && { categoryId })), (cityId && { cityId })), (etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat) && { etat }));
     // Gestion des filtres de prix
     const priceFilter = {};
     if (priceMin !== undefined && !isNaN(priceMin))
@@ -38,35 +39,22 @@ const buildValidatedProductFilters = (search, categoryId, cityId, priceMin, pric
         where.price = priceFilter;
     return where;
 };
-// Helper pour construire les filtres de produits
-const buildProductFilters = (categoryId, search, cityId, priceMin, priceMax, etat) => {
-    const where = Object.assign(Object.assign(Object.assign({ status: "VALIDATED", categoryId }, (search && { name: { contains: search } })), (cityId && { cityId })), (etat && ["NEUF", "OCCASION", "CORRECT"].includes(etat) && { etat }));
-    // Gestion des filtres de prix
-    const priceFilter = {};
-    if (priceMin !== undefined && !isNaN(priceMin))
-        priceFilter.gte = priceMin;
-    if (priceMax !== undefined && !isNaN(priceMax))
-        priceFilter.lte = priceMax;
-    if (Object.keys(priceFilter).length > 0)
-        where.price = priceFilter;
-    return where;
-};
-// Helper pour extraire et valider les paramètres de pagination
-const getPaginationParams = (query) => {
+// Helper unifié pour pagination complète
+const buildPaginationResponse = (query, totalCount) => {
     const page = (0, sanitization_utils_js_1.sanitizeNumericParam)(query.page, 1, 1, 1000);
     const limit = (0, sanitization_utils_js_1.sanitizeNumericParam)(query.limit, 10, 1, 100);
-    return { page, limit };
-};
-// Helper pour calculer la pagination
-const calculatePagination = (page, limit, totalCount) => {
     const totalPage = Math.ceil(totalCount / limit);
     return {
-        currentPage: page,
-        prevPage: page > 1 ? page - 1 : null,
-        nextPage: page < totalPage ? page + 1 : null,
-        totalPage,
-        perpage: limit,
-        total: totalCount,
+        pagination: {
+            perpage: limit,
+            prevPage: page > 1 ? page - 1 : null,
+            currentPage: page,
+            nextPage: page < totalPage ? page + 1 : null,
+            totalPage,
+            total: totalCount,
+        },
+        offset: (page - 1) * limit,
+        limit,
     };
 };
 // Fonction pour enregistrer une vue d'annonce (utilisateurs connectés uniquement)
@@ -299,8 +287,6 @@ const getAllProductsWithoutPagination = (req, res) => __awaiter(void 0, void 0, 
 exports.getAllProductsWithoutPagination = getAllProductsWithoutPagination;
 //pour recuperer tous les produits avec un status = VALIDATED, pagination et recherche [pour les utilisateurs]
 const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { page, limit } = getPaginationParams(req.query);
-    const offset = (page - 1) * limit;
     const search = (0, sanitization_utils_js_1.sanitizeSearchParam)(req.query.search);
     const categoryId = req.query.categoryId;
     const cityId = req.query.cityId;
@@ -326,18 +312,24 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
         : undefined;
     const etat = req.query.etat;
     try {
-        // Construction des filtres avec le helper
-        const where = buildValidatedProductFilters(search, categoryId, cityId, priceMin, priceMax, etat);
-        // Récupérer tous les produits correspondants avant pagination
+        // Construction des filtres avec le helper unifié
+        const where = buildProductFilters({
+            search,
+            categoryId,
+            cityId,
+            priceMin,
+            priceMax,
+            etat,
+            status: "VALIDATED",
+        });
+        // Récupérer tous les produits correspondants pour tri
         const allMatchingProducts = yield prisma_client_js_1.default.product.findMany({
-            // ❌ SUPPRIMÉ : skip et take pour récupérer TOUS les produits
             orderBy: { createdAt: "desc" },
             where,
             include: {
                 category: true,
                 city: true,
                 user: true,
-                // On inclut les forfaits actifs pour pouvoir trier côté serveur
                 productForfaits: {
                     where: { isActive: true, expiresAt: { gt: new Date() } },
                     include: { forfait: true },
@@ -345,36 +337,32 @@ const getValidatedProducts = (req, res) => __awaiter(void 0, void 0, void 0, fun
             },
         });
         const forfaitPriority = {
-            PREMIUM: 1, // 1. Premium (regroupe tous les forfaits)
-            TOP_ANNONCE: 2, // 2. Top (en tête de liste)
-            A_LA_UNE: 3, // 3. À la une
-            URGENT: 4, // 4. Urgent (badge urgent)
+            PREMIUM: 1,
+            TOP_ANNONCE: 2,
+            A_LA_UNE: 3,
+            URGENT: 4,
         };
         const getPriority = (p) => {
             if (!p.productForfaits || p.productForfaits.length === 0)
                 return Number.MAX_SAFE_INTEGER;
-            // On prend la meilleure (la plus haute priorité = plus petit nombre)
             const priorities = p.productForfaits.map((pf) => { var _a, _b; return (_b = forfaitPriority[(_a = pf.forfait) === null || _a === void 0 ? void 0 : _a.type]) !== null && _b !== void 0 ? _b : Number.MAX_SAFE_INTEGER; });
             return Math.min(...priorities);
         };
-        // Tri complet avant pagination
-        const sortedByForfait = allMatchingProducts.sort((a, b) => {
+        // Tri par forfait puis pagination
+        const sortedProducts = allMatchingProducts.sort((a, b) => {
             const pa = getPriority(a);
             const pb = getPriority(b);
             if (pa !== pb)
-                return pa - pb; // priorité ascendante (1 = premium first)
-            // Si même priorité, trier par date décroissante
+                return pa - pb;
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
-        // Pagination après tri complet
-        const paginatedProducts = sortedByForfait.slice(offset, offset + limit);
-        // Total basé sur tous les produits correspondants
-        const total = allMatchingProducts.length;
+        // Utilisation du helper unifié pour pagination
+        const { pagination, offset, limit } = buildPaginationResponse(req.query, sortedProducts.length);
+        const paginatedProducts = sortedProducts.slice(offset, offset + limit);
         const productsWithImageUrls = productTransformer_js_1.default.transformProductsWithForfaits(req, paginatedProducts);
-        const links = calculatePagination(page, limit, total);
         response_js_1.default.success(res, "Validated products retrieved successfully!", {
             products: productsWithImageUrls,
-            links,
+            links: pagination,
         });
     }
     catch (error) {
@@ -955,9 +943,7 @@ exports.getHomePageProduct = getHomePageProduct;
 // Récupérer les produits validés d'un vendeur spécifique
 const getSellerProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const sellerId = req.params.sellerId;
-    const { page, limit } = getPaginationParams(req.query);
     const search = (0, sanitization_utils_js_1.sanitizeSearchParam)(req.query.search);
-    const offset = (page - 1) * limit;
     try {
         // Vérifier que le vendeur existe
         const seller = yield prisma_client_js_1.default.user.findUnique({
@@ -975,36 +961,34 @@ const getSellerProducts = (req, res) => __awaiter(void 0, void 0, void 0, functi
             return response_js_1.default.error(res, "Vendeur introuvable", null, 404);
         }
         const where = Object.assign({ status: "VALIDATED", userId: sellerId }, (search && { name: { contains: search } }));
-        // Récupération des produits avec pagination
-        const [products, totalCount] = yield Promise.all([
-            prisma_client_js_1.default.product.findMany({
-                skip: offset,
-                take: limit,
-                orderBy: { createdAt: "desc" },
-                where,
-                include: {
-                    category: true,
-                    city: true,
-                    user: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            avatar: true,
-                            phone: true,
-                        },
+        // Compter les produits et utiliser le helper de pagination
+        const totalCount = yield prisma_client_js_1.default.product.count({ where });
+        const { pagination, offset, limit } = buildPaginationResponse(req.query, totalCount);
+        // Récupération des produits
+        const products = yield prisma_client_js_1.default.product.findMany({
+            skip: offset,
+            take: limit,
+            orderBy: { createdAt: "desc" },
+            where,
+            include: {
+                category: true,
+                city: true,
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                        phone: true,
                     },
                 },
-            }),
-            prisma_client_js_1.default.product.count({ where }),
-        ]);
+            },
+        });
         // Transformation des URLs d'images
         const productsWithImageUrls = productTransformer_js_1.default.transformProducts(req, products);
-        // Calcul de la pagination
-        const links = calculatePagination(page, limit, totalCount);
         response_js_1.default.success(res, `Produits du vendeur ${seller.firstName} ${seller.lastName} récupérés avec succès`, {
             products: productsWithImageUrls,
-            links,
+            links: pagination,
             seller: {
                 id: seller.id,
                 firstName: seller.firstName,
@@ -1024,8 +1008,6 @@ exports.getSellerProducts = getSellerProducts;
 // Récupérer les produits validés d'un utilisateur spécifique (pour profil public)
 const getUserProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const userId = req.params.userId;
-    const { page, limit } = getPaginationParams(req.query);
-    const offset = (page - 1) * limit;
     try {
         // Vérifier que l'utilisateur existe
         const user = yield prisma_client_js_1.default.user.findUnique({
@@ -1039,35 +1021,33 @@ const getUserProducts = (req, res) => __awaiter(void 0, void 0, void 0, function
             status: "VALIDATED",
             userId: userId,
         };
-        // Récupération des produits avec pagination
-        const [products, totalCount] = yield Promise.all([
-            prisma_client_js_1.default.product.findMany({
-                skip: offset,
-                take: limit,
-                orderBy: { createdAt: "desc" },
-                where,
-                include: {
-                    category: true,
-                    city: true,
-                    user: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            avatar: true,
-                        },
+        // Utiliser le helper de pagination unifié
+        const totalCount = yield prisma_client_js_1.default.product.count({ where });
+        const { pagination, offset, limit } = buildPaginationResponse(req.query, totalCount);
+        // Récupération des produits
+        const products = yield prisma_client_js_1.default.product.findMany({
+            skip: offset,
+            take: limit,
+            orderBy: { createdAt: "desc" },
+            where,
+            include: {
+                category: true,
+                city: true,
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
                     },
                 },
-            }),
-            prisma_client_js_1.default.product.count({ where }),
-        ]);
+            },
+        });
         // Transformation des URLs d'images
         const productsWithImageUrls = productTransformer_js_1.default.transformProducts(req, products);
-        // Calcul de la pagination
-        const links = calculatePagination(page, limit, totalCount);
         response_js_1.default.success(res, `Produits de ${user.firstName} ${user.lastName} récupérés avec succès`, {
             products: productsWithImageUrls,
-            links,
+            links: pagination,
             user: {
                 id: user.id,
                 name: `${user.firstName} ${user.lastName}`,
@@ -1083,8 +1063,6 @@ exports.getUserProducts = getUserProducts;
 // Récupérer les produits validés d'une catégorie spécifique
 const getCategoryProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const categoryId = req.params.categoryId;
-    const { page, limit } = getPaginationParams(req.query);
-    const offset = (page - 1) * limit;
     const search = (0, sanitization_utils_js_1.sanitizeSearchParam)(req.query.search);
     // Filtres additionnels
     const cityId = req.query.cityId;
@@ -1104,37 +1082,43 @@ const getCategoryProducts = (req, res) => __awaiter(void 0, void 0, void 0, func
         if (!category) {
             return response_js_1.default.error(res, "Catégorie introuvable", null, 404);
         }
-        // Construction des filtres avec le helper
-        const where = buildProductFilters(categoryId, search, cityId, priceMin, priceMax, etat);
-        // Récupération des produits avec pagination
-        const [products, totalCount] = yield Promise.all([
-            prisma_client_js_1.default.product.findMany({
-                skip: offset,
-                take: limit,
-                orderBy: { createdAt: "desc" },
-                where,
-                include: {
-                    category: true,
-                    city: true,
-                    user: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            avatar: true,
-                        },
+        // Construction des filtres avec le helper unifié
+        const where = buildProductFilters({
+            categoryId,
+            search,
+            cityId,
+            priceMin,
+            priceMax,
+            etat,
+            status: "VALIDATED",
+        });
+        // Compter et paginer avec le helper unifié
+        const totalCount = yield prisma_client_js_1.default.product.count({ where });
+        const { pagination, offset, limit } = buildPaginationResponse(req.query, totalCount);
+        // Récupération des produits
+        const products = yield prisma_client_js_1.default.product.findMany({
+            skip: offset,
+            take: limit,
+            orderBy: { createdAt: "desc" },
+            where,
+            include: {
+                category: true,
+                city: true,
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
                     },
                 },
-            }),
-            prisma_client_js_1.default.product.count({ where }),
-        ]);
+            },
+        });
         // Transformation des URLs d'images
         const productsWithImageUrls = productTransformer_js_1.default.transformProducts(req, products);
-        // Calcul de la pagination
-        const links = calculatePagination(page, limit, totalCount);
         response_js_1.default.success(res, `Produits de la catégorie "${category.name}" récupérés avec succès`, {
             products: productsWithImageUrls,
-            links,
+            links: pagination,
             category: {
                 id: category.id,
                 name: category.name,

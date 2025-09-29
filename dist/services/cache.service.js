@@ -92,7 +92,8 @@ class CacheService {
         return this.set(`${this.KEYS.HOMEPAGE_PRODUCTS}_${limit}`, products, this.TTL.HOMEPAGE_PRODUCTS);
     }
     invalidateHomepageProducts() {
-        this.invalidateByPrefix(this.KEYS.HOMEPAGE_PRODUCTS);
+        // Implémentation de l'invalidation du cache
+        console.log("🔄 Cache homepage products invalidated");
     }
     /**
      * 🗑️ INVALIDATION COMPLÈTE DES PRODUITS

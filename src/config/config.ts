@@ -27,10 +27,16 @@ interface Env {
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_CALLBACK_URL: string;
 
-  // Champs pour Futura Pay
-  FUTURA_PAY_API_KEY: string;
-  FUTURA_PAY_MERCHANT_KEY: string;
-  FUTURA_PAY_SITE_ID: string;
+ 
+
+  // Variables pour Campay
+  campay_base_url: string;
+  campay_username: string;
+  campay_password: string;
+  campay_app_id: string;
+
+  // node environement
+  NODE_ENV: string;
 }
 
 const env: Env = {
@@ -61,10 +67,23 @@ const env: Env = {
     process.env.GOOGLE_CALLBACK_URL ||
     `http://127.0.0.1:3001/api/buyandsale/auth/google/callback`,
 
-  // Champs pour Futura Pay
-  FUTURA_PAY_API_KEY: process.env.FUTURA_PAY_API_KEY || '',
-  FUTURA_PAY_MERCHANT_KEY: process.env.FUTURA_PAY_MERCHANT_KEY || '',
-  FUTURA_PAY_SITE_ID: process.env.FUTURA_PAY_SITE_ID || '',
+
+  // Variables pour Campay
+  campay_base_url: process.env.campay_base_url || 'https://demo.campay.net/api',
+  campay_username: process.env.campay_username || '',
+  campay_password: process.env.campay_password || '',
+  campay_app_id: process.env.campay_app_id || '',
+
+  // node environement
+  NODE_ENV: process.env.NODE_ENV || 'development',
 };
+
+// 🔴 LOGS DE DÉBOGAGE
+console.log('🔧 Variables Campay chargées:', {
+  campay_base_url: env.campay_base_url,
+  campay_username: env.campay_username ? `Défini (${env.campay_username.length} chars)` : '❌ MANQUANT',
+  campay_password: env.campay_password ? `Défini (${env.campay_password.length} chars)` : '❌ MANQUANT',
+  campay_app_id: env.campay_app_id ? `Défini (${env.campay_app_id.length} chars)` : '❌ MANQUANT',
+});
 
 export default env;

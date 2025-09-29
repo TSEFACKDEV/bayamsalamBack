@@ -19,6 +19,7 @@ const report_routes_js_1 = __importDefault(require("./report.routes.js"));
 const cache_routes_js_1 = __importDefault(require("./cache.routes.js")); // 🚀 Ajout des routes cache
 const security_routes_js_1 = __importDefault(require("./security.routes.js")); // 🔐 Ajout du monitoring de sécurité
 const express_1 = __importDefault(require("express"));
+const payment_routes_js_1 = __importDefault(require("./payment.routes.js"));
 const router = express_1.default.Router();
 router.use("/category", category_routes_js_1.default);
 router.use("/city", city_routes_js_1.default);
@@ -31,6 +32,7 @@ router.use("/contact", contact_routes_js_1.default);
 router.use("/role", role_routes_js_1.default);
 router.use("/permission", permission_routes_js_1.default);
 router.use("/forfait", forfait_routes_js_1.default);
+router.use("/payments", payment_routes_js_1.default);
 router.use("/notification", notification_routes_js_1.default);
 router.use("/reports", report_routes_js_1.default);
 router.use("/cache", cache_routes_js_1.default); // 🚀 Endpoint de monitoring cache

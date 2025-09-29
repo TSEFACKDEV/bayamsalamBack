@@ -14,7 +14,7 @@ import reportRouter from "./report.routes.js";
 import cacheRouter from "./cache.routes.js"; // 🚀 Ajout des routes cache
 import securityRouter from "./security.routes.js"; // 🔐 Ajout du monitoring de sécurité
 import express from "express";
-
+import paymentRoutes from './payment.routes.js';
 const router = express.Router();
 
 router.use("/category", categoryRouter);
@@ -28,6 +28,7 @@ router.use("/contact", contactRouter);
 router.use("/role", roleRouter);
 router.use("/permission", permissionRouter);
 router.use("/forfait", forfaitRouter);
+router.use("/payments", paymentRoutes);
 router.use("/notification", notificationRouter);
 router.use("/reports", reportRouter);
 router.use("/cache", cacheRouter); // 🚀 Endpoint de monitoring cache
